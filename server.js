@@ -13,6 +13,11 @@ import productRoutes from './routes/productRoutes.js';
 import orderRoutes from './routes/orderRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
 import reportRoutes from './routes/reportRoutes.js';
+import coachingProgramRoutes from './routes/coachingPrograms.js';
+import programEnrollmentRoutes from './routes/programEnrollments.js';
+import sessionRoutes from './routes/sessions.js';
+import coachRoutes from './routes/coaches.js';
+import syncRoutes from './routes/sync.js';
 
 // --- Initial Configuration ---
 // Load environment variables from .env file
@@ -40,6 +45,11 @@ app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/programs', coachingProgramRoutes);
+app.use('/api/enrollments', programEnrollmentRoutes);
+app.use('/api/sessions', sessionRoutes);
+app.use('/api/coaches', coachRoutes);
+app.use('/api/sync', syncRoutes);
 
 // A simple test route to check if the server is working
 app.get('/api/test', (req, res) => {
