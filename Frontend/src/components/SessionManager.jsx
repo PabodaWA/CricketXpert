@@ -471,3 +471,4 @@ function RescheduleModal({ session, enrollment, onClose, onSuccess }) {
         </div>
     );
 }
+

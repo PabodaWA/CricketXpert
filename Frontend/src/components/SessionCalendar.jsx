@@ -314,3 +314,4 @@ export default function SessionCalendar({ enrollment, onClose }) {
         </div>
     );
 }
+
