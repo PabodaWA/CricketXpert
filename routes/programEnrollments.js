@@ -1,6 +1,5 @@
-const express = require('express');
-const router = express.Router();
-const {
+import express from 'express';
+import {
   getAllEnrollments,
   getEnrollment,
   createEnrollment,
@@ -10,7 +9,9 @@ const {
   updateProgress,
   addFeedback,
   getProgramEnrollmentStats
-} = require('../controllers/programEnrollmentController');
+} from '../controllers/programEnrollmentController.js';
+
+const router = express.Router();
 
 // Middleware (Note: You'll need to implement these middleware functions)
 // const { protect, authorize } = require('../middleware/auth');
@@ -38,4 +39,4 @@ router.put('/:id/progress', /* authorize('coach', 'admin'), */ updateProgress);
 // User/Coach routes  
 router.post('/:id/feedback', addFeedback);
 
-module.exports = router;
+export default router;

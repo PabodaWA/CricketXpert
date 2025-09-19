@@ -1,8 +1,7 @@
-const User = require('../models/User.js');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken'); // <-- JWT is imported
-const { sendWelcomeEmail, sendNewUserNotification } = require('../utils/wemailService');
-const { sendPasswordResetCodeEmail } = require('../utils/wemailService');
+import User from '../models/User.js';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { sendWelcomeEmail, sendNewUserNotification, sendPasswordResetCodeEmail } from '../utils/wemailService.js';
 
 // cookie and token 
 const generateToken = (id) => {
@@ -149,7 +148,7 @@ const resetPassword = async (req, res) => {
 };
 
 
-module.exports = {
+export {
     registerUser,
     loginUser,
     forgotPassword,

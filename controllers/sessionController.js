@@ -1,7 +1,7 @@
-const Session = require('../models/Session');
-const CoachingProgram = require('../models/CoachingProgram');
-const ProgramEnrollment = require('../models/ProgramEnrollment');
-const Ground = require('../models/Ground');
+import Session from '../models/Session.js';
+import CoachingProgram from '../models/CoachingProgram.js';
+import ProgramEnrollment from '../models/ProgramEnrollment.js';
+import Ground from '../models/Ground.js';
 
 // Helper function for manual pagination
 const paginateHelper = async (Model, filter, options) => {
@@ -323,6 +323,55 @@ const deleteSession = async (req, res) => {
   }
 };
 
+// @desc    Remove participant from session
+// @route   DELETE /api/sessions/:id/participants/:participantId
+// @access  Private
+const removeParticipant = async (req, res) => {
+  try {
+    const { participantId } = req.params;
+    const sessionId = req.params.id;
+
+    const session = await Session.findById(sessionId);
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session not found'
+      });
+    }
+
+    // Find and remove participant
+    const participantIndex = session.participants.findIndex(
+      p => p._id.toString() === participantId
+    );
+
+    if (participantIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: 'Participant not found in this session'
+      });
+    }
+
+    session.participants.splice(participantIndex, 1);
+    await session.save();
+
+    const updatedSession = await Session.findById(sessionId)
+      .populate('participants.user', 'name email')
+      .populate('participants.enrollment', 'status');
+
+    res.status(200).json({
+      success: true,
+      data: updatedSession,
+      message: 'Participant removed successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error removing participant',
+      error: error.message
+    });
+  }
+};
+
 // @desc    Add participant to session
 // @route   POST /api/sessions/:id/participants
 // @access  Private
@@ -624,13 +673,14 @@ const getGroundAvailability = async (req, res) => {
   }
 };
 
-module.exports = {
+export {
   getAllSessions,
   getSession,
   createSession,
   updateSession,
   deleteSession,
   addParticipant,
+  removeParticipant,
   markAttendance,
   getSessionsByProgram,
   getSessionsByCoach,

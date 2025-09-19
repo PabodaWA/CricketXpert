@@ -29,6 +29,10 @@ import Orders from './pages/Orders.jsx';
 import OrderTracking from './pages/OrderTracking.jsx';
 import OrderDetails from './pages/OrderDetails.jsx';
 
+// --- Coaching Programs Pages ---
+import Programs from './pages/Programs.jsx';
+import ProgramDetails from './pages/ProgramDetails.jsx';
+
 // --- Order Manager Pages ---
 import ListOrders from './pages/OrderManager/ListOrders.jsx';
 import ListProducts from './pages/OrderManager/ListProducts.jsx';
@@ -60,6 +64,10 @@ export default function App() {
         <Route path="/my-orders" element={<MyOrders />} />
         <Route path="/track-order" element={<OrderTracking />} />
         <Route path="/orders/:orderId" element={<OrderDetails />} />
+        
+        {/* --- Coaching Programs Public Routes --- */}
+        <Route path="/programs" element={<Programs />} />
+        <Route path="/programs/:id" element={<ProgramDetails />} />
         
         {/* --- Legacy Home Route --- */}
         <Route path="/homepage" element={<HomePage />} />

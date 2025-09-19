@@ -1,6 +1,6 @@
-const Coach = require('../models/Coach');
-const User = require('../models/User');
-const mongoose = require('mongoose');
+import Coach from '../models/Coach.js';
+import User from '../models/User.js';
+import mongoose from 'mongoose';
 
 // Helper function for manual pagination
 const paginateHelper = async (Model, filter, options) => {
@@ -667,7 +667,7 @@ const toggleCoachStatus = async (req, res) => {
   }
 };
 
-module.exports = {
+export {
   getAllCoaches,
   getCoach,
   createCoach,

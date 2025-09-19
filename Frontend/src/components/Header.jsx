@@ -40,7 +40,7 @@ const Header = () => {
   const navItems = [
     { path: '/', label: 'Home' },
     { path: '/products', label: 'Products' },
-    { path: '/coaching', label: 'Coaching Program' },
+    { path: '/programs', label: 'Coaching Programs' },
     { path: '/ground-booking', label: 'Ground Booking' },
   ];
 

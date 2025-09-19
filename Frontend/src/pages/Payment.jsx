@@ -6,7 +6,15 @@ import { getCurrentUserId, isLoggedIn } from '../utils/getCurrentUser';
 const Payment = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { cart, totalData, address } = location.state || { cart: [], totalData: { subtotal: 0, deliveryFee: 450, total: 0 }, address: '' };
+  const { cart, totalData, address, enrollment, program, amount, type } = location.state || { 
+    cart: [], 
+    totalData: { subtotal: 0, deliveryFee: 450, total: 0 }, 
+    address: '',
+    enrollment: null,
+    program: null,
+    amount: 0,
+    type: 'order'
+  };
   const [paymentInfo, setPaymentInfo] = useState({
     cardNumber: '',
     expiryDate: '',
@@ -122,76 +130,103 @@ const Payment = () => {
 
     setLoading(true);
     try {
-      let orderToComplete = cartOrder;
-
-      // If no cart order exists, create one first
-      if (!cartOrder) {
-        console.log('No cart order found, creating one...');
-        const orderItems = cart.map(item => {
-          const product = getProductDetails(item.productId);
-          return {
-            productId: item.productId,
-            quantity: item.quantity,
-            priceAtOrder: product.price || 0
-          };
-        });
-        
-        // Use the address from state, user data, or fallback
-        const deliveryAddress = address || user?.address || 'No address provided';
-        
-        const userInfo = JSON.parse(localStorage.getItem('userInfo'));
-        const orderConfig = {
-          headers: {
-            Authorization: `Bearer ${userInfo.token}`
-          }
-        };
-        
-        const newCartOrder = await axios.post('http://localhost:5000/api/orders/cart', {
-          customerId: userId,
-          items: orderItems,
-          amount: totalData.total,
-          address: deliveryAddress
-        }, orderConfig);
-        orderToComplete = newCartOrder.data;
-        setCartOrder(orderToComplete);
-      }
-
-      console.log('Creating payment with:', { 
-        userId, 
-        orderId: orderToComplete._id, 
-        paymentType: 'order_payment', 
-        amount: totalData.total, 
-        status: 'success', 
-        paymentDate: new Date() 
-      });
-      
       const userInfo = JSON.parse(localStorage.getItem('userInfo'));
       const config = {
         headers: {
           Authorization: `Bearer ${userInfo.token}`
         }
       };
-      
-      const paymentRes = await axios.post('http://localhost:5000/api/payment/', {
-        userId,
-        orderId: orderToComplete._id,
-        paymentType: 'order_payment',
-        amount: totalData.total,
-        status: 'success',
-        paymentDate: new Date()
-      }, config);
-      console.log('Payment created:', paymentRes.data);
 
-      // Complete the cart order (change status from 'cart_pending' to 'created')
-      console.log('Completing cart order:', orderToComplete._id);
-      const completedOrder = await axios.put('http://localhost:5000/api/orders/cart/complete', {
-        orderId: orderToComplete._id,
-        paymentId: paymentRes.data._id
-      }, config);
-      console.log('Order completed:', completedOrder.data);
+      if (type === 'enrollment') {
+        // Handle enrollment payment
+        console.log('Processing enrollment payment:', { 
+          userId, 
+          enrollmentId: enrollment._id, 
+          paymentType: 'enrollment_payment', 
+          amount: amount, 
+          status: 'success', 
+          paymentDate: new Date() 
+        });
+        
+        const paymentRes = await axios.post('http://localhost:5000/api/payment/', {
+          userId,
+          enrollmentId: enrollment._id,
+          paymentType: 'enrollment_payment',
+          amount: amount,
+          status: 'success',
+          paymentDate: new Date()
+        }, config);
+        console.log('Enrollment payment created:', paymentRes.data);
 
-      localStorage.removeItem('cricketCart');
-      navigate('/orders', { state: { order: completedOrder.data, payment: paymentRes.data } });
+        // Update enrollment status to paid
+        const updatedEnrollment = await axios.put(`http://localhost:5000/api/enrollments/${enrollment._id}/payment`, {
+          paymentId: paymentRes.data._id,
+          status: 'paid'
+        }, config);
+        console.log('Enrollment updated:', updatedEnrollment.data);
+
+        // Show success notification and redirect to profile
+        alert('Payment successful! You have been enrolled in the program.');
+        navigate('/profile');
+      } else {
+        // Handle order payment (existing logic)
+        let orderToComplete = cartOrder;
+
+        // If no cart order exists, create one first
+        if (!cartOrder) {
+          console.log('No cart order found, creating one...');
+          const orderItems = cart.map(item => {
+            const product = getProductDetails(item.productId);
+            return {
+              productId: item.productId,
+              quantity: item.quantity,
+              priceAtOrder: product.price || 0
+            };
+          });
+          
+          // Use the address from state, user data, or fallback
+          const deliveryAddress = address || user?.address || 'No address provided';
+          
+          const newCartOrder = await axios.post('http://localhost:5000/api/orders/cart', {
+            customerId: userId,
+            items: orderItems,
+            amount: totalData.total,
+            address: deliveryAddress
+          }, config);
+          orderToComplete = newCartOrder.data;
+          setCartOrder(orderToComplete);
+        }
+
+        console.log('Creating payment with:', { 
+          userId, 
+          orderId: orderToComplete._id, 
+          paymentType: 'order_payment', 
+          amount: totalData.total, 
+          status: 'success', 
+          paymentDate: new Date() 
+        });
+        
+        const paymentRes = await axios.post('http://localhost:5000/api/payment/', {
+          userId,
+          orderId: orderToComplete._id,
+          paymentType: 'order_payment',
+          amount: totalData.total,
+          status: 'success',
+          paymentDate: new Date()
+        }, config);
+        console.log('Payment created:', paymentRes.data);
+
+        // Complete the cart order (change status from 'cart_pending' to 'created')
+        console.log('Completing cart order:', orderToComplete._id);
+        const completedOrder = await axios.put('http://localhost:5000/api/orders/cart/complete', {
+          orderId: orderToComplete._id,
+          paymentId: paymentRes.data._id
+        }, config);
+        console.log('Order completed:', completedOrder.data);
+
+        localStorage.removeItem('cricketCart');
+        navigate('/orders', { state: { order: completedOrder.data, payment: paymentRes.data } });
+      }
     } catch (err) {
       console.error('Error details:', err.response?.data || err.message);
       setError(`Error processing payment: ${err.response?.data?.message || err.message}. Please try again.`);
@@ -218,26 +253,54 @@ const Payment = () => {
   return (
     <div className="bg-[#F1F2F7] min-h-screen text-[#36516C] p-8">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Order Summary */}
+        {/* Order/Enrollment Summary */}
         <div className="bg-white rounded-lg p-6 shadow-sm">
-          <div className="text-2xl font-bold mb-4">Pay Order</div>
-                          <div className="text-3xl font-bold text-green-600 mb-6">LKR {totalData.total}.00</div>
-          
-          <div className="space-y-3">
-            {cart.map((item) => {
-              const product = getProductDetails(item.productId);
-              return (
-                <div key={item.productId} className="flex justify-between text-sm">
-                  <span>{product.name || item.productId} (Qty {item.quantity})</span>
-                  <span>LKR {((product.price || 0) * item.quantity).toFixed(2)}</span>
+          {type === 'enrollment' ? (
+            <>
+              <div className="text-2xl font-bold mb-4">Program Enrollment Payment</div>
+              <div className="text-3xl font-bold text-green-600 mb-6">${amount}.00</div>
+              
+              <div className="space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span>Program: {program?.title}</span>
+                  <span>${program?.fee}.00</span>
                 </div>
-              );
-            })}
-            <div className="flex justify-between text-sm border-t pt-2">
-              <span>Delivery Charge</span>
-                              <span>LKR {totalData.deliveryFee}.00</span>
-            </div>
-          </div>
+                <div className="flex justify-between text-sm">
+                  <span>Duration</span>
+                  <span>{program?.duration} weeks</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Coach</span>
+                  <span>{program?.coach?.userId?.firstName} {program?.coach?.userId?.lastName}</span>
+                </div>
+                <div className="flex justify-between text-sm border-t pt-2">
+                  <span>Total</span>
+                  <span className="font-bold">${amount}.00</span>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-2xl font-bold mb-4">Pay Order</div>
+              <div className="text-3xl font-bold text-green-600 mb-6">LKR {totalData.total}.00</div>
+              
+              <div className="space-y-3">
+                {cart.map((item) => {
+                  const product = getProductDetails(item.productId);
+                  return (
+                    <div key={item.productId} className="flex justify-between text-sm">
+                      <span>{product.name || item.productId} (Qty {item.quantity})</span>
+                      <span>LKR {((product.price || 0) * item.quantity).toFixed(2)}</span>
+                    </div>
+                  );
+                })}
+                <div className="flex justify-between text-sm border-t pt-2">
+                  <span>Delivery Charge</span>
+                  <span>LKR {totalData.deliveryFee}.00</span>
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Payment Form */}

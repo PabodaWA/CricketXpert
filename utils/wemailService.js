@@ -1,4 +1,4 @@
-const nodemailer = require('nodemailer');
+import nodemailer from 'nodemailer';
 
 // --- Main Configuration ---
 // It now reads the user and password from your .env file
@@ -115,7 +115,7 @@ const sendLowStockAlert = async (product) => {
   }
 };
 
-module.exports = {
+export {
   sendWelcomeEmail,
   sendNewUserNotification,
   sendPasswordResetCodeEmail,

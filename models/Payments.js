@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const paymentSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // customer or staff
@@ -17,4 +17,4 @@ const paymentSchema = new mongoose.Schema({
   paymentDate: { type: Date, required: true }
 }, { timestamps: true }); // adds createdAt & updatedAt automatically
 
-module.exports = mongoose.model('Payment', paymentSchema);
+export default mongoose.model('Payment', paymentSchema);

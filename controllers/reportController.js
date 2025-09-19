@@ -1,10 +1,10 @@
-const Order = require('../models/Order');
-const Product = require('../models/Product');
+import Order from '../models/Order.js';
+import Product from '../models/Product.js';
 // --- THIS LINE IS NOW CORRECTED ---
-const Payment = require('../models/Payments'); 
+import Payment from '../models/Payments.js'; 
 
 // Get order reports
-exports.getOrderReport = async (req, res) => {
+const getOrderReport = async (req, res) => {
   try {
     const { startDate, endDate, status } = req.query;
     
@@ -51,7 +51,7 @@ exports.getOrderReport = async (req, res) => {
 };
 
 // Get product sales report
-exports.getProductSalesReport = async (req, res) => {
+const getProductSalesReport = async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
     
@@ -103,7 +103,7 @@ exports.getProductSalesReport = async (req, res) => {
 };
 
 // Get revenue report by date
-exports.getRevenueReport = async (req, res) => {
+const getRevenueReport = async (req, res) => {
   try {
     const { startDate, endDate, groupBy = 'day' } = req.query;
     
@@ -153,4 +153,10 @@ exports.getRevenueReport = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
+};
+
+export {
+  getOrderReport,
+  getProductSalesReport,
+  getRevenueReport
 };

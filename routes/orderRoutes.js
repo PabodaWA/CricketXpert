@@ -1,6 +1,6 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const { 
+import { 
   createOrder, 
   getOrders, 
   getOrder, 
@@ -15,7 +15,7 @@ const {
   deleteCartOrder,
   downloadOrder,
   cancelOrder
-} = require('../controllers/orderController');
+} from '../controllers/orderController.js';
 
 // Regular order routes
 router.post('/', createOrder);
@@ -37,4 +37,4 @@ router.delete('/cart/:customerId', deleteCartOrder);
 router.post("/calculate-total", calculateOrderTotal);
 router.get("/status/:status", getOrdersByStatus);
 
-module.exports = router;
+export default router;

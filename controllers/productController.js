@@ -1,9 +1,9 @@
-const mongoose = require('mongoose');
-const Product = require('../models/Product');
-const { sendLowStockAlert } = require('../utils/wemailService');
+import mongoose from 'mongoose';
+import Product from '../models/Product.js';
+import { sendLowStockAlert } from '../utils/wemailService.js';
 
 
-exports.createProduct = async (req, res) => {
+const createProduct = async (req, res) => {
   try {
     console.log('=== CREATE PRODUCT DEBUG ===');
     console.log('Request body:', req.body);
@@ -60,7 +60,7 @@ exports.createProduct = async (req, res) => {
 
 
 // Get all products
-exports.getProducts = async (req, res) => {
+const getProducts = async (req, res) => {
   try {
     const products = await Product.find();
     res.json(products);
@@ -70,7 +70,7 @@ exports.getProducts = async (req, res) => {
 };
 
 // Get product by ID
-exports.getProduct = async (req, res) => {
+const getProduct = async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({ message: "Invalid Product ID" });
@@ -86,7 +86,7 @@ exports.getProduct = async (req, res) => {
 };
 
 // Update product
-exports.updateProduct = async (req, res) => {
+const updateProduct = async (req, res) => {
   try {
     const productData = req.body;
 
@@ -119,7 +119,7 @@ exports.updateProduct = async (req, res) => {
 };
 
 // Delete product
-exports.deleteProduct = async (req, res) => {
+const deleteProduct = async (req, res) => {
   try {
     const product = await Product.findByIdAndDelete(req.params.id);
     if (!product) return res.status(404).json({ message: "Product not found" });
@@ -130,7 +130,7 @@ exports.deleteProduct = async (req, res) => {
 };
 
 // Search products
-exports.searchProducts = async (req, res) => {
+const searchProducts = async (req, res) => {
   try {
     const { query, category, brand, minPrice, maxPrice, page = 1, limit = 10 } = req.query;
     let searchQuery = { is_active: true };
@@ -164,7 +164,7 @@ exports.searchProducts = async (req, res) => {
 };
 
 // Get products by category
-exports.getProductsByCategory = async (req, res) => {
+const getProductsByCategory = async (req, res) => {
   try {
     const { category } = req.params;
     const products = await Product.find({ 
@@ -178,7 +178,7 @@ exports.getProductsByCategory = async (req, res) => {
 };
 
 // Get all categories
-exports.getCategories = async (req, res) => {
+const getCategories = async (req, res) => {
   try {
     const categories = await Product.distinct('category', { is_active: true });
     res.json(categories);
@@ -188,11 +188,23 @@ exports.getCategories = async (req, res) => {
 };
 
 // Get all brands
-exports.getBrands = async (req, res) => {
+const getBrands = async (req, res) => {
   try {
     const brands = await Product.distinct('brand', { is_active: true });
     res.json(brands);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
+};
+
+export {
+  createProduct,
+  getProducts,
+  getProduct,
+  updateProduct,
+  deleteProduct,
+  searchProducts,
+  getProductsByCategory,
+  getCategories,
+  getBrands
 };
