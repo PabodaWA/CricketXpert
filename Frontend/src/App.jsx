@@ -136,6 +136,7 @@ export default function App() {
 
         {/* --- Repair Service Routes --- */}
         <Route path="/" element={<SimpleDashboard />} />
+        <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/repair" element={<RepairRequestForm />} />
         <Route path="/my-requests" element={<MyRequestsPage />} />
         <Route path="/dashboard/:customerId" element={<CustomerDashboardWrapper />} />

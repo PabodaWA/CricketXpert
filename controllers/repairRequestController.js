@@ -15,19 +15,58 @@ const { pipeRepairReportToResponse, sendRepairReportEmail } = reportGenerator;
 const createRepairRequest = async (req, res) => {
   try {
     const { customerId, equipmentType, damageType, description } = req.body;
+    
+    // Debug: Log what we received
+    console.log('🔍 BACKEND RECEIVED REQ.BODY:', req.body);
+    console.log('🔍 BACKEND RECEIVED DESCRIPTION:', description);
+    console.log('🔍 BACKEND DESCRIPTION TYPE:', typeof description);
+    console.log('🔍 BACKEND DESCRIPTION LENGTH:', description?.length);
 
-    if (!customerId || !equipmentType || !damageType || !description)
-      return res.status(400).json({ error: 'customerId, equipmentType, damageType, and description are required' });
 
-    const repairRequest = await RepairRequest.create({
+    if (!customerId || !damageType)
+      return res.status(400).json({ error: 'customerId and damageType are required' });
+
+    // Ensure we have valid data - preserve customer's actual description
+    const repairData = {
       customerId,
-      equipmentType,
+      equipmentType: equipmentType || 'cricket_bat', // Default value if empty
       damageType,
-      description,
+      description: description || '', // Keep customer's description exactly as they typed it - NO FALLBACK
       status: 'Pending',
       repairProgress: 0,
       currentStage: 'Request Submitted'
+    };
+
+    // Force the description to be exactly what the customer provided
+    if (description !== undefined && description !== null) {
+      repairData.description = String(description);
+    } else {
+      repairData.description = '';
+    }
+
+    // Temporary debug to see what we're saving
+    console.log('🔍 SAVING TO DATABASE:', repairData);
+    console.log('🔍 DESCRIPTION BEING SAVED:', repairData.description);
+    console.log('🔍 DESCRIPTION TYPE:', typeof repairData.description);
+    console.log('🔍 DESCRIPTION LENGTH:', repairData.description?.length);
+    
+    const repairRequest = await RepairRequest.create(repairData);
+    
+    // Temporary debug to see what was saved
+    console.log('🔍 SAVED TO DATABASE:', {
+      id: repairRequest._id,
+      description: repairRequest.description,
+      damageType: repairRequest.damageType
     });
+    console.log('🔍 SAVED DESCRIPTION:', repairRequest.description);
+    console.log('🔍 SAVED DESCRIPTION TYPE:', typeof repairRequest.description);
+    console.log('🔍 SAVED DESCRIPTION LENGTH:', repairRequest.description?.length);
+    
+    // Debug: Check if description was actually saved
+    const savedRequest = await RepairRequest.findById(repairRequest._id);
+    console.log('🔍 VERIFICATION - SAVED REQUEST DESCRIPTION:', savedRequest.description);
+    console.log('🔍 VERIFICATION - SAVED REQUEST DESCRIPTION TYPE:', typeof savedRequest.description);
+    
     //Notify Service Manager
     if (process.env.SERVICE_MANAGER_EMAIL) {
       await sendEmail(
@@ -38,6 +77,130 @@ const createRepairRequest = async (req, res) => {
     }
 
     res.status(201).json({ message: 'Repair request created', repairRequest });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Test function to verify data saving
+const testRepairRequest = async (req, res) => {
+  try {
+    const testData = {
+      customerId: req.body.customerId || '507f1f77bcf86cd799439011', // Default test ID
+      equipmentType: 'cricket_bat',
+      damageType: 'Bat Handle Damage',
+      description: 'Test description for equipment repair',
+      status: 'Pending',
+      repairProgress: 0,
+      currentStage: 'Request Submitted'
+    };
+
+    const repairRequest = await RepairRequest.create(testData);
+    res.json({ message: 'Test repair request created successfully', repairRequest });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Debug function to check what's in the database
+const debugRepairRequests = async (req, res) => {
+  try {
+    const requests = await RepairRequest.find().sort({ createdAt: -1 }).limit(5);
+    const debugInfo = requests.map(request => ({
+      id: request._id,
+      customerId: request.customerId,
+      equipmentType: request.equipmentType,
+      damageType: request.damageType,
+      description: request.description,
+      createdAt: request.createdAt
+    }));
+    res.json({ message: 'Debug info', requests: debugInfo });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Test function to create and immediately retrieve a repair request
+const testDescriptionFlow = async (req, res) => {
+  try {
+    const testDescription = 'TEST DESCRIPTION: My bat handle is completely broken and needs immediate repair';
+    
+    // Create a test repair request
+    const testData = {
+      customerId: req.body.customerId || '507f1f77bcf86cd799439011',
+      equipmentType: 'cricket_bat',
+      damageType: 'Bat Handle Damage',
+      description: testDescription,
+      status: 'Pending'
+    };
+    
+    console.log('🔍 CREATING TEST REQUEST WITH DESCRIPTION:', testDescription);
+    const createdRequest = await RepairRequest.create(testData);
+    console.log('🔍 CREATED REQUEST DESCRIPTION:', createdRequest.description);
+    
+    // Immediately retrieve it
+    const retrievedRequest = await RepairRequest.findById(createdRequest._id);
+    console.log('🔍 RETRIEVED REQUEST DESCRIPTION:', retrievedRequest.description);
+    
+    res.json({
+      message: 'Test completed',
+      created: {
+        id: createdRequest._id,
+        description: createdRequest.description
+      },
+      retrieved: {
+        id: retrievedRequest._id,
+        description: retrievedRequest.description
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Simple test to verify description handling
+const testDescriptionSimple = async (req, res) => {
+  try {
+    const { description } = req.body;
+    console.log('🔍 SIMPLE TEST - Received description:', description);
+    
+    const testData = {
+      customerId: '507f1f77bcf86cd799439011',
+      equipmentType: 'cricket_bat',
+      damageType: 'Bat Handle Damage',
+      description: description,
+      status: 'Pending'
+    };
+    
+    const createdRequest = await RepairRequest.create(testData);
+    console.log('🔍 SIMPLE TEST - Created description:', createdRequest.description);
+    
+    res.json({
+      message: 'Simple test completed',
+      received: description,
+      saved: createdRequest.description,
+      match: description === createdRequest.description
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Direct test to check what's in the database
+const checkDatabaseDescription = async (req, res) => {
+  try {
+    const requests = await RepairRequest.find().sort({ createdAt: -1 }).limit(3);
+    const descriptions = requests.map(request => ({
+      id: request._id,
+      description: request.description,
+      damageType: request.damageType,
+      createdAt: request.createdAt
+    }));
+    
+    res.json({
+      message: 'Database check completed',
+      requests: descriptions
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -76,8 +239,13 @@ const getAllRepairRequests = async (req, res) => {
   try {
     const requests = await RepairRequest.find()
       .populate('customerId', 'username email')
-      .populate({ path: 'assignedTechnician', populate: { path: 'technicianId', select: 'username email' } });
-    res.json(requests);
+      .populate({ path: 'assignedTechnician', populate: { path: 'technicianId', select: 'username email' } })
+      .sort({ createdAt: -1 }); // Sort by creation date, newest first
+    
+    // Return requests exactly as they are in the database - NO MODIFICATIONS
+    const fixedRequests = requests.map(request => request.toObject());
+    
+    res.json(fixedRequests);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -452,8 +620,28 @@ const getCustomerRepairRequests = async (req, res) => {
     const requests = await RepairRequest.find({ customerId })
       .populate('assignedTechnician')
       .sort({ createdAt: -1 });
+
+    // Return requests exactly as they are in the database - NO MODIFICATIONS
+    const fixedRequests = requests.map(request => request.toObject());
     
-    res.json(requests);
+    // Temporary debug to see what we're returning
+    console.log('🔍 RETURNING TO FRONTEND:', fixedRequests.map(req => ({
+      id: req._id,
+      description: req.description,
+      damageType: req.damageType
+    })));
+    console.log('🔍 FIRST REQUEST DESCRIPTION:', fixedRequests[0]?.description);
+    console.log('🔍 FIRST REQUEST DESCRIPTION TYPE:', typeof fixedRequests[0]?.description);
+    console.log('🔍 FIRST REQUEST DESCRIPTION LENGTH:', fixedRequests[0]?.description?.length);
+    
+    // Debug: Check raw database data
+    console.log('🔍 RAW DATABASE DATA:', requests.map(req => ({
+      id: req._id,
+      description: req.description,
+      damageType: req.damageType
+    })));
+    
+    res.json(fixedRequests);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -641,6 +829,11 @@ const submitFeedback = async (req, res) => {
 
 export default {
   createRepairRequest,
+  testRepairRequest,
+  debugRepairRequests,
+  testDescriptionFlow,
+  testDescriptionSimple,
+  checkDatabaseDescription,
   getAllRepairRequests,
   getAllRepairRequestsWithFilter,
   getRepairRequestById,

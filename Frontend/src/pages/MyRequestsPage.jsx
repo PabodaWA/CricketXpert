@@ -132,9 +132,37 @@ const MyRequestsPage = () => {
                   <div>
                     <h4 className="font-semibold mb-3" style={{ color: Brand.primary }}>Request Details</h4>
                     <div className="space-y-2 text-sm">
-                      <p><span className="font-medium" style={{ color: Brand.body }}>Equipment:</span> {request.equipmentType?.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</p>
-                      <p><span className="font-medium" style={{ color: Brand.body }}>Damage Type:</span> {request.damageType}</p>
-                      <p><span className="font-medium" style={{ color: Brand.body }}>Description:</span> {request.description || request.damageDescription}</p>
+                      <p><span className="font-medium" style={{ color: Brand.body }}>Equipment:</span> {(() => {
+                        // Smart equipment detection based on damage type
+                        if (request.equipmentType && request.equipmentType !== '') {
+                          return request.equipmentType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+                        }
+                        if (request.damageType) {
+                          const damage = request.damageType.toLowerCase();
+                          if (damage.includes('bat')) return 'Cricket Bat';
+                          if (damage.includes('ball')) return 'Cricket Ball';
+                          if (damage.includes('gloves')) return 'Cricket Gloves';
+                          if (damage.includes('pads')) return 'Cricket Pads';
+                          if (damage.includes('helmet')) return 'Cricket Helmet';
+                        }
+                        return 'Cricket Equipment';
+                      })()}</p>
+                      <p><span className="font-medium" style={{ color: Brand.body }}>Damage Type:</span> {request.damageType || 'Not specified'}</p>
+                      <p><span className="font-medium" style={{ color: Brand.body }}>Description:</span> {(() => {
+                        // Always prioritize customer's actual description first
+                        if (request.description && request.description.trim() !== '') {
+                          return request.description;
+                        }
+                        // Check legacy field
+                        if (request.damageDescription && request.damageDescription.trim() !== '') {
+                          return request.damageDescription;
+                        }
+                        // Only use generated description as absolute last resort
+                        if (request.damageType) {
+                          return `Repair request for ${request.damageType}`;
+                        }
+                        return 'No description provided';
+                      })()}</p>
                     </div>
                   </div>
 

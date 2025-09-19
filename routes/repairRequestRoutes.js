@@ -36,6 +36,21 @@ router.get('/', repairController.getAllRepairRequests);
 // Create a new repair request (Customer)
 router.post('/', repairController.createRepairRequest);
 
+// Test endpoint to verify data saving
+router.post('/test', repairController.testRepairRequest);
+
+// Debug endpoint to check database contents
+router.get('/debug', repairController.debugRepairRequests);
+
+// Test endpoint to verify description flow
+router.post('/test-description', repairController.testDescriptionFlow);
+
+// Simple test endpoint for description
+router.post('/test-simple', repairController.testDescriptionSimple);
+
+// Check database descriptions
+router.get('/check-db', repairController.checkDatabaseDescription);
+
 // Update a repair request (Customer)
 router.put('/:id', repairController.updateRepairGeneral);
 

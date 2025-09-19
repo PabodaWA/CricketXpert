@@ -23,8 +23,8 @@ const tryPostEndpoints = async (endpoints, payload) => {
 export const submitRepairRequest = (requestData) => {
   const base = REPAIRS_BASE_OVERRIDE || BASE_URL;
   const candidates = [
+    `${base}`,  // POST to /api/repairs/ (correct endpoint)
     `${base}/submit`,
-    `${base}`,
     `${base}/create`,
     `${base}/new`,
     // Common alternative bases

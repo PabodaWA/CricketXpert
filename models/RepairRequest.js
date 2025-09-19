@@ -2,7 +2,9 @@ import mongoose from 'mongoose';
 
 const repairRequestSchema = new mongoose.Schema({
   customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  equipmentType: { type: String, required: false },
   damageType: { type: String, required: true },
+  description: { type: String, required: false, default: '' },
   status: {
     type: String,
     enum: [

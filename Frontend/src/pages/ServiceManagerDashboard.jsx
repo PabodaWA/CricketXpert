@@ -32,6 +32,9 @@ const ServiceManagerDashboard = () => {
   const [rejectionData, setRejectionData] = useState({
     reason: ''
   });
+  const [rejectionErrors, setRejectionErrors] = useState({
+    reason: ''
+  });
   const [assignmentData, setAssignmentData] = useState({
     technicianId: '',
     notes: ''
@@ -231,6 +234,20 @@ const ServiceManagerDashboard = () => {
     return '';
   };
 
+  // Validation helper functions for rejection reason
+  const hasRepeatedLetters = (text) => /(.)\1\1/.test(text);
+  
+  // Validate rejection reason
+  const validateRejectionReason = (reason) => {
+    const trimmedReason = (reason || '').trim();
+    if (!trimmedReason) return 'Rejection reason is required';
+    if (trimmedReason.length < 5) return 'Rejection reason must be at least 5 characters';
+    if (trimmedReason.length > 500) return 'Rejection reason must be 500 characters or less';
+    if (hasRepeatedLetters(trimmedReason)) return 'Rejection reason cannot contain repeated letters or numbers consistently';
+    if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(trimmedReason)) return 'Rejection reason cannot contain special characters';
+    return '';
+  };
+
   const handleAssignTechnician = async () => {
     // Validate assignment notes before saving
     if (assignmentNotesError) {
@@ -416,7 +433,7 @@ const ServiceManagerDashboard = () => {
           <nav className="space-y-2 flex-1">
             <button
               onClick={() => {
-                navigate('/');
+                navigate('/dashboard');
                 setShowSidebar(false);
               }}
               className="w-full text-left px-4 py-3 rounded-lg font-medium text-gray-700 hover:text-white transition-colors flex items-center space-x-3"
@@ -658,7 +675,21 @@ const ServiceManagerDashboard = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4" style={{ color: Brand.body }}>
-                      {request.equipmentType ? request.equipmentType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Unknown'}
+                      {(() => {
+                        // Smart equipment detection based on damage type
+                        if (request.equipmentType && request.equipmentType !== '') {
+                          return request.equipmentType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+                        }
+                        if (request.damageType) {
+                          const damage = request.damageType.toLowerCase();
+                          if (damage.includes('bat')) return 'Cricket Bat';
+                          if (damage.includes('ball')) return 'Cricket Ball';
+                          if (damage.includes('gloves')) return 'Cricket Gloves';
+                          if (damage.includes('pads')) return 'Cricket Pads';
+                          if (damage.includes('helmet')) return 'Cricket Helmet';
+                        }
+                        return 'Cricket Equipment';
+                      })()}
                     </td>
                     <td className="px-6 py-4" style={{ color: Brand.body }}>
                       {request.damageType}
@@ -1002,7 +1033,21 @@ const ServiceManagerDashboard = () => {
             <div className="mb-4 p-3 rounded-lg" style={{ backgroundColor: Brand.light }}>
               <h4 className="font-semibold mb-2" style={{ color: Brand.primary }}>Request Details</h4>
               <p className="text-sm" style={{ color: Brand.body }}>
-                <strong>Equipment:</strong> {selectedRequest?.equipmentType ? selectedRequest.equipmentType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Unknown'}
+                <strong>Equipment:</strong> {(() => {
+                  // Smart equipment detection based on damage type
+                  if (selectedRequest?.equipmentType && selectedRequest.equipmentType !== '') {
+                    return selectedRequest.equipmentType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+                  }
+                  if (selectedRequest?.damageType) {
+                    const damage = selectedRequest.damageType.toLowerCase();
+                    if (damage.includes('bat')) return 'Cricket Bat';
+                    if (damage.includes('ball')) return 'Cricket Ball';
+                    if (damage.includes('gloves')) return 'Cricket Gloves';
+                    if (damage.includes('pads')) return 'Cricket Pads';
+                    if (damage.includes('helmet')) return 'Cricket Helmet';
+                  }
+                  return 'Cricket Equipment';
+                })()}
               </p>
               <p className="text-sm" style={{ color: Brand.body }}>
                 <strong>Damage:</strong> {selectedRequest?.damageType}
@@ -1187,17 +1232,29 @@ const ServiceManagerDashboard = () => {
                 <label className="block text-sm font-medium mb-2" style={{ color: Brand.body }}>Rejection Reason</label>
                 <textarea
                   value={rejectionData.reason}
-                  onChange={(e) => setRejectionData({...rejectionData, reason: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setRejectionData({...rejectionData, reason: value});
+                    // Clear error when user starts typing
+                    if (rejectionErrors.reason) {
+                      setRejectionErrors({...rejectionErrors, reason: ''});
+                    }
+                  }}
+                  className={`w-full px-3 py-2 border rounded-lg ${rejectionErrors.reason ? 'border-red-500' : 'border-gray-300'}`}
                   rows="3"
-                  placeholder="Please provide a reason for rejection..."
+                  placeholder="Please provide a reason for rejection (5-500 characters, no special characters or repeated letters/numbers)..."
                   required
                 />
+                {rejectionErrors.reason && <p className="text-red-500 text-sm mt-1">{rejectionErrors.reason}</p>}
               </div>
             </div>
             <div className="flex space-x-3 mt-6">
               <button
-                onClick={() => setShowRejectionModal(false)}
+                onClick={() => {
+                  setShowRejectionModal(false);
+                  setRejectionData({ reason: '' });
+                  setRejectionErrors({ reason: '' });
+                }}
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-lg"
                 style={{ color: Brand.body }}
               >
@@ -1205,6 +1262,13 @@ const ServiceManagerDashboard = () => {
               </button>
               <button
                 onClick={async () => {
+                  // Validate rejection reason before submitting
+                  const reasonError = validateRejectionReason(rejectionData.reason);
+                  if (reasonError) {
+                    setRejectionErrors({ reason: reasonError });
+                    return;
+                  }
+                  
                   await handleStatusUpdate(
                     selectedRequest._id, 
                     'rejected', 
@@ -1214,6 +1278,7 @@ const ServiceManagerDashboard = () => {
                   );
                   setShowRejectionModal(false);
                   setRejectionData({ reason: '' });
+                  setRejectionErrors({ reason: '' });
                 }}
                 className="flex-1 px-4 py-2 rounded-lg text-white"
                 style={{ backgroundColor: '#EF4444' }}

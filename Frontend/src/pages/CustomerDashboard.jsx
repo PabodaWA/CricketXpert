@@ -81,6 +81,17 @@ const CustomerDashboard = ({ customerId }) => {
       try {
         const res = await getCustomerRequests(customerId);
       const list = Array.isArray(res?.data) ? res.data : [];
+      
+      // Temporary debug to see what we're receiving
+      console.log('🔍 FRONTEND RECEIVED:', list.map(req => ({
+        id: req._id,
+        description: req.description,
+        damageType: req.damageType
+      })));
+      console.log('🔍 FIRST REQUEST DESCRIPTION:', list[0]?.description);
+      console.log('🔍 FIRST REQUEST DESCRIPTION TYPE:', typeof list[0]?.description);
+      console.log('🔍 FIRST REQUEST DESCRIPTION LENGTH:', list[0]?.description?.length);
+      
       setAllRequests(list);
       setRepairRequests(list);
       
@@ -405,9 +416,45 @@ const CustomerDashboard = ({ customerId }) => {
                 <div>
                   <h4 className="font-semibold mb-3" style={{ color: Brand.primary }}>Request Details</h4>
                   <div className="space-y-2 text-sm">
-                    <p><span className="font-medium" style={{ color: Brand.body }}>Equipment:</span> {request.equipmentType?.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</p>
-                    <p><span className="font-medium" style={{ color: Brand.body }}>Damage Type:</span> {request.damageType}</p>
-                    <p><span className="font-medium" style={{ color: Brand.body }}>Description:</span> {request.description || request.damageDescription}</p>
+                    <p><span className="font-medium" style={{ color: Brand.body }}>Equipment:</span> {(() => {
+                      // Smart equipment detection based on damage type
+                      if (request.equipmentType && request.equipmentType !== '') {
+                        return request.equipmentType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+                      }
+                      if (request.damageType) {
+                        const damage = request.damageType.toLowerCase();
+                        if (damage.includes('bat')) return 'Cricket Bat';
+                        if (damage.includes('ball')) return 'Cricket Ball';
+                        if (damage.includes('gloves')) return 'Cricket Gloves';
+                        if (damage.includes('pads')) return 'Cricket Pads';
+                        if (damage.includes('helmet')) return 'Cricket Helmet';
+                      }
+                      return 'Cricket Equipment';
+                    })()}</p>
+                    <p><span className="font-medium" style={{ color: Brand.body }}>Damage Type:</span> {request.damageType || 'Not specified'}</p>
+                    <p><span className="font-medium" style={{ color: Brand.body }}>Description:</span> {(() => {
+                      // Always prioritize customer's actual description first
+                      if (request.description && request.description.trim() !== '') {
+                        return request.description;
+                      }
+                      // Check legacy field
+                      if (request.damageDescription && request.damageDescription.trim() !== '') {
+                        return request.damageDescription;
+                      }
+                      // Check if description exists but is empty string
+                      if (request.description === '') {
+                        return 'No description provided';
+                      }
+                      // Check if description is undefined or null
+                      if (request.description === undefined || request.description === null) {
+                        return 'No description provided';
+                      }
+                      // Only use generated description as absolute last resort
+                      if (request.damageType) {
+                        return `Repair request for ${request.damageType}`;
+                      }
+                      return 'No description provided';
+                    })()}</p>
                     {request.assignedTechnician && (
                       <p><span className="font-medium" style={{ color: Brand.body }}>Technician:</span> {
                         (() => {

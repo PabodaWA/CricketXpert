@@ -14,9 +14,9 @@ const RepairRequestForm = () => {
 
   const [currentUser, setCurrentUser] = useState(null);
   const [formData, setFormData] = useState({
-    equipmentType: 'cricket_bat',
+    equipmentType: '',
     damageType: '',
-    damageDescription: ''
+    description: ''
   });
   const [errors, setErrors] = useState({});
   const [apiError, setApiError] = useState('');
@@ -65,6 +65,8 @@ const RepairRequestForm = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    
+    
     setFormData((prev) => ({ ...prev, [name]: value }));
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: '' }));
     if (apiError) setApiError('');
@@ -77,14 +79,19 @@ const RepairRequestForm = () => {
     const next = {};
     if (!currentUser) next.currentUser = 'Please validate your username first.';
 
+    if (!formData.equipmentType) next.equipmentType = 'Please select equipment type';
     if (!formData.damageType) next.damageType = 'Please select damage type';
 
-    const desc = (formData.damageDescription || '').trim();
-    if (!desc) next.damageDescription = 'Damage description is required';
-    else if (desc.length < 10) next.damageDescription = 'Description must be at least 10 characters';
-    else if (desc.length > 300) next.damageDescription = 'Description must be 300 characters or less';
-    else if (hasNumbers(desc)) next.damageDescription = 'Description cannot contain numbers';
-    else if (hasRepeatedLetters(desc)) next.damageDescription = 'Avoid repeating the same character 3+ times in a row';
+    const desc = (formData.description || '').trim();
+    if (!desc) next.description = 'Damage description is required';
+    else if (desc.length < 5) next.description = 'Description must be at least 5 characters';
+    else if (desc.length > 500) next.description = 'Description must be 500 characters or less';
+    else if (hasRepeatedLetters(desc)) next.description = 'Description cannot contain repeated letters or numbers consistently';
+    else if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(desc)) next.description = 'Description cannot contain special characters';
+    
+    // Debug: Log the description being validated
+    console.log('🔍 VALIDATING DESCRIPTION:', desc);
+    console.log('🔍 DESCRIPTION LENGTH:', desc.length);
 
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -94,6 +101,7 @@ const RepairRequestForm = () => {
     e.preventDefault();
     setApiError('');
     if (!validateForm()) return;
+
 
     setIsSubmitting(true);
     try {
@@ -108,9 +116,18 @@ const RepairRequestForm = () => {
         contactNumber: currentUser?.phone || '',
         address: currentUser?.address || '',
         damageType: formData.damageType,
-        description: formData.damageDescription.trim(),
+        description: formData.description.trim() || '',
         status: 'Pending'
       };
+
+      // Temporary debug to see what we're sending
+      console.log('🔍 FORM SUBMITTING:', payload);
+      console.log('🔍 DESCRIPTION BEING SENT:', payload.description);
+      console.log('🔍 DESCRIPTION TYPE:', typeof payload.description);
+      console.log('🔍 DESCRIPTION LENGTH:', payload.description?.length);
+      console.log('🔍 FORM DATA DESCRIPTION:', formData.description);
+      console.log('🔍 FORM DATA DESCRIPTION TYPE:', typeof formData.description);
+
 
       const response = await submitRepairRequest(payload);
 
@@ -213,14 +230,16 @@ const RepairRequestForm = () => {
               <h2 className="text-lg font-semibold mb-3" style={{ color: Brand.primary }}>Equipment & Damage Details</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1" style={{ color: Brand.body }}>Equipment Type</label>
-                  <select name="equipmentType" value={formData.equipmentType} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2">
+                  <label className="block text-sm font-medium mb-1" style={{ color: Brand.body }}>Equipment Type *</label>
+                  <select name="equipmentType" value={formData.equipmentType} onChange={handleInputChange} className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${errors.equipmentType ? 'border-red-500' : 'border-gray-300'}`} aria-invalid={!!errors.equipmentType}>
+                    <option value="">Select equipment type</option>
                     <option value="cricket_bat">Cricket Bat</option>
                     <option value="cricket_ball">Cricket Ball</option>
                     <option value="cricket_gloves">Cricket Gloves</option>
                     <option value="cricket_pads">Cricket Pads</option>
                     <option value="cricket_helmet">Cricket Helmet</option>
                   </select>
+                  {errors.equipmentType && <p className="text-red-500 text-sm mt-1">{errors.equipmentType}</p>}
                 </div>
 
                 <div>
@@ -237,15 +256,15 @@ const RepairRequestForm = () => {
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium mb-1" style={{ color: Brand.body }}>Damage Description *</label>
                   <textarea
-                    name="damageDescription"
-                    value={formData.damageDescription}
+                    name="description"
+                    value={formData.description}
                     onChange={handleInputChange}
                     rows="4"
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${errors.damageDescription ? 'border-red-500' : 'border-gray-300'}`}
-                    placeholder="Describe the damage (10-300 chars, no numbers, avoid aaa, bbb, etc.)"
-                    aria-invalid={!!errors.damageDescription}
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${errors.description ? 'border-red-500' : 'border-gray-300'}`}
+                    placeholder="Describe the damage (5-500 characters)"
+                    aria-invalid={!!errors.description}
                   />
-                  {errors.damageDescription && <p className="text-red-500 text-sm mt-1">{errors.damageDescription}</p>}
+                  {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description}</p>}
                 </div>
               </div>
             </div>
