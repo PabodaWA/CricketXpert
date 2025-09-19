@@ -336,3 +336,4 @@ export default function SessionBooking({ enrollment, onClose, onBookingSuccess }
         </div>
     );
 }
+

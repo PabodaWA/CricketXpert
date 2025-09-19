@@ -255,3 +255,4 @@ Enable debug logging by adding console.log statements in the components or check
 ## Conclusion
 
 The session booking feature provides a comprehensive solution for managing coaching sessions with proper validation, error handling, and user experience considerations. The implementation follows best practices for both frontend and backend development, ensuring scalability and maintainability.
+
