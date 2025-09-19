@@ -3,6 +3,7 @@ const router = express.Router();
 import {
   getAllCoaches,
   getCoach,
+  getCoachByUserId,
   createCoach,
   updateCoach,
   deleteCoach,
@@ -21,6 +22,7 @@ import {
 // Public routes
 router.get('/', getAllCoaches); // Get all coaches with filtering
 router.get('/specialization/:specialization', getCoachesBySpecialization); // Get coaches by specialization
+router.get('/user/:userId', getCoachByUserId); // Get coach by user ID
 router.get('/:id', getCoach); // Get single coach profile
 
 // Protected routes (uncomment when auth middleware is available)

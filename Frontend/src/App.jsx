@@ -32,6 +32,8 @@ import OrderDetails from './pages/OrderDetails.jsx';
 // --- Coaching Programs Pages ---
 import Programs from './pages/Programs.jsx';
 import ProgramDetails from './pages/ProgramDetails.jsx';
+import CoachDashboard from './pages/CoachDashboard.jsx';
+import ManagerDashboard from './pages/ManagerDashboard.jsx';
 
 // --- Order Manager Pages ---
 import ListOrders from './pages/OrderManager/ListOrders.jsx';
@@ -107,6 +109,21 @@ export default function App() {
                 {/* You can add more routes for the order manager here */}
             </Route>
         </Route>
+
+        {/* --- 🏏 COACH ROUTES --- */}
+        {/* Temporarily disable authentication for testing */}
+        {/* <Route element={<ProtectedRoute allowedRoles={['coach']} />}> */}
+            <Route path="/coach-dashboard" element={<CoachDashboard />} />
+        {/* </Route> */}
+
+        {/* --- 📊 MANAGER ROUTES --- */}
+        {/* Temporarily disable authentication for testing */}
+        {/* <Route element={<ProtectedRoute allowedRoles={['manager', 'admin']} />}> */}
+            <Route path="/manager-dashboard" element={<ManagerDashboard />} />
+        {/* </Route> */}
+
+        {/* --- TEST ROUTE (temporary) --- */}
+        <Route path="/test-coach" element={<CoachDashboard />} />
 
       </Routes>
     </Router>
