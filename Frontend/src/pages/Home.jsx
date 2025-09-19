@@ -16,7 +16,7 @@ const Home = () => {
       icon: '🏏',
       title: 'Coaching Programs',
       description: 'Expert cricket coaching programs for all skill levels. Learn from professional coaches.',
-      link: '/coaching',
+      link: '/programs',
       color: 'from-green-500 to-green-600'
     },
     {
@@ -89,7 +89,7 @@ const Home = () => {
                 Get Equipment Repaired
               </Link>
               <Link
-                to="/coaching"
+                to="/programs"
                 className="bg-green-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-green-700 transition-colors duration-200 shadow-lg hover:shadow-xl"
               >
                 Join Coaching Program
@@ -259,7 +259,7 @@ const Home = () => {
               Start Your Repair
             </Link>
             <Link
-              to="/coaching"
+              to="/programs"
               className="bg-transparent border-2 border-white text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white hover:text-blue-600 transition-colors duration-200"
             >
               Explore Programs
