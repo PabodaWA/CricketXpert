@@ -1,8 +1,8 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
 
 // Import all the correct, specific controller functions
-const { 
+import { 
     getUserProfile, 
     updateUserProfile,
     getAllUsers,
@@ -11,10 +11,10 @@ const {
     updateUserByAdmin,
     deleteUserByAdmin,
     updateUserStatusByAdmin,
-} = require('../controllers/usersController.js');
+} from '../controllers/usersController.js';
 
 // Import the security middleware
-const { protect, authorizeRoles } = require('../utils/protect.js');
+import { protect, authorizeRoles } from '../utils/protect.js';
 
 // --- Routes for a user managing their OWN profile ---
 // Any logged-in user can access these.
@@ -37,4 +37,4 @@ router.route('/:id')
 router.put('/:id/status', protect, authorizeRoles('admin'), updateUserStatusByAdmin);
 
 
-module.exports = router;
+export default router;

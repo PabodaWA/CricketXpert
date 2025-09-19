@@ -1,8 +1,8 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
 
 // --- Add 'resetPassword' to this import list ---
-const { registerUser, loginUser, forgotPassword, resetPassword } = require('../controllers/authController.js');
+import { registerUser, loginUser, forgotPassword, resetPassword } from '../controllers/authController.js';
 
 router.post('/register', registerUser);
 router.post('/login', loginUser);
@@ -11,4 +11,4 @@ router.post('/forgot-password', forgotPassword);
 // This route work after resetPassword is imported
 router.post('/reset-password', resetPassword);
 
-module.exports = router;
+export default router;

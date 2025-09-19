@@ -1,10 +1,10 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const coachSchema = new mongoose.Schema({
-  CoachId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // 👈 Link to User table
-
-  specialization: { type: String }, // e.g. "Batting", "Bowling"
-  experienceYears: { type: Number },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // 👈 Link to User table
+  specializations: [{ type: String }], // e.g. ["Batting", "Bowling"]
+  experience: { type: Number },
+  profileImage: { type: String },
 
   availability: [{
     day: { type: String, required: true },
@@ -18,7 +18,8 @@ const coachSchema = new mongoose.Schema({
     completedAt: Date
   }],
 
-  assignedSessions: { type: Number, default: 0 }
+  assignedSessions: { type: Number, default: 0 },
+  assignedPrograms: [{ type: mongoose.Schema.Types.ObjectId, ref: 'CoachingProgram' }]
 }, { timestamps: true });
 
-module.exports = mongoose.model('Coach', coachSchema);
+export default mongoose.model('Coach', coachSchema);

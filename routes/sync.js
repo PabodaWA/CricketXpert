@@ -1,7 +1,7 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const Coach = require('../models/Coach');
-const CoachingProgram = require('../models/CoachingProgram');
+import Coach from '../models/Coach.js';
+import CoachingProgram from '../models/CoachingProgram.js';
 
 // @desc    Sync coach programs - fix the relationship between coaches and programs
 // @route   POST /api/sync/coach-programs
@@ -99,6 +99,6 @@ const syncCoachPrograms = async (req, res) => {
 
 router.post('/coach-programs', syncCoachPrograms);
 
-module.exports = router;
+export default router;
 
 

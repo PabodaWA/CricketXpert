@@ -1,5 +1,5 @@
-const User = require('../models/User.js');
-const bcrypt = require('bcryptjs');
+import User from '../models/User.js';
+import bcrypt from 'bcryptjs';
 
 // --- Functions for a user managing their OWN profile ---
 
@@ -140,7 +140,7 @@ const updateUserStatusByAdmin = async (req, res) => {
     }
 };
 
-module.exports = {
+export {
     // Functions for regular users
     getUserProfile,
     updateUserProfile,

@@ -1,5 +1,5 @@
-const jwt = require('jsonwebtoken');
-const User = require('../models/User.js');
+import jwt from 'jsonwebtoken';
+import User from '../models/User.js';
 
 // Middleware to check if user is logged in
 const protect = async (req, res, next) => {
@@ -33,7 +33,7 @@ const authorizeRoles = (...allowedRoles) => {
     };
 };
 
-module.exports = { 
+export { 
     protect,
     authorizeRoles, // <-- EXPORT THE NEW MIDDLEWARE
 };

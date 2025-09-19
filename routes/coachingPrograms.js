@@ -1,6 +1,6 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const {
+import {
   getCoachingPrograms,
   getCoachingProgram,
   createCoachingProgram,
@@ -9,7 +9,7 @@ const {
   getProgramsByCoach,
   addMaterial,
   getProgramStats
-} = require('../controllers/coachingProgramController');
+} from '../controllers/coachingProgramController.js';
 
 // Middleware (Note: You'll need to implement these middleware functions)
 // const { protect, authorize } = require('../middleware/auth');
@@ -31,5 +31,5 @@ router.post('/:id/materials', /* authorize('coach', 'admin'), */ addMaterial);
 // Admin/Coach only routes
 router.get('/:id/stats', /* authorize('coach', 'admin'), */ getProgramStats);
 
-module.exports = router;
+export default router;
 

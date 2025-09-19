@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const programenrollmentSchema = new mongoose.Schema({
   user: {
@@ -145,4 +145,4 @@ programenrollmentSchema.pre('save', function(next) {
 // Pagination plugin commented out - install mongoose-paginate-v2 to enable
 // programenrollmentSchema.plugin(mongoosePaginate);
 
-module.exports = mongoose.model('ProgramEnrollment', programenrollmentSchema);
+export default mongoose.model('ProgramEnrollment', programenrollmentSchema);

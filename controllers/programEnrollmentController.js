@@ -1,7 +1,7 @@
-const ProgramEnrollment = require('../models/ProgramEnrollment');
-const CoachingProgram = require('../models/CoachingProgram');
-const User = require('../models/User');
-const mongoose = require('mongoose');
+import ProgramEnrollment from '../models/ProgramEnrollment.js';
+import CoachingProgram from '../models/CoachingProgram.js';
+import User from '../models/User.js';
+import mongoose from 'mongoose';
 
 // Helper function for manual pagination
 const paginateHelper = async (Model, filter, options) => {
@@ -125,8 +125,15 @@ const createEnrollment = async (req, res) => {
   try {
     const { programId, userId } = req.body;
     
-    // Use authenticated user ID if not provided
-    const enrollmentUserId = userId || req.user.id;
+    // Validate required fields
+    if (!programId || !userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Program ID and User ID are required'
+      });
+    }
+    
+    const enrollmentUserId = userId;
 
     // Check if program exists and is active
     const program = await CoachingProgram.findById(programId);
@@ -163,7 +170,7 @@ const createEnrollment = async (req, res) => {
       user: enrollmentUserId,
       program: programId,
       progress: {
-        totalSessions: program.totalSessions
+        totalSessions: program.totalSessions || 10 // Default to 10 if not specified
       }
     };
 
@@ -483,7 +490,7 @@ const getProgramEnrollmentStats = async (req, res) => {
   }
 };
 
-module.exports = {
+export {
   getAllEnrollments,
   getEnrollment,
   createEnrollment,

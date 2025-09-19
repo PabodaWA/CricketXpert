@@ -17,6 +17,7 @@ import coachingProgramRoutes from './routes/coachingPrograms.js';
 import programEnrollmentRoutes from './routes/programEnrollments.js';
 import sessionRoutes from './routes/sessions.js';
 import coachRoutes from './routes/coaches.js';
+import groundRoutes from './routes/groundRoutes.js';
 import syncRoutes from './routes/sync.js';
 
 // --- Initial Configuration ---
@@ -49,6 +50,7 @@ app.use('/api/programs', coachingProgramRoutes);
 app.use('/api/enrollments', programEnrollmentRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/coaches', coachRoutes);
+app.use('/api/grounds', groundRoutes);
 app.use('/api/sync', syncRoutes);
 
 // A simple test route to check if the server is working

@@ -1,6 +1,6 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const {
+import {
     createPayment,
     getPayments,
     getPayment,
@@ -12,8 +12,8 @@ const {
     processOrderPayment,
     processRefund,
     getPaymentStats
-} = require('../controllers/paymentController.js');
-const { protect, authorizeRoles } = require('../utils/protect.js');
+} from '../controllers/paymentController.js';
+import { protect, authorizeRoles } from '../utils/protect.js';
 
 // --- Admin & Manager Only Routes ---
 router.get('/', protect, authorizeRoles('admin', 'order_manager'), getPayments);
@@ -33,4 +33,4 @@ router.get('/order/:orderId', protect, getPaymentsByOrder);
 // --- Public or Customer Route to create a payment ---
 router.post('/', protect, createPayment); // Assuming any logged-in user can create a payment
 
-module.exports = router;
+export default router;

@@ -1,7 +1,7 @@
 // routes/productRoutes.js
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const multer = require('multer'); // Import multer
+import multer from 'multer'; // Import multer
 
 // --- Multer Configuration ---
 // This tells multer where to store the uploaded files.
@@ -35,7 +35,7 @@ const upload = multer({
 // --- End Multer Configuration ---
 
 
-const { 
+import { 
   createProduct, 
   getProducts, 
   getProduct, 
@@ -45,7 +45,7 @@ const {
   getProductsByCategory,
   getCategories,
   getBrands
-} = require('../controllers/productController');
+} from '../controllers/productController.js';
 
 // Search and filter routes
 router.get('/search', searchProducts);
@@ -76,4 +76,4 @@ router.get('/:id', getProduct);
 router.put('/:id', upload.single('image'), updateProduct);
 router.delete('/:id', deleteProduct);
 
-module.exports = router;
+export default router;

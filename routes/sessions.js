@@ -1,17 +1,18 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const {
+import {
   getAllSessions,
   getSession,
   createSession,
   updateSession,
   deleteSession,
   addParticipant,
+  removeParticipant,
   markAttendance,
   getSessionsByProgram,
   getSessionsByCoach,
   getGroundAvailability
-} = require('../controllers/sessionController');
+} from '../controllers/sessionController.js';
 
 // Middleware (Note: You'll need to implement these middleware functions)
 // const { protect, authorize } = require('../middleware/auth');
@@ -33,6 +34,7 @@ router.put('/:id/attendance', /* authorize('coach', 'admin'), */ markAttendance)
 
 // User participation routes
 router.post('/:id/participants', addParticipant);
+router.delete('/:id/participants/:participantId', removeParticipant);
 
 // Filter routes
 router.get('/program/:programId', getSessionsByProgram);
@@ -41,5 +43,5 @@ router.get('/coach/:coachId', getSessionsByCoach);
 // Ground availability
 router.get('/ground/:groundId/availability', getGroundAvailability);
 
-module.exports = router;
+export default router;
 

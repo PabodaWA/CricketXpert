@@ -1,5 +1,5 @@
-const CoachingProgram = require('../models/CoachingProgram');
-const ProgramEnrollment = require('../models/ProgramEnrollment');
+import CoachingProgram from '../models/CoachingProgram.js';
+import ProgramEnrollment from '../models/ProgramEnrollment.js';
 
 // @desc    Get all coaching programs
 // @route   GET /api/programs
@@ -135,7 +135,7 @@ const createCoachingProgram = async (req, res) => {
     const program = await CoachingProgram.create(programData);
     
     // IMPORTANT: Add the program to the coach's assignedPrograms array
-    const Coach = require('../models/Coach');
+    const Coach = (await import('../models/Coach.js')).default;
     const coach = await Coach.findById(req.body.coach);
     if (coach && !coach.assignedPrograms.includes(program._id)) {
       coach.assignedPrograms.push(program._id);
@@ -213,7 +213,7 @@ const updateCoachingProgram = async (req, res) => {
 
     // Handle coach change - update assignedPrograms arrays
     if (newCoachId && oldCoachId !== newCoachId) {
-      const Coach = require('../models/Coach');
+      const Coach = (await import('../models/Coach.js')).default;
       
       // Remove program from old coach's assignedPrograms
       await Coach.findByIdAndUpdate(oldCoachId, {
@@ -470,7 +470,7 @@ const getProgramStats = async (req, res) => {
   }
 };
 
-module.exports = {
+export {
   getCoachingPrograms,
   getCoachingProgram,
   createCoachingProgram,

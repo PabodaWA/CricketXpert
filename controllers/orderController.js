@@ -1,12 +1,12 @@
-const Order = require('../models/Order');
-const Product = require('../models/Product');
-const User = require('../models/User'); // Added for customer email
-const { sendLowStockAlert } = require('../utils/wemailService');
-const PDFDocument = require('pdfkit');
-const nodemailer = require('nodemailer');
+import Order from '../models/Order.js';
+import Product from '../models/Product.js';
+import User from '../models/User.js'; // Added for customer email
+import { sendLowStockAlert } from '../utils/wemailService.js';
+import PDFDocument from 'pdfkit';
+import nodemailer from 'nodemailer';
 
 // Create order
-exports.createOrder = async (req, res) => {
+const createOrder = async (req, res) => {
   try {
     const order = new Order(req.body);
     await order.save();
@@ -17,7 +17,7 @@ exports.createOrder = async (req, res) => {
 };
 
 // Create cart order (pending order when items are added to cart)
-exports.createCartOrder = async (req, res) => {
+const createCartOrder = async (req, res) => {
   try {
     const { customerId, items, amount, address } = req.body;
     
@@ -54,7 +54,7 @@ exports.createCartOrder = async (req, res) => {
 };
 
 // Get cart order for a user
-exports.getCartOrder = async (req, res) => {
+const getCartOrder = async (req, res) => {
   try {
     const { customerId } = req.params;
     const cartOrder = await Order.findOne({ 
@@ -73,7 +73,7 @@ exports.getCartOrder = async (req, res) => {
 };
 
 // Update cart order to completed order (when payment is successful)
-exports.completeCartOrder = async (req, res) => {
+const completeCartOrder = async (req, res) => {
   try {
     const { orderId, paymentId } = req.body;
     
@@ -102,7 +102,7 @@ exports.completeCartOrder = async (req, res) => {
 };
 
 // Delete cart order (when user clears cart)
-exports.deleteCartOrder = async (req, res) => {
+const deleteCartOrder = async (req, res) => {
   try {
     const { customerId } = req.params;
     const result = await Order.deleteOne({ 
@@ -121,7 +121,7 @@ exports.deleteCartOrder = async (req, res) => {
 };
 
 // Get all orders
-exports.getOrders = async (req, res) => {
+const getOrders = async (req, res) => {
   try {
     const orders = await Order.find().populate("items.productId");
     res.json(orders);
@@ -131,7 +131,7 @@ exports.getOrders = async (req, res) => {
 };
 
 // Get order by ID
-exports.getOrder = async (req, res) => {
+const getOrder = async (req, res) => {
   try {
     console.log('Getting order with ID:', req.params.id);
     const order = await Order.findById(req.params.id).populate("items.productId");
@@ -170,7 +170,7 @@ exports.getOrder = async (req, res) => {
 };
 
 /* Update order status
-exports.updateOrder = async (req, res) => {
+const updateOrder = async (req, res) => {
   try {
     const order = await Order.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!order) return res.status(404).json({ message: "Order not found" });
@@ -183,7 +183,7 @@ exports.updateOrder = async (req, res) => {
 
 
 // Manual order status update by manager
-exports.updateOrderStatus = async (req, res) => {
+const updateOrderStatus = async (req, res) => {
   try {
     const { status } = req.body;
     const validStatuses = ['created', 'processing', 'completed', 'cancelled', 'cart_pending'];
@@ -211,7 +211,7 @@ exports.updateOrderStatus = async (req, res) => {
 };
 
 // Update order details (address, amount, status, items)
-exports.updateOrder = async (req, res) => {
+const updateOrder = async (req, res) => {
   try {
     const { address, amount, status, items } = req.body;
     const validStatuses = ['created', 'processing', 'completed', 'cancelled', 'cart_pending'];
@@ -244,7 +244,7 @@ exports.updateOrder = async (req, res) => {
 };
 
 // Delete order
-exports.deleteOrder = async (req, res) => {
+const deleteOrder = async (req, res) => {
   try {
     const order = await Order.findByIdAndDelete(req.params.id);
     if (!order) return res.status(404).json({ message: "Order not found" });
@@ -257,7 +257,7 @@ exports.deleteOrder = async (req, res) => {
 //.......................................................................................................................
 
 // Download order as PDF and send email
-exports.downloadOrder = async (req, res) => {
+const downloadOrder = async (req, res) => {
   try {
     const orderId = req.params.id;
     const order = await Order.findById(orderId)
@@ -449,7 +449,7 @@ const sendOrderPDFEmail = async (order, pdfBuffer) => {
 };
 
 // Cancel order and notify order manager for refund
-exports.cancelOrder = async (req, res) => {
+const cancelOrder = async (req, res) => {
   try {
     const orderId = req.params.id;
     const order = await Order.findById(orderId)
@@ -598,7 +598,7 @@ const sendRefundNotificationEmail = async (order) => {
   }
 };
 // Calculate order total with delivery
-exports.calculateOrderTotal = async (req, res) => {
+const calculateOrderTotal = async (req, res) => {
   try {
     const { items } = req.body;
     const deliveryCharge = 450; // Fixed delivery charge as mentioned
@@ -628,7 +628,7 @@ exports.calculateOrderTotal = async (req, res) => {
 };
 
 // Get orders by status
-exports.getOrdersByStatus = async (req, res) => {
+const getOrdersByStatus = async (req, res) => {
   try {
     const { status } = req.params;
     const orders = await Order.find({ status })
@@ -674,4 +674,21 @@ const reduceProductStock = async (orderItems) => {
     console.error('Error reducing product stock:', error);
     throw error;
   }
+};
+
+export {
+  createOrder,
+  createCartOrder,
+  getCartOrder,
+  completeCartOrder,
+  deleteCartOrder,
+  getOrders,
+  getOrder,
+  updateOrderStatus,
+  updateOrder,
+  deleteOrder,
+  downloadOrder,
+  cancelOrder,
+  calculateOrderTotal,
+  getOrdersByStatus
 };

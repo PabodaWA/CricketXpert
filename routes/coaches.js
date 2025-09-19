@@ -1,6 +1,6 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const {
+import {
   getAllCoaches,
   getCoach,
   createCoach,
@@ -13,7 +13,7 @@ const {
   removeProgramFromCoach,
   getCoachStats,
   toggleCoachStatus
-} = require('../controllers/coachController');
+} from '../controllers/coachController.js';
 
 // Middleware (Note: You'll need to implement these middleware functions)
 // const { protect, authorize } = require('../middleware/auth');
@@ -41,7 +41,7 @@ router.put('/:id/remove-program', /* authorize('admin', 'coaching_manager'), */ 
 // System routes (for internal use)
 router.put('/:id/rating', /* authorize('admin', 'system'), */ updateCoachRating); // Update rating (called by feedback system)
 
-module.exports = router;
+export default router;
 
 
 

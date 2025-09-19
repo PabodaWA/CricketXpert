@@ -1,8 +1,8 @@
-const Payment = require('../models/Payments');
-const Order = require('../models/Order');
+import Payment from '../models/Payments.js';
+import Order from '../models/Order.js';
 
 // Create payment
-exports.createPayment = async (req, res) => {
+const createPayment = async (req, res) => {
   try {
     const paymentData = {
       ...req.body,
@@ -23,7 +23,7 @@ exports.createPayment = async (req, res) => {
 };
 
 // Get all payments
-exports.getPayments = async (req, res) => {
+const getPayments = async (req, res) => {
   try {
     const { status, paymentType, userId, startDate, endDate, page = 1, limit = 10 } = req.query;
     let query = {};
@@ -59,7 +59,7 @@ exports.getPayments = async (req, res) => {
 };
 
 // Get payment by ID
-exports.getPayment = async (req, res) => {
+const getPayment = async (req, res) => {
   try {
     const payment = await Payment.findById(req.params.id)
       .populate('userId')
@@ -74,7 +74,7 @@ exports.getPayment = async (req, res) => {
 };
 
 // Update payment status
-exports.updatePaymentStatus = async (req, res) => {
+const updatePaymentStatus = async (req, res) => {
   try {
     const { status } = req.body;
     const validStatuses = ['success', 'failed', 'pending', 'refunded'];
@@ -100,7 +100,7 @@ exports.updatePaymentStatus = async (req, res) => {
 };
 
 // Update payment details
-exports.updatePayment = async (req, res) => {
+const updatePayment = async (req, res) => {
   try {
     const payment = await Payment.findByIdAndUpdate(
       req.params.id,
@@ -117,7 +117,7 @@ exports.updatePayment = async (req, res) => {
 };
 
 // Delete payment
-exports.deletePayment = async (req, res) => {
+const deletePayment = async (req, res) => {
   try {
     const payment = await Payment.findByIdAndDelete(req.params.id);
     if (!payment) return res.status(404).json({ message: 'Payment not found' });
@@ -129,7 +129,7 @@ exports.deletePayment = async (req, res) => {
 };
 
 // Get payments by user
-exports.getPaymentsByUser = async (req, res) => {
+const getPaymentsByUser = async (req, res) => {
   try {
     const { userId } = req.params;
     const { status, paymentType } = req.query;
@@ -149,7 +149,7 @@ exports.getPaymentsByUser = async (req, res) => {
 };
 
 // Get payments by order
-exports.getPaymentsByOrder = async (req, res) => {
+const getPaymentsByOrder = async (req, res) => {
   try {
     const { orderId } = req.params;
     const payments = await Payment.find({ orderId })
@@ -163,7 +163,7 @@ exports.getPaymentsByOrder = async (req, res) => {
 };
 
 // Process order payment (manual order status update)
-exports.processOrderPayment = async (req, res) => {
+const processOrderPayment = async (req, res) => {
   try {
     const { orderId, userId, amount, paymentMethod, orderStatus } = req.body;
 
@@ -205,7 +205,7 @@ exports.processOrderPayment = async (req, res) => {
 };
 
 // Process refund
-exports.processRefund = async (req, res) => {
+const processRefund = async (req, res) => {
   try {
     const { paymentId } = req.params;
     const { refundAmount, reason } = req.body;
@@ -243,7 +243,7 @@ exports.processRefund = async (req, res) => {
 };
 
 // Get payment statistics
-exports.getPaymentStats = async (req, res) => {
+const getPaymentStats = async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
     let matchQuery = {};
@@ -297,4 +297,18 @@ exports.getPaymentStats = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
+};
+
+export {
+  createPayment,
+  getPayments,
+  getPayment,
+  updatePaymentStatus,
+  updatePayment,
+  deletePayment,
+  getPaymentsByUser,
+  getPaymentsByOrder,
+  processOrderPayment,
+  processRefund,
+  getPaymentStats
 };
