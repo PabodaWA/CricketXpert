@@ -1,4 +1,4 @@
-const nodemailer = require('nodemailer');
+import nodemailer from 'nodemailer';
 
 // Create transporter with multiple fallback options
 const createTransporter = () => {
@@ -54,7 +54,7 @@ const createTransporter = () => {
 let transporter = null;
 
 // Send email with optional attachment
-exports.sendEmail = async (to, subject, text, attachmentBuffer = null, filename = '') => {
+const sendEmail = async (to, subject, text, attachmentBuffer = null, filename = '') => {
   try {
     // Validate email configuration
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
@@ -105,3 +105,5 @@ exports.sendEmail = async (to, subject, text, attachmentBuffer = null, filename 
     return false;
   }
 };
+
+export { sendEmail };

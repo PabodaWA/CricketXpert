@@ -1,5 +1,5 @@
 // models/feedback.model.js
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const feedbackSchema = new mongoose.Schema({
   requestId: {
@@ -38,5 +38,5 @@ const feedbackSchema = new mongoose.Schema({
   timestamps: true
 });
 
-module.exports = mongoose.model('Feedback', feedbackSchema);
+export default mongoose.model('Feedback', feedbackSchema);
 

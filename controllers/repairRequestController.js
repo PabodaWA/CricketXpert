@@ -1,8 +1,9 @@
-const RepairRequest = require('../models/RepairRequest');
-const Technician = require('../models/Technician');
-const User = require('../models/User');
-const { sendEmail } = require('../utils/notification');
-const { pipeRepairReportToResponse, sendRepairReportEmail } = require('../utils/reportGenerator');
+import RepairRequest from '../models/RepairRequest.js';
+import Technician from '../models/Technician.js';
+import User from '../models/User.js';
+import { sendEmail } from '../utils/notification.js';
+import reportGenerator from '../utils/reportGenerator.js';
+const { pipeRepairReportToResponse, sendRepairReportEmail } = reportGenerator;
 
 
 /**
@@ -11,7 +12,7 @@ const { pipeRepairReportToResponse, sendRepairReportEmail } = require('../utils/
  * - Status is set to 'Pending'.
  * - Service Manager is notified via email.
  */
-exports.createRepairRequest = async (req, res) => {
+const createRepairRequest = async (req, res) => {
   try {
     const { customerId, equipmentType, damageType, description } = req.body;
 
@@ -47,7 +48,7 @@ exports.createRepairRequest = async (req, res) => {
  * - Allows updating general fields of a repair request.
  * - Service Manager is notified of any changes.
  */
-exports.updateRepairGeneral = async (req, res) => {
+const updateRepairGeneral = async (req, res) => {
   try {
     const request = await RepairRequest.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!request) return res.status(404).json({ error: 'Repair request not found' });
@@ -71,7 +72,7 @@ exports.updateRepairGeneral = async (req, res) => {
  * - Returns all repair requests.
  * - Populates customer and assigned technician details.
  */
-exports.getAllRepairRequests = async (req, res) => {
+const getAllRepairRequests = async (req, res) => {
   try {
     const requests = await RepairRequest.find()
       .populate('customerId', 'username email')
@@ -87,7 +88,7 @@ exports.getAllRepairRequests = async (req, res) => {
  * - Returns a single repair request by ID.
  * - Populates customer and assigned technician details.
  */
-exports.getRepairRequestById = async (req, res) => {
+const getRepairRequestById = async (req, res) => {
   try {
     const request = await RepairRequest.findById(req.params.id)
       .populate('customerId', 'username email')
@@ -106,7 +107,7 @@ exports.getRepairRequestById = async (req, res) => {
  * - Status and current stage are updated accordingly.
  * - Customer receives email notification.
  */
-exports.updateRequestStatus = async (req, res) => {
+const updateRequestStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { status, costEstimate, timeEstimate, rejectionReason } = req.body;
@@ -150,7 +151,7 @@ exports.updateRequestStatus = async (req, res) => {
  * - Updates request status and current stage.
  * - Service Manager is notified.
  */
-exports.customerApproveReject = async (req, res) => {
+const customerApproveReject = async (req, res) => {
   try {
     const { id } = req.params;
     const { decision } = req.body;
@@ -188,7 +189,7 @@ exports.customerApproveReject = async (req, res) => {
  * - Validates technician availability and skills.
  * - Technician is notified and status is updated to 'In Repair'.
  */
-exports.assignTechnician = async (req, res) => {
+const assignTechnician = async (req, res) => {
   try {
     const { id } = req.params;
     const { technicianId, assignmentNotes } = req.body;
@@ -236,14 +237,14 @@ exports.assignTechnician = async (req, res) => {
     
     // Check if technician has skills for this equipment type
     const hasRelevantSkill = technicianSkills.some(skill => 
-      skill.toLowerCase().includes(equipmentType.replace('_', ' ').toLowerCase()) ||
+      skill.toLowerCase().includes(equipmentType ? equipmentType.replace('_', ' ').toLowerCase() : '') ||
       skill.toLowerCase().includes('general') ||
       skill.toLowerCase().includes('all')
     );
 
     if (!hasRelevantSkill && technicianSkills.length > 0) {
       return res.status(400).json({ 
-        error: `Technician does not have skills for ${equipmentType.replace('_', ' ')} repairs. Please assign to a qualified technician.` 
+        error: `Technician does not have skills for ${equipmentType ? equipmentType.replace('_', ' ') : 'unknown'} repairs. Please assign to a qualified technician.` 
       });
     }
 
@@ -267,13 +268,13 @@ exports.assignTechnician = async (req, res) => {
       await sendEmail(
         technician.technicianId.email, 
         'New Repair Assignment', 
-        `You have been assigned a new repair request:\n\nRequest ID: ${request._id}\nEquipment: ${equipmentType.replace('_', ' ')}\nDamage Type: ${request.damageType}\nCustomer: ${request.customerId.username}\n\nPlease begin work on this repair.`
+        `You have been assigned a new repair request:\n\nRequest ID: ${request._id}\nEquipment: ${equipmentType ? equipmentType.replace('_', ' ') : 'Unknown'}\nDamage Type: ${request.damageType}\nCustomer: ${request.customerId.username}\n\nPlease begin work on this repair.`
       );
       
       await sendEmail(
         request.customerId.email, 
         'Technician Assigned', 
-        `Your repair request has been assigned to a technician:\n\nRequest ID: ${request._id}\nEquipment: ${equipmentType.replace('_', ' ')}\nDamage Type: ${request.damageType}\nStatus: In Repair\n\nYour repair is now in progress.`
+        `Your repair request has been assigned to a technician:\n\nRequest ID: ${request._id}\nEquipment: ${equipmentType ? equipmentType.replace('_', ' ') : 'Unknown'}\nDamage Type: ${request.damageType}\nStatus: In Repair\n\nYour repair is now in progress.`
       );
     } catch (emailError) {
       console.error('Email notification failed:', emailError);
@@ -298,7 +299,7 @@ exports.assignTechnician = async (req, res) => {
 };
 
   // Update repairProgress
-exports.updateProgress = async (req, res) => {
+const updateProgress = async (req, res) => {
   try {
     const { id } = req.params;
     const { repairProgress, notes } = req.body;
@@ -410,7 +411,7 @@ exports.updateProgress = async (req, res) => {
         const managerSubject = `Milestone Update: ${milestoneMessages[repairProgress]}`;
         const managerBody = `A repair request has reached a milestone:\n\n`;
         managerBody += `Customer: ${request.customerId.username}\n`;
-        managerBody += `Equipment: ${request.equipmentType.replace('_', ' ')}\n`;
+        managerBody += `Equipment: ${request.equipmentType ? request.equipmentType.replace('_', ' ') : 'Unknown'}\n`;
         managerBody += `Damage: ${request.damageType}\n`;
         managerBody += `Progress: ${request.repairProgress}%\n`;
         managerBody += `Status: ${request.status}\n`;
@@ -445,7 +446,7 @@ exports.updateProgress = async (req, res) => {
 /**
  * 8 Customer Dashboard
  */
-exports.getCustomerRepairRequests = async (req, res) => {
+const getCustomerRepairRequests = async (req, res) => {
   try {
     const { customerId } = req.params;
     const requests = await RepairRequest.find({ customerId })
@@ -461,7 +462,7 @@ exports.getCustomerRepairRequests = async (req, res) => {
 /**
  * 9 Technician Dashboard
  */
-exports.getTechnicianRepairRequests = async (req, res) => {
+const getTechnicianRepairRequests = async (req, res) => {
   try {
     const { technicianId } = req.params;
     const { status } = req.query;
@@ -480,7 +481,7 @@ exports.getTechnicianRepairRequests = async (req, res) => {
 };
 
 // 10️ Service Manager Dashboard (with filtering & sorting)
-exports.getAllRepairRequests = async (req, res) => {
+const getAllRepairRequestsWithFilter = async (req, res) => {
   try {
     const { status, customerId, technicianId, sortBy, sortOrder } = req.query;
 
@@ -517,7 +518,7 @@ exports.getAllRepairRequests = async (req, res) => {
 /**
  * 11 Download & Email PDF (for frontend download button)
  */
-exports.downloadAndEmailReport = async (req, res) => {
+const downloadAndEmailReport = async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -540,7 +541,7 @@ exports.downloadAndEmailReport = async (req, res) => {
  * 12 Delete Repair Request
  * - Removes a repair request from the database.
  */
-exports.deleteRepairRequest = async (req, res) => {
+const deleteRepairRequest = async (req, res) => {
   try {
     const { id } = req.params;
     const deleted = await RepairRequest.findByIdAndDelete(id);
@@ -556,7 +557,7 @@ exports.deleteRepairRequest = async (req, res) => {
  * - Customer submits feedback for a completed repair request.
  * - Creates a feedback record and notifies service manager.
  */
-exports.submitFeedback = async (req, res) => {
+const submitFeedback = async (req, res) => {
   try {
     const { id } = req.params;
     const { rating, comment, category } = req.body;
@@ -636,5 +637,22 @@ exports.submitFeedback = async (req, res) => {
     console.error('Feedback submission error:', err);
     res.status(500).json({ error: err.message });
   }
+};
+
+export default {
+  createRepairRequest,
+  getAllRepairRequests,
+  getAllRepairRequestsWithFilter,
+  getRepairRequestById,
+  updateRepairGeneral,
+  deleteRepairRequest,
+  getCustomerRepairRequests,
+  getTechnicianRepairRequests,
+  updateRequestStatus,
+  customerApproveReject,
+  assignTechnician,
+  updateProgress,
+  downloadAndEmailReport,
+  submitFeedback
 };
  

@@ -1,6 +1,6 @@
-const express = require('express');
+import express from 'express';
+import repairController from '../controllers/repairRequestController.js';
 const router = express.Router();
-const repairController = require('../controllers/repairRequestController');
 
 // Customer Dashboard - Get all repair requests for a customer
 router.get('/dashboard/customer/:customerId', repairController.getCustomerRepairRequests);
@@ -45,4 +45,4 @@ router.delete('/:id', repairController.deleteRepairRequest);
 // Submit feedback for a repair request
 router.post('/:id/feedback', repairController.submitFeedback);
 
-module.exports = router;
+export default router;

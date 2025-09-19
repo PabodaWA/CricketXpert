@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const repairRequestSchema = new mongoose.Schema({
   customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -20,4 +20,4 @@ const repairRequestSchema = new mongoose.Schema({
   currentStage: { type: String }
 }, { timestamps: true });
 
-module.exports = mongoose.model('RepairRequest', repairRequestSchema);
+export default mongoose.model('RepairRequest', repairRequestSchema);

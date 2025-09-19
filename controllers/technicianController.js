@@ -1,9 +1,9 @@
-const Technician = require('../models/Technician');
-const User = require('../models/User');
-const bcrypt = require('bcryptjs');
+import Technician from '../models/Technician.js';
+import User from '../models/User.js';
+import bcrypt from 'bcryptjs';
 
 // 1. Create technician
-exports.createTechnician = async (req, res) => {
+const createTechnician = async (req, res) => {
   try {
     const { username, firstName, lastName, email, phone, skills, available } = req.body;
     
@@ -138,7 +138,7 @@ exports.createTechnician = async (req, res) => {
 };
 
 // 2. Get all technicians
-exports.getAllTechnicians = async (req, res) => {
+const getAllTechnicians = async (req, res) => {
   try {
     const technicians = await Technician.find().populate('technicianId', 'username email firstName lastName contactNumber');
     console.log('Retrieved technicians:', technicians.map(t => ({ 
@@ -154,7 +154,7 @@ exports.getAllTechnicians = async (req, res) => {
 };
 
 // 3. Get technician by ID
-exports.getTechnicianById = async (req, res) => {
+const getTechnicianById = async (req, res) => {
   try {
     const { id } = req.params;
     const technician = await Technician.findById(id).populate('technicianId', 'username email');
@@ -166,7 +166,7 @@ exports.getTechnicianById = async (req, res) => {
 };
 
 // 4. Update technician info
-exports.updateTechnician = async (req, res) => {
+const updateTechnician = async (req, res) => {
   try {
     const { id } = req.params;
     const { skills, available } = req.body;
@@ -185,7 +185,7 @@ exports.updateTechnician = async (req, res) => {
 };
 
 // 5. Delete technician
-exports.deleteTechnician = async (req, res) => {
+const deleteTechnician = async (req, res) => {
   try {
     const { id } = req.params;
     const deleted = await Technician.findByIdAndDelete(id);
@@ -194,4 +194,12 @@ exports.deleteTechnician = async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+};
+
+export default {
+  createTechnician,
+  getAllTechnicians,
+  getTechnicianById,
+  updateTechnician,
+  deleteTechnician
 };

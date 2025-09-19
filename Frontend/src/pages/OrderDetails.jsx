@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { getCurrentUserId } from '../utils/getCurrentUser';
+import Header from '../components/Header';
+import Footer from '../components/Footer';
 
 const OrderDetails = () => {
   const { orderId } = useParams(); // Extract orderId from URL (e.g., /orders/:orderId)
@@ -113,8 +115,10 @@ const OrderDetails = () => {
   if (error) return <div className="text-center p-8 text-red-500">{error}</div>;
 
   return (
-    <div className="bg-[#F1F2F7] min-h-screen text-[#36516C] p-8">
-      <div className="max-w-4xl mx-auto bg-white rounded-lg p-6 shadow-sm">
+    <div className="bg-[#F1F2F7] min-h-screen text-[#36516C]">
+      <Header />
+      <div className="p-8">
+        <div className="max-w-4xl mx-auto bg-white rounded-lg p-6 shadow-sm">
         <h2 className="text-2xl font-bold mb-6">Order Details</h2>
 
         {/* Order Information */}
@@ -180,6 +184,8 @@ const OrderDetails = () => {
           )}
         </div>
       </div>
+      </div>
+      <Footer />
     </div>
   );
 };

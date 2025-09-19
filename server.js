@@ -20,6 +20,13 @@ import coachRoutes from './routes/coaches.js';
 import groundRoutes from './routes/groundRoutes.js';
 import syncRoutes from './routes/sync.js';
 
+// --- Repair Service Routes ---
+import repairRoutes from './routes/repairRequestRoutes.js';
+import feedbackRoutes from './routes/feedbackRoutes.js';
+import technicianRoutes from './routes/technicianRoutes.js';
+import userRoutes from './routes/userRoutes.js';
+import playerRoutes from './routes/players.js';
+
 // --- Initial Configuration ---
 // Load environment variables from .env file
 dotenv.config();
@@ -52,6 +59,13 @@ app.use('/api/sessions', sessionRoutes);
 app.use('/api/coaches', coachRoutes);
 app.use('/api/grounds', groundRoutes);
 app.use('/api/sync', syncRoutes);
+
+// --- Repair Service API Routes ---
+app.use('/api/repairs', repairRoutes);
+app.use('/api/feedbacks', feedbackRoutes);
+app.use('/api/technicians', technicianRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/players', playerRoutes);
 
 // A simple test route to check if the server is working
 app.get('/api/test', (req, res) => {
