@@ -140,35 +140,26 @@ const AdminMessages = () => {
       </div>
       
       
-      <div className="max-w-4xl mx-auto px-6 py-12 relative z-10">
-        {/* Header Section */}
-        <div className={`bg-white rounded-3xl shadow-2xl p-10 mb-8 transform transition-all duration-700 border-l-6 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`} style={{ borderLeftColor: Brand.primary }}>
-          <div className="border-b-2 pb-8 mb-8" style={{ borderColor: Brand.primary }}>
-            <div className="flex items-center space-x-6 mb-6">
-              <div className="w-20 h-20 rounded-full flex items-center justify-center shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-110" style={{ backgroundColor: Brand.primary + '20' }}>
-                <svg className="w-10 h-10" style={{ color: Brand.primary }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-              </div>
-              <div>
-                <h1 
-                  className="text-6xl font-bold"
-                  style={{ color: Brand.primary }}
-                >
-                  Customer Messages
+      {/* Hero Section - Admin Messages */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8 relative z-10">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-left">
+            <div className="space-y-8 max-w-4xl">
+              <div className="relative">
+                <h1 className="text-5xl lg:text-6xl font-bold mb-4" style={{ color: '#000000' }}>
+                  Admin Messages
                 </h1>
-                <div className="w-32 h-1.5 rounded-full mt-3" style={{ background: `linear-gradient(90deg, ${Brand.primary}, ${Brand.secondary})` }}></div>
+                <div className="w-20 h-1 bg-gradient-to-r from-blue-500 to-transparent"></div>
               </div>
+              <p className="text-xl leading-relaxed" style={{ color: '#36516C' }}>
+                View and manage customer messages. Stay connected with your customers and respond to their inquiries, feedback, and support requests efficiently.
+              </p>
             </div>
-            <p 
-              className="text-xl font-medium flex items-center space-x-2"
-              style={{ color: Brand.body }}
-            >
-              <span>View and manage customer messages</span>
-              <span className="text-2xl">📧</span>
-            </p>
           </div>
         </div>
+      </section>
+
+      <div className="max-w-4xl mx-auto px-6 py-12 relative z-10">
 
 
         {/* Messages List */}

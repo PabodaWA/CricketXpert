@@ -562,32 +562,6 @@ const AboutUs = () => {
       </section>
 
       {/* Call to Action Section */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl font-bold mb-6" style={{ color: '#000000' }}>
-            Ready to Elevate Your Cricket Game?
-          </h2>
-          <p className="text-lg mb-8" style={{ color: '#36516C' }}>
-            Join thousands of satisfied customers and discover the difference quality cricket equipment can make.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button 
-              className="px-8 py-3 rounded-lg font-semibold text-white transition-colors hover:opacity-90"
-              style={{ backgroundColor: '#42ADF5' }}
-              onMouseOver={(e) => e.target.style.backgroundColor = '#2C8ED1'}
-              onMouseOut={(e) => e.target.style.backgroundColor = '#42ADF5'}
-            >
-              Shop Now
-            </button>
-            <button 
-              className="px-8 py-3 rounded-lg font-semibold text-white transition-colors hover:opacity-90"
-              style={{ backgroundColor: '#D88717' }}
-            >
-              Learn More
-            </button>
-          </div>
-        </div>
-      </section>
       <Footer />
     </div>
   );

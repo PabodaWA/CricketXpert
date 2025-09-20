@@ -99,89 +99,27 @@ const FAQ = () => {
         }}></div>
       </div>
       
-      {/* Enhanced Floating Elements */}
-      <div className="absolute top-20 left-10 w-20 h-20 rounded-full opacity-10 animate-pulse" style={{ backgroundColor: Brand.secondary }}></div>
-      <div className="absolute top-40 right-20 w-16 h-16 rounded-full opacity-10 animate-bounce" style={{ backgroundColor: Brand.accent }}></div>
-      <div className="absolute bottom-40 left-20 w-12 h-12 rounded-full opacity-10 animate-pulse" style={{ backgroundColor: Brand.primary }}></div>
-      <div className="absolute top-60 left-1/4 w-8 h-8 rounded-full opacity-10 animate-ping" style={{ backgroundColor: Brand.secondary }}></div>
-      <div className="absolute bottom-60 right-1/4 w-10 h-10 rounded-full opacity-10 animate-bounce" style={{ backgroundColor: Brand.accent }}></div>
       
-      <div className="max-w-7xl mx-auto px-6 py-12 relative z-10">
-        {/* Enhanced Header Section */}
-        <div className={`bg-white rounded-3xl shadow-2xl p-10 mb-8 transform transition-all duration-700 border-l-6 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`} style={{ borderLeftColor: Brand.secondary }}>
-          <div className="border-b-2 pb-8 mb-8" style={{ borderColor: Brand.secondary }}>
-            <nav className="text-sm mb-6 flex items-center">
-              <span className="px-6 py-3 rounded-full text-sm font-medium shadow-lg hover:shadow-xl transition-all duration-300" style={{ backgroundColor: Brand.secondary + '20', color: Brand.primary }}>
-                🏠 Home / FAQ
-              </span>
-            </nav>
-            <div className="flex items-center space-x-6 mb-6">
-              <div className="w-20 h-20 rounded-full flex items-center justify-center shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-110" style={{ backgroundColor: Brand.secondary + '20' }}>
-                <svg className="w-10 h-10" style={{ color: Brand.primary }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div>
-                <h1 
-                  className="text-6xl font-bold bg-gradient-to-r animate-pulse"
-                  style={{ 
-                    background: `linear-gradient(135deg, ${Brand.primary}, ${Brand.secondary}, ${Brand.accent})`,
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    backgroundClip: 'text',
-                    backgroundSize: '200% 200%',
-                    animation: 'gradient 3s ease infinite'
-                  }}
-                >
-                  FAQ Center
+      {/* Hero Section - FAQ */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8 relative z-10">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-left">
+            <div className="space-y-8 max-w-4xl">
+              <div className="relative">
+                <h1 className="text-5xl lg:text-6xl font-bold mb-4" style={{ color: '#000000' }}>
+                  FAQ
                 </h1>
-                <div className="w-32 h-1.5 rounded-full mt-3" style={{ background: `linear-gradient(90deg, ${Brand.secondary}, ${Brand.accent})` }}></div>
+                <div className="w-20 h-1 bg-gradient-to-r from-blue-500 to-transparent"></div>
               </div>
-            </div>
-            <p 
-              className="text-2xl font-medium flex items-center space-x-3"
-              style={{ color: Brand.body }}
-            >
-              <span>Find answers to common questions</span>
-              <span className="text-3xl animate-bounce">❓</span>
-            </p>
-          </div>
-          
-          <div className="bg-gradient-to-r p-10 rounded-3xl mb-8 shadow-xl hover:shadow-2xl transition-all duration-300 border-2" style={{ 
-            background: `linear-gradient(135deg, ${Brand.secondary}15, ${Brand.primary}10, ${Brand.accent}05)`,
-            borderColor: Brand.secondary + '30'
-          }}>
-            <div className="flex items-start space-x-6">
-              <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 mt-1 shadow-lg" style={{ backgroundColor: Brand.secondary + '30' }}>
-                <svg className="w-6 h-6" style={{ color: Brand.primary }} fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div>
-                <p 
-                  className="text-xl leading-relaxed mb-4"
-                  style={{ color: Brand.body }}
-                >
-                  Browse through our comprehensive FAQ section to find quick answers about our cricket services, equipment, shipping, and more. Our knowledge base is regularly updated to provide you with the most current information.
-                </p>
-                <div className="flex items-center space-x-4 text-sm" style={{ color: Brand.body }}>
-                  <span className="flex items-center space-x-2">
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: Brand.secondary }}></span>
-                    <span>16 Common Questions</span>
-                  </span>
-                  <span className="flex items-center space-x-2">
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: Brand.accent }}></span>
-                    <span>All Services Covered</span>
-                  </span>
-                  <span className="flex items-center space-x-2">
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: Brand.primary }}></span>
-                    <span>Expert Answers</span>
-                  </span>
-                </div>
-              </div>
+              <p className="text-xl leading-relaxed" style={{ color: '#36516C' }}>
+                Find answers to common questions about our cricket services, equipment, shipping, and more. Our knowledge base is regularly updated to provide you with the most current information.
+              </p>
             </div>
           </div>
         </div>
+      </section>
+
+      <div className="max-w-7xl mx-auto px-6 py-12 relative z-10">
 
 
         {/* Enhanced FAQ Section */}
@@ -272,23 +210,6 @@ const FAQ = () => {
           </div>
           
           <div className="flex flex-col sm:flex-row gap-8 justify-center mb-10">
-            <button 
-              className="px-12 py-6 rounded-2xl font-bold text-white transition-all duration-300 hover:scale-110 shadow-xl hover:shadow-2xl flex items-center justify-center space-x-4 group"
-              style={{ backgroundColor: Brand.secondary }}
-              onMouseEnter={(e) => {
-                e.target.style.backgroundColor = Brand.primaryHover;
-                e.target.style.transform = 'scale(1.1) translateY(-2px)';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.backgroundColor = Brand.secondary;
-                e.target.style.transform = 'scale(1) translateY(0)';
-              }}
-            >
-              <svg className="w-7 h-7 group-hover:animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-              <span className="text-xl">Contact Support</span>
-            </button>
             <Link 
               to="/about"
               className="px-12 py-6 rounded-2xl font-bold text-white transition-all duration-300 hover:scale-110 shadow-xl hover:shadow-2xl flex items-center justify-center space-x-4 group"

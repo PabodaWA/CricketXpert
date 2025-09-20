@@ -24,71 +24,27 @@ const PrivacyPolicy = () => {
         }}></div>
       </div>
       
-      {/* Floating Elements */}
-      <div className="absolute top-20 left-10 w-20 h-20 rounded-full opacity-10 animate-pulse" style={{ backgroundColor: Brand.secondary }}></div>
-      <div className="absolute top-40 right-20 w-16 h-16 rounded-full opacity-10 animate-bounce" style={{ backgroundColor: Brand.accent }}></div>
-      <div className="absolute bottom-40 left-20 w-12 h-12 rounded-full opacity-10 animate-pulse" style={{ backgroundColor: Brand.primary }}></div>
       
-      <div className="max-w-4xl mx-auto px-6 py-12 relative z-10">
-        {/* Header Section */}
-        <div className={`bg-white rounded-2xl shadow-2xl p-8 mb-8 transform transition-all duration-700 border-l-4 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`} style={{ borderLeftColor: Brand.secondary }}>
-          <div className="border-b-2 pb-6 mb-6" style={{ borderColor: Brand.secondary }}>
-            <nav className="text-sm mb-4 flex items-center">
-              <span className="px-4 py-2 rounded-full text-xs font-medium shadow-sm hover:shadow-md transition-shadow duration-300" style={{ backgroundColor: Brand.secondary + '20', color: Brand.primary }}>
-                🏠 Home / Privacy Policy
-              </span>
-            </nav>
-            <div className="flex items-center space-x-4 mb-4">
-              <div className="w-16 h-16 rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110" style={{ backgroundColor: Brand.secondary + '20' }}>
-                <svg className="w-8 h-8" style={{ color: Brand.primary }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-              </div>
-              <div>
-                <h1 
-                  className="text-5xl font-bold bg-gradient-to-r animate-pulse"
-                  style={{ 
-                    background: `linear-gradient(135deg, ${Brand.primary}, ${Brand.secondary}, ${Brand.accent})`,
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    backgroundClip: 'text',
-                    backgroundSize: '200% 200%',
-                    animation: 'gradient 3s ease infinite'
-                  }}
-                >
+      {/* Hero Section - Privacy Policy */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8 relative z-10">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-left">
+            <div className="space-y-8 max-w-4xl">
+              <div className="relative">
+                <h1 className="text-5xl lg:text-6xl font-bold mb-4" style={{ color: '#000000' }}>
                   Privacy Policy
                 </h1>
-                <div className="w-24 h-1 rounded-full mt-2" style={{ background: `linear-gradient(90deg, ${Brand.secondary}, ${Brand.accent})` }}></div>
+                <div className="w-20 h-1 bg-gradient-to-r from-blue-500 to-transparent"></div>
               </div>
-            </div>
-            <p 
-              className="text-xl font-medium flex items-center space-x-2"
-              style={{ color: Brand.body }}
-            >
-              <span>Welcome to CricketXpert!</span>
-              <span className="text-2xl animate-bounce">🏏</span>
-            </p>
-          </div>
-          
-          <div className="bg-gradient-to-r p-8 rounded-2xl mb-6 shadow-lg hover:shadow-xl transition-all duration-300 border-2" style={{ 
-            background: `linear-gradient(135deg, ${Brand.secondary}15, ${Brand.primary}10, ${Brand.accent}05)`,
-            borderColor: Brand.secondary + '30'
-          }}>
-            <div className="flex items-start space-x-4">
-              <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-1" style={{ backgroundColor: Brand.secondary + '30' }}>
-                <svg className="w-4 h-4" style={{ color: Brand.primary }} fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <p 
-                className="text-lg leading-relaxed"
-                style={{ color: Brand.body }}
-              >
-                CricketXpert respects each individual's right to personal privacy. We will collect and use information through our Web site only in the ways disclosed in this statement. This statement applies solely to information collected at CricketXpert's Web site.
+              <p className="text-xl leading-relaxed" style={{ color: '#36516C' }}>
+                Your privacy is important to us. Learn how we collect, use, and protect your information when you use our cricket services and website.
               </p>
             </div>
           </div>
         </div>
+      </section>
+
+      <div className="max-w-4xl mx-auto px-6 py-12 relative z-10">
 
         {/* Part I: Information Collection */}
         <div className={`bg-white rounded-2xl shadow-xl p-8 mb-8 transform hover:scale-[1.01] transition-all duration-500 border-t-4 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`} style={{ borderTopColor: Brand.secondary, transitionDelay: '100ms' }}>
@@ -442,23 +398,6 @@ const PrivacyPolicy = () => {
           </div>
           
           <div className="flex flex-col sm:flex-row gap-6 justify-center">
-            <button 
-              className="px-10 py-5 rounded-2xl font-bold text-white transition-all duration-300 hover:scale-110 shadow-xl hover:shadow-2xl flex items-center justify-center space-x-3 group"
-              style={{ backgroundColor: Brand.secondary }}
-              onMouseEnter={(e) => {
-                e.target.style.backgroundColor = Brand.primaryHover;
-                e.target.style.transform = 'scale(1.1) translateY(-2px)';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.backgroundColor = Brand.secondary;
-                e.target.style.transform = 'scale(1) translateY(0)';
-              }}
-            >
-              <svg className="w-6 h-6 group-hover:animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-              <span className="text-lg">Contact Support</span>
-            </button>
             <Link 
               to="/about"
               className="px-10 py-5 rounded-2xl font-bold text-white transition-all duration-300 hover:scale-110 shadow-xl hover:shadow-2xl flex items-center justify-center space-x-3 group"
