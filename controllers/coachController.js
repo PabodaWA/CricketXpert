@@ -154,6 +154,35 @@ const getCoach = async (req, res) => {
   }
 };
 
+// @desc    Get coach by user ID
+// @route   GET /api/coaches/user/:userId
+// @access  Public
+const getCoachByUserId = async (req, res) => {
+  try {
+    const coach = await Coach.findOne({ userId: req.params.userId })
+      .populate('userId', 'firstName lastName email profileImageURL contactNumber')
+      .populate('assignedPrograms', 'title description category specialization isActive price currentEnrollments maxParticipants duration startDate endDate');
+
+    if (!coach) {
+      return res.status(404).json({
+        success: false,
+        message: 'Coach not found for this user'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: coach
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching coach by user ID',
+      error: error.message
+    });
+  }
+};
+
 // @desc    Create new coach profile
 // @route   POST /api/coaches
 // @access  Private (Admin or Coach)
@@ -670,6 +699,7 @@ const toggleCoachStatus = async (req, res) => {
 export {
   getAllCoaches,
   getCoach,
+  getCoachByUserId,
   createCoach,
   updateCoach,
   deleteCoach,

@@ -32,6 +32,8 @@ import OrderDetails from './pages/OrderDetails.jsx';
 // --- Coaching Programs Pages ---
 import Programs from './pages/Programs.jsx';
 import ProgramDetails from './pages/ProgramDetails.jsx';
+import CoachDashboard from './pages/CoachDashboard.jsx';
+import ManagerDashboard from './pages/ManagerDashboard.jsx';
 
 // --- Order Manager Pages ---
 import ListOrders from './pages/OrderManager/ListOrders.jsx';
@@ -134,23 +136,6 @@ export default function App() {
             </Route>
         </Route>
 
-        {/* --- Repair Service Routes --- */}
-        <Route path="/" element={<SimpleDashboard />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/repair" element={<RepairRequestForm />} />
-        <Route path="/my-requests" element={<MyRequestsPage />} />
-        <Route path="/dashboard/:customerId" element={<CustomerDashboardWrapper />} />
-        <Route path="/manager" element={<ServiceManagerDashboard />} />
-        <Route path="/technician" element={<TechnicianDashboard />} />
-        <Route path="/new-technician" element={<NewTechnicianForm />} />
-        <Route path="/about" element={<AboutUs />} />
-        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-        <Route path="/terms" element={<TermsAndConditions />} />
-        <Route path="/faq" element={<FAQ />} />
-        <Route path="/contact" element={<ContactUs />} />
-            <Route path="/contact-success" element={<ContactSuccess />} />
-            <Route path="/admin-messages" element={<AdminMessages />} />
-            <Route path="/test" element={<TestPage />} />
 
       </Routes>
     </Router>

@@ -148,23 +148,23 @@ const Payment = () => {
           paymentDate: new Date() 
         });
         
-        const paymentRes = await axios.post('http://localhost:5000/api/payment/', {
+        // Process enrollment payment using the new endpoint
+        const paymentRes = await axios.post(`http://localhost:5000/api/enrollments/${enrollment._id}/payment`, {
           userId,
           enrollmentId: enrollment._id,
-          paymentType: 'enrollment_payment',
           amount: amount,
           status: 'success',
           paymentDate: new Date()
         }, config);
-        console.log('Enrollment payment created:', paymentRes.data);
+        console.log('Enrollment payment processed:', paymentRes.data);
 
-        // Update enrollment status to paid
-        const updatedEnrollment = await axios.put(`http://localhost:5000/api/enrollments/${enrollment._id}/payment`, {
-          paymentId: paymentRes.data._id,
-          status: 'paid'
-        }, config);
-        console.log('Enrollment updated:', updatedEnrollment.data);
-
+        // Store enrollment data in localStorage for Profile page to pick up
+        const paymentEnrollmentData = {
+          enrollment: paymentRes.data.data,
+          program: program
+        };
+        localStorage.setItem('paymentEnrollmentData', JSON.stringify(paymentEnrollmentData));
+        
         // Show success notification and redirect to profile
         alert('Payment successful! You have been enrolled in the program.');
         navigate('/profile');

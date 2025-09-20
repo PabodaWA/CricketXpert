@@ -8,7 +8,10 @@ import {
   getUserEnrollments,
   updateProgress,
   addFeedback,
-  getProgramEnrollmentStats
+  getProgramEnrollmentStats,
+  activateEnrollment,
+  debugAllEnrollments,
+  processEnrollmentPayment
 } from '../controllers/programEnrollmentController.js';
 
 const router = express.Router();
@@ -38,5 +41,14 @@ router.put('/:id/progress', /* authorize('coach', 'admin'), */ updateProgress);
 
 // User/Coach routes  
 router.post('/:id/feedback', addFeedback);
+
+// Activation route
+router.put('/:id/activate', activateEnrollment);
+
+// Debug route
+router.get('/debug/all', debugAllEnrollments);
+
+// Payment route
+router.post('/:id/payment', processEnrollmentPayment);
 
 export default router;

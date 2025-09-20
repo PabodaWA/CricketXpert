@@ -673,6 +673,76 @@ const getGroundAvailability = async (req, res) => {
   }
 };
 
+// @desc    Reschedule session
+// @route   PUT /api/sessions/:id/reschedule
+// @access  Private (Manager/Admin only)
+const rescheduleSession = async (req, res) => {
+  try {
+    const { newDate, newStartTime, newEndTime, reason } = req.body;
+    const sessionId = req.params.id;
+
+    const session = await Session.findById(sessionId);
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session not found'
+      });
+    }
+
+    // Check if new time slot is available
+    const isAvailable = await Session.isSlotAvailable(
+      session.ground,
+      session.groundSlot,
+      new Date(newDate),
+      newStartTime,
+      newEndTime,
+      sessionId
+    );
+
+    if (!isAvailable) {
+      return res.status(400).json({
+        success: false,
+        message: 'Ground slot is not available at the specified time'
+      });
+    }
+
+    // Update session with new schedule
+    const updatedSession = await Session.findByIdAndUpdate(
+      sessionId,
+      {
+        scheduledDate: new Date(newDate),
+        startTime: newStartTime,
+        endTime: newEndTime,
+        status: 'rescheduled',
+        notes: reason ? `Rescheduled: ${reason}` : 'Session rescheduled by manager'
+      },
+      { new: true, runValidators: true }
+    ).populate('program', 'title')
+     .populate('coach', 'name email')
+     .populate('ground', 'name location');
+
+    res.status(200).json({
+      success: true,
+      data: updatedSession,
+      message: 'Session rescheduled successfully'
+    });
+  } catch (error) {
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: Object.values(error.errors).map(err => err.message)
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Error rescheduling session',
+      error: error.message
+    });
+  }
+};
+
 export {
   getAllSessions,
   getSession,
@@ -684,5 +754,6 @@ export {
   markAttendance,
   getSessionsByProgram,
   getSessionsByCoach,
-  getGroundAvailability
+  getGroundAvailability,
+  rescheduleSession
 };

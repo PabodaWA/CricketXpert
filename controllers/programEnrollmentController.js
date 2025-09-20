@@ -310,6 +310,9 @@ const cancelEnrollment = async (req, res) => {
 const getUserEnrollments = async (req, res) => {
   try {
     const userId = req.params.userId || req.user?.id;
+    console.log('getUserEnrollments - userId:', userId);
+    console.log('getUserEnrollments - req.user:', req.user);
+    console.log('getUserEnrollments - req.params:', req.params);
     
     // Check authorization (skip if no auth middleware)
     if (req.user && userId !== req.user.id && req.user.role !== 'admin') {
@@ -326,6 +329,8 @@ const getUserEnrollments = async (req, res) => {
       });
     }
 
+    console.log('Searching for enrollments with userId:', userId);
+
     const { page = 1, limit = 10, status } = req.query;
     
     const filter = { user: userId };
@@ -338,14 +343,56 @@ const getUserEnrollments = async (req, res) => {
       populate: [
         { 
           path: 'program', 
-          select: 'title description category specialization price startDate endDate imageUrl',
-          populate: { path: 'coach', select: 'name' }
+          select: 'title description category specialization price startDate endDate imageUrl duration fee',
+          populate: { 
+            path: 'coach', 
+            select: 'name',
+            populate: {
+              path: 'userId',
+              select: 'firstName lastName email'
+            }
+          }
         },
         { path: 'sessions', select: 'title scheduledDate status' }
       ]
     };
 
-    const enrollments = await paginateHelper(ProgramEnrollment, filter, options);
+    // Try pagination helper first, fallback to simple find if it fails
+    let enrollments;
+    try {
+      enrollments = await paginateHelper(ProgramEnrollment, filter, options);
+      console.log('Found enrollments with pagination:', enrollments);
+    } catch (paginationError) {
+      console.log('Pagination failed, using simple find:', paginationError.message);
+      // Fallback to simple find
+      const simpleEnrollments = await ProgramEnrollment.find(filter)
+        .populate([
+          { 
+            path: 'program', 
+            select: 'title description category specialization price startDate endDate imageUrl duration fee',
+            populate: { 
+              path: 'coach', 
+              select: 'name',
+              populate: {
+                path: 'userId',
+                select: 'firstName lastName email'
+              }
+            }
+          },
+          { path: 'sessions', select: 'title scheduledDate status' }
+        ])
+        .sort({ enrollmentDate: -1 });
+      
+      enrollments = {
+        docs: simpleEnrollments,
+        totalDocs: simpleEnrollments.length,
+        page: 1,
+        totalPages: 1,
+        hasNextPage: false,
+        hasPrevPage: false
+      };
+      console.log('Found enrollments with simple find:', enrollments);
+    }
 
     res.status(200).json({
       success: true,
@@ -490,6 +537,139 @@ const getProgramEnrollmentStats = async (req, res) => {
   }
 };
 
+// @desc    Activate enrollment after payment
+// @route   PUT /api/enrollments/:id/activate
+// @access  Private
+const activateEnrollment = async (req, res) => {
+  try {
+    const enrollment = await ProgramEnrollment.findById(req.params.id);
+
+    if (!enrollment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Enrollment not found'
+      });
+    }
+
+    // Check authorization
+    if (enrollment.user.toString() !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'coach') {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to activate this enrollment'
+      });
+    }
+
+    // Check if payment is completed
+    if (enrollment.paymentStatus !== 'completed') {
+      return res.status(400).json({
+        success: false,
+        message: 'Payment must be completed before activating enrollment'
+      });
+    }
+
+    // Update enrollment status to active
+    enrollment.status = 'active';
+    await enrollment.save();
+
+    const updatedEnrollment = await ProgramEnrollment.findById(enrollment._id)
+      .populate('user', 'firstName lastName email')
+      .populate('program', 'title description coach');
+
+    res.status(200).json({
+      success: true,
+      data: updatedEnrollment,
+      message: 'Enrollment activated successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error activating enrollment',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Debug endpoint to check all enrollments
+// @route   GET /api/enrollments/debug/all
+// @access  Private
+const debugAllEnrollments = async (req, res) => {
+  try {
+    const allEnrollments = await ProgramEnrollment.find({})
+      .populate('user', 'firstName lastName email')
+      .populate('program', 'title description')
+      .limit(10);
+    
+    console.log('Debug - All enrollments in database:', allEnrollments);
+    
+    res.status(200).json({
+      success: true,
+      data: allEnrollments,
+      count: allEnrollments.length
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching all enrollments',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Process enrollment payment
+// @route   POST /api/enrollments/:id/payment
+// @access  Private
+const processEnrollmentPayment = async (req, res) => {
+  try {
+    const { enrollmentId, amount, status, paymentDate } = req.body;
+    
+    // Import Payment model
+    const Payment = (await import('../models/Payments.js')).default;
+    
+    // Create payment record
+    const paymentData = {
+      userId: req.body.userId,
+      paymentType: 'enrollment_payment',
+      amount: amount,
+      status: status || 'success',
+      paymentDate: paymentDate || new Date()
+    };
+    
+    const payment = new Payment(paymentData);
+    await payment.save();
+    
+    // Update enrollment with payment ID and status
+    const enrollment = await ProgramEnrollment.findById(enrollmentId);
+    if (!enrollment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Enrollment not found'
+      });
+    }
+    
+    enrollment.paymentId = payment._id;
+    enrollment.paymentStatus = 'completed';
+    enrollment.status = 'active';
+    await enrollment.save();
+    
+    const updatedEnrollment = await ProgramEnrollment.findById(enrollment._id)
+      .populate('user', 'firstName lastName email')
+      .populate('program', 'title description coach');
+    
+    res.status(200).json({
+      success: true,
+      data: updatedEnrollment,
+      payment: payment,
+      message: 'Enrollment payment processed successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error processing enrollment payment',
+      error: error.message
+    });
+  }
+};
+
 export {
   getAllEnrollments,
   getEnrollment,
@@ -499,5 +679,8 @@ export {
   getUserEnrollments,
   updateProgress,
   addFeedback,
-  getProgramEnrollmentStats
+  getProgramEnrollmentStats,
+  activateEnrollment,
+  debugAllEnrollments,
+  processEnrollmentPayment
 };

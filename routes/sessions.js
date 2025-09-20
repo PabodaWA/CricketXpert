@@ -11,7 +11,8 @@ import {
   markAttendance,
   getSessionsByProgram,
   getSessionsByCoach,
-  getGroundAvailability
+  getGroundAvailability,
+  rescheduleSession
 } from '../controllers/sessionController.js';
 
 // Middleware (Note: You'll need to implement these middleware functions)
@@ -28,6 +29,9 @@ router.get('/:id', getSession);
 router.post('/', /* authorize('coach', 'admin'), */ createSession);
 router.put('/:id', /* authorize('coach', 'admin'), */ updateSession);
 router.delete('/:id', /* authorize('coach', 'admin'), */ deleteSession);
+
+// Manager/Admin only routes
+router.put('/:id/reschedule', /* authorize('manager', 'admin'), */ rescheduleSession);
 
 // Coach attendance management
 router.put('/:id/attendance', /* authorize('coach', 'admin'), */ markAttendance);

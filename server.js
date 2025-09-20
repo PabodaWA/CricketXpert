@@ -18,6 +18,7 @@ import programEnrollmentRoutes from './routes/programEnrollments.js';
 import sessionRoutes from './routes/sessions.js';
 import coachRoutes from './routes/coaches.js';
 import groundRoutes from './routes/groundRoutes.js';
+import playerFeedbackRoutes from './routes/playerFeedbackRoutes.js';
 import syncRoutes from './routes/sync.js';
 
 // --- Repair Service Routes ---
@@ -58,6 +59,7 @@ app.use('/api/enrollments', programEnrollmentRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/coaches', coachRoutes);
 app.use('/api/grounds', groundRoutes);
+app.use('/api/player-feedback', playerFeedbackRoutes);
 app.use('/api/sync', syncRoutes);
 
 // --- Repair Service API Routes ---
