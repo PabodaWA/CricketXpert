@@ -22,6 +22,7 @@ const Products = () => {
   const [error, setError] = useState(null);
   const [cart, setCart] = useState([]); // Local cart state
   const [user, setUser] = useState(null);
+  const [selectedImage, setSelectedImage] = useState(null); // For image modal
   const navigate = useNavigate();
 
   // Get current logged-in user ID
@@ -55,6 +56,28 @@ const Products = () => {
     window.addEventListener('searchProducts', handleSearch);
     return () => window.removeEventListener('searchProducts', handleSearch);
   }, []);
+
+  // Handle ESC key for modal
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape' && selectedImage) {
+        closeImageModal();
+      }
+    };
+
+    if (selectedImage) {
+      document.addEventListener('keydown', handleKeyDown);
+      // Prevent body scroll when modal is open
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'unset';
+    };
+  }, [selectedImage]);
 
   useEffect(() => {
     // Save cart to localStorage whenever it changes
@@ -214,6 +237,15 @@ const Products = () => {
 
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
+  // Image modal functions
+  const openImageModal = (imageUrl, productName) => {
+    setSelectedImage({ url: imageUrl, name: productName });
+  };
+
+  const closeImageModal = () => {
+    setSelectedImage(null);
+  };
+
   return (
     <div className="bg-[#F1F2F7] min-h-screen text-[#36516C]">
       {/* Original Header Component */}
@@ -317,26 +349,59 @@ const Products = () => {
             products.map((product) => {
               const cartItem = cart.find(item => item.productId === product._id);
               const quantity = cartItem ? cartItem.quantity : 0;
+              const stockQuantity = product.stock_quantity || product.stock || 0;
+              const isOutOfStock = stockQuantity <= 0;
+              
               return (
-                <div key={product._id} className="bg-white rounded-lg shadow-md overflow-hidden">
-                  <img
-                    src={product.image_url || 'https://placehold.co/600x500'}
-                    alt={product.name}
-                    className="w-full h-48 object-cover"
-                    onError={(e) => {
-                      console.error(`Product image failed for: ${product.name}`);
-                      console.error(`Failed image URL: ${product.image_url}`);
-                      e.target.src = 'https://placehold.co/300x200';
-                    }}
-                    onLoad={() => {
-                      console.log(`Image loaded successfully for: ${product.name}`);
-                      console.log(`Image URL: ${product.image_url}`);
-                    }}
-                  />
+                <div key={product._id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+                  {/* Clickable Product Image */}
+                  <div 
+                    className="relative cursor-pointer group"
+                    onClick={() => openImageModal(product.image_url || 'https://placehold.co/600x500', product.name)}
+                  >
+                    <img
+                      src={product.image_url || 'https://placehold.co/600x500'}
+                      alt={product.name}
+                      className="w-full h-48 object-contain bg-gray-50 group-hover:opacity-90 transition-opacity"
+                      onError={(e) => {
+                        console.error(`Product image failed for: ${product.name}`);
+                        console.error(`Failed image URL: ${product.image_url}`);
+                        e.target.src = 'https://placehold.co/300x200';
+                      }}
+                      onLoad={() => {
+                        console.log(`Image loaded successfully for: ${product.name}`);
+                        console.log(`Image URL: ${product.image_url}`);
+                      }}
+                    />
+                    {/* Hover overlay */}
+                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-200 flex items-center justify-center">
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-white bg-opacity-90 rounded-full p-2">
+                        <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+                  
                   <div className="p-4">
                     <h3 className="text-xl font-bold text-[#000000] mb-2">{product.name}</h3>
                     <p className="text-[#36516C] mb-2">{product.description?.slice(0, 100) || 'No description'}...</p>
+                    
+                    {/* Stock Information */}
+                    <div className="mb-3">
+                      {isOutOfStock ? (
+                        <span className="inline-block bg-red-100 text-red-800 text-sm px-2 py-1 rounded-full font-medium">
+                          Out of Stock
+                        </span>
+                      ) : (
+                        <span className="inline-block bg-green-100 text-green-800 text-sm px-2 py-1 rounded-full font-medium">
+                          In Stock: {stockQuantity}
+                        </span>
+                      )}
+                    </div>
+                    
                     <p className="text-[#072679] font-bold mb-4">LKR {product.price || 0}</p>
+                    
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <button
@@ -349,16 +414,18 @@ const Products = () => {
                         <span className="text-[#000000] font-medium">{quantity}</span>
                         <button
                           onClick={() => handleQuantityChange(product._id, 1)}
-                          className="bg-[#42ADF5] text-white px-3 py-1 rounded hover:bg-[#2C8ED1]"
+                          className="bg-[#42ADF5] text-white px-3 py-1 rounded hover:bg-[#2C8ED1] disabled:bg-gray-300"
+                          disabled={isOutOfStock}
                         >
                           +
                         </button>
                       </div>
                       <button
                         onClick={() => navigate('/buy', { state: { product } })}
-                        className="bg-[#072679] text-white px-4 py-2 rounded-lg hover:bg-[#051A5C] transition-colors font-medium"
+                        className="bg-[#072679] text-white px-4 py-2 rounded-lg hover:bg-[#051A5C] transition-colors font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
+                        disabled={isOutOfStock}
                       >
-                        Buy
+                        {isOutOfStock ? 'Out of Stock' : 'Buy'}
                       </button>
                     </div>
                   </div>
@@ -368,6 +435,44 @@ const Products = () => {
           )}
         </div>
       </section>
+      
+      {/* Image Modal */}
+      {selectedImage && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
+          onClick={closeImageModal}
+        >
+          <div 
+            className="relative max-w-4xl max-h-full bg-white rounded-lg overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              onClick={closeImageModal}
+              className="absolute top-4 right-4 z-10 bg-black bg-opacity-50 text-white rounded-full p-2 hover:bg-opacity-75 transition-all"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            
+            {/* Modal content */}
+            <div className="p-4">
+              <h3 className="text-xl font-bold text-gray-900 mb-4 text-center">{selectedImage.name}</h3>
+              <div className="flex justify-center">
+                <img
+                  src={selectedImage.url}
+                  alt={selectedImage.name}
+                  className="max-w-full max-h-[70vh] object-contain rounded-lg"
+                  onError={(e) => {
+                    e.target.src = 'https://placehold.co/600x400?text=Image+Not+Available';
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       
       <Footer />
     </div>
