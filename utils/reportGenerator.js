@@ -1,8 +1,8 @@
-const PDFDocument = require('pdfkit');
-const { sendEmail } = require('./notification'); // email function
+import PDFDocument from 'pdfkit';
+import { sendEmail } from './notification.js'; // email function
 
 // Generates PDF and pipes to response, and returns buffer to send via email
-exports.generateRepairReportBuffer = async (data) => {
+const generateRepairReportBuffer = async (data) => {
   return new Promise((resolve, reject) => {
     try {
       const doc = new PDFDocument();
@@ -37,7 +37,7 @@ exports.generateRepairReportBuffer = async (data) => {
 };
 
 // Pipe directly to response
-exports.pipeRepairReportToResponse = (res, data) => {
+const pipeRepairReportToResponse = (res, data) => {
   const doc = new PDFDocument();
 
   res.setHeader('Content-Type', 'application/pdf');
@@ -64,8 +64,8 @@ exports.pipeRepairReportToResponse = (res, data) => {
 };
 
 // Send report via email
-exports.sendRepairReportEmail = async (data) => {
-  const pdfBuffer = await exports.generateRepairReportBuffer(data);
+const sendRepairReportEmail = async (data) => {
+  const pdfBuffer = await generateRepairReportBuffer(data);
 
   await sendEmail(
     data.customerId.email,
@@ -74,4 +74,10 @@ exports.sendRepairReportEmail = async (data) => {
     pdfBuffer,
     `repair_report_${data._id}.pdf`
   );
+};
+
+export default {
+  generateRepairReportBuffer,
+  pipeRepairReportToResponse,
+  sendRepairReportEmail
 };

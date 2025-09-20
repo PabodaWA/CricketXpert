@@ -72,7 +72,7 @@ const Header = () => {
   };
 
   return (
-    <header className="shadow-lg w-full">
+    <header className="shadow-lg w-full relative z-50">
       {/* Top section - Dark blue background */}
       <div className="bg-blue-900 h-20 relative w-full">
         <div className="w-full mx-auto px-12 sm:px-16 lg:px-20 h-full">

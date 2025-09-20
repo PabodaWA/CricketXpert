@@ -1,6 +1,6 @@
-const express = require('express');
+import express from 'express';
+import feedbackController from '../controllers/feedbackController.js';
 const router = express.Router();
-const feedbackController = require('../controllers/feedbackController');
 
 // Customer submits feedback
 router.post('/', feedbackController.createFeedback);
@@ -21,4 +21,4 @@ router.delete('/:id', feedbackController.deleteFeedback);
 // Customer Dashboard - get all feedbacks by customer
 router.get('/dashboard/customer/:customerId', feedbackController.getCustomerFeedbacks);
 
-module.exports = router;
+export default router;

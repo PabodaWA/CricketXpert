@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
 
 // --- Security and Layout Components ---
 import ProtectedRoute from './components/ProtectedRoute.jsx';
@@ -44,6 +44,32 @@ import AddProducts from './pages/OrderManager/AddProduct.jsx';
 // --- Placeholder Pages for Admin Dashboard ---
 const AdminDashboardOverview = () => <div className="p-4 bg-white rounded-lg shadow"><h2>Admin Dashboard Overview</h2><p>Here you can see site statistics.</p></div>;
 const Payments = () => <div className="p-4 bg-white rounded-lg shadow"><h2>All Payments</h2></div>;
+
+// --- Repair Service Components ---
+import RepairRequestForm from './pages/RepairRequestForm';
+import MyRequestsPage from './pages/MyRequestsPage';
+import CustomerDashboard from './pages/CustomerDashboard';
+import ServiceManagerDashboard from './pages/ServiceManagerDashboard';
+import TechnicianDashboard from './pages/TechnicianDashboard';
+import Dashboard from './pages/Dashboard';
+import SimpleDashboard from './pages/SimpleDashboard';
+import AboutUs from './pages/AboutUs';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsAndConditions from './pages/TermsAndConditions';
+import FAQ from './pages/FAQ';
+import ContactUs from './pages/ContactUs';
+import ContactSuccess from './pages/ContactSuccess';
+import AdminMessages from './pages/AdminMessages';
+import Header from './components/Header';
+import Footer from './components/Footer';
+import NewTechnicianForm from './pages/NewTechnicianForm';
+import TestPage from './pages/TestPage';
+
+// Wrapper to pass URL param
+function CustomerDashboardWrapper() {
+  const { customerId } = useParams();
+  return <CustomerDashboard customerId={customerId} />;
+}
 
 export default function App() {
   return (
@@ -110,20 +136,6 @@ export default function App() {
             </Route>
         </Route>
 
-        {/* --- 🏏 COACH ROUTES --- */}
-        {/* Temporarily disable authentication for testing */}
-        {/* <Route element={<ProtectedRoute allowedRoles={['coach']} />}> */}
-            <Route path="/coach-dashboard" element={<CoachDashboard />} />
-        {/* </Route> */}
-
-        {/* --- 📊 MANAGER ROUTES --- */}
-        {/* Temporarily disable authentication for testing */}
-        {/* <Route element={<ProtectedRoute allowedRoles={['manager', 'admin']} />}> */}
-            <Route path="/manager-dashboard" element={<ManagerDashboard />} />
-        {/* </Route> */}
-
-        {/* --- TEST ROUTE (temporary) --- */}
-        <Route path="/test-coach" element={<CoachDashboard />} />
 
       </Routes>
     </Router>

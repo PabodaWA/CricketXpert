@@ -1,3 +1,88 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  /* Main Brand Colors */
+  --primary: #072679;        /* Dark navy - professional, sporty, trustworthy */
+  --secondary: #42ADF5;      /* Sky blue - fresh, energetic, works well for sports */
+  
+  /* Font Colors */
+  --heading: #000000;        /* Black for strong readability */
+  --body: #36516C;           /* Steel blue for softer reading experience */
+  --light-text: #F1F2F7;     /* Light gray/white for high contrast on dark backgrounds */
+  
+  /* Button Colors */
+  --btn-primary: #42ADF5;    /* Sky blue for primary buttons */
+  --btn-primary-hover: #2C8ED1; /* Slightly darker blue for hover */
+  --btn-secondary: #D88717;  /* Orange-brown for secondary buttons - sporty call-to-action */
+  
+  /* Background Colors */
+  --bg-main: #F1F2F7;        /* Light gray - clean, minimal */
+  --bg-white: #FFFFFF;       /* Pure white for cards and sections */
+}
+
+/* Custom utility classes */
+.bg-primary { background-color: var(--primary); }
+.bg-secondary { background-color: var(--secondary); }
+.bg-main { background-color: var(--bg-main); }
+
+.text-primary { color: var(--primary); }
+.text-secondary { color: var(--secondary); }
+.text-heading { color: var(--heading); }
+.text-body { color: var(--body); }
+.text-light { color: var(--light-text); }
+
+.border-primary { border-color: var(--primary); }
+.border-secondary { border-color: var(--secondary); }
+
+/* Button styles */
+.btn-primary {
+  background-color: var(--btn-primary);
+  color: var(--light-text);
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  background-color: var(--btn-primary-hover);
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background-color: var(--btn-secondary);
+  color: var(--light-text);
+  transition: all 0.3s ease;
+}
+
+.btn-secondary:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+/* Hide scrollbar for testimonials */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* Internet Explorer 10+ */
+  scrollbar-width: none;  /* Firefox */
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.scrollbar-hide::-webkit-scrollbar { 
+  display: none;  /* Safari and Chrome */
+}
+
+/* Ensure horizontal scrolling works */
+.testimonials-container {
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  scroll-behavior: smooth;
+}
+
+.testimonials-container::-webkit-scrollbar {
+  display: none;
+}
+
+.testimonials-container {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

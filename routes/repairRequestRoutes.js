@@ -1,6 +1,6 @@
-const express = require('express');
+import express from 'express';
+import repairController from '../controllers/repairRequestController.js';
 const router = express.Router();
-const repairController = require('../controllers/repairRequestController');
 
 // Customer Dashboard - Get all repair requests for a customer
 router.get('/dashboard/customer/:customerId', repairController.getCustomerRepairRequests);
@@ -36,6 +36,21 @@ router.get('/', repairController.getAllRepairRequests);
 // Create a new repair request (Customer)
 router.post('/', repairController.createRepairRequest);
 
+// Test endpoint to verify data saving
+router.post('/test', repairController.testRepairRequest);
+
+// Debug endpoint to check database contents
+router.get('/debug', repairController.debugRepairRequests);
+
+// Test endpoint to verify description flow
+router.post('/test-description', repairController.testDescriptionFlow);
+
+// Simple test endpoint for description
+router.post('/test-simple', repairController.testDescriptionSimple);
+
+// Check database descriptions
+router.get('/check-db', repairController.checkDatabaseDescription);
+
 // Update a repair request (Customer)
 router.put('/:id', repairController.updateRepairGeneral);
 
@@ -45,4 +60,4 @@ router.delete('/:id', repairController.deleteRepairRequest);
 // Submit feedback for a repair request
 router.post('/:id/feedback', repairController.submitFeedback);
 
-module.exports = router;
+export default router;

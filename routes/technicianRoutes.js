@@ -1,6 +1,6 @@
-const express = require('express');
+import express from 'express';
+import technicianController from '../controllers/technicianController.js';
 const router = express.Router();
-const technicianController = require('../controllers/technicianController');
 
 // Create a new technician
 router.post('/', technicianController.createTechnician);
@@ -11,8 +11,8 @@ router.get('/', technicianController.getAllTechnicians);
 // Test route to see all technicians
 router.get('/test/all', async (req, res) => {
   try {
-    const Technician = require('../models/Technician');
-    const User = require('../models/User');
+    const Technician = (await import('../models/Technician.js')).default;
+    const User = (await import('../models/User.js')).default;
     
     const technicians = await Technician.find().populate('technicianId', 'username firstName lastName email');
     const totalTechnicians = await Technician.countDocuments();
@@ -30,7 +30,7 @@ router.get('/test/all', async (req, res) => {
 // Route to delete first 4 technicians (for cleanup)
 router.delete('/cleanup/first-four', async (req, res) => {
   try {
-    const Technician = require('../models/Technician');
+    const Technician = (await import('../models/Technician.js')).default;
     
     // Get the first 4 technicians
     const firstFourTechnicians = await Technician.find().limit(4);
@@ -64,4 +64,4 @@ router.put('/:id', technicianController.updateTechnician);
 // Delete technician
 router.delete('/:id', technicianController.deleteTechnician);
 
-module.exports = router;
+export default router;

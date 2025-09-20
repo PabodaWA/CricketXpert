@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const technicianSchema = new mongoose.Schema({
   // Reference to the user table
@@ -19,4 +19,4 @@ const technicianSchema = new mongoose.Schema({
   timestamps: true 
 });
 
-module.exports = mongoose.model('Technician', technicianSchema);
+export default mongoose.model('Technician', technicianSchema);

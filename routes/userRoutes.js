@@ -1,6 +1,6 @@
-const express = require('express');
+import express from 'express';
+import userController from '../controllers/userController.js';
 const router = express.Router();
-const userController = require('../controllers/userController');
 
 // Create user
 router.post('/', userController.createUser);
@@ -18,7 +18,7 @@ router.put('/:id', userController.updateUser);
 router.delete('/:id', userController.deleteUser);
 
 // Get user by username
-const User = require("../models/User");
+import User from "../models/User.js";
 
 router.get("/search/:username", async (req, res) => {
   try {
@@ -103,4 +103,4 @@ router.get("/test/exists", async (req, res) => {
 });
 
 
-module.exports = router;
+export default router;

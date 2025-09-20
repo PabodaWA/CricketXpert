@@ -3,6 +3,8 @@ import axios from 'axios';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { X, Search, User, ShoppingCart, Minus, Plus } from 'lucide-react';
 import { getCurrentUserId } from '../utils/getCurrentUser';
+import Header from '../components/Header';
+import Footer from '../components/Footer';
 
 const Cart = () => {
   const [cart, setCart] = useState([]);
@@ -212,29 +214,9 @@ const Cart = () => {
   }
 
   return (
-    <div className="bg-[#F1F2F7] min-h-screen text-[#36516C] p-8">
-      {/* Header */}
-      <nav className="flex justify-between items-center mb-8 bg-white p-4 rounded-lg shadow-sm">
-        <div className="text-2xl font-bold text-[#072679]">CricketExpert.</div>
-        <div className="flex space-x-6 text-gray-600">
-          <span className="border-b-2 border-[#42ADF5]">home</span>
-          <span>menu</span>
-          <span>mobile app</span>
-          <span>contact us</span>
-        </div>
-        <div className="flex items-center space-x-4">
-          <Search className="w-5 h-5 text-gray-600" />
-          <div className="relative">
-            <ShoppingCart className="w-5 h-5 text-gray-600" />
-            {cartItemCount > 0 && (
-              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                {cartItemCount}
-              </span>
-            )}
-          </div>
-          <User className="w-5 h-5 text-gray-600" />
-        </div>
-      </nav>
+    <div className="bg-[#F1F2F7] min-h-screen text-[#36516C]">
+      <Header />
+      <div className="p-8">
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Items List */}
@@ -324,6 +306,8 @@ const Cart = () => {
           
         </div>
       </div>
+      </div>
+      <Footer />
     </div>
   );
 };

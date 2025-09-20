@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { isLoggedIn, getCurrentUserRole } from '../utils/getCurrentUser';
 import Payment from './Payment';
+import Header from '../components/Header';
+import Footer from '../components/Footer';
 
 export default function ProgramDetails() {
   const { id } = useParams();
@@ -189,7 +191,8 @@ export default function ProgramDetails() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+      <Header />
+      {/* Page Header */}
       <div className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center justify-between">
@@ -523,6 +526,7 @@ export default function ProgramDetails() {
           </div>
         </div>
       )}
+      <Footer />
     </div>
   );
 }

@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { Search, Package, Clock, CheckCircle, XCircle, Truck, MapPin } from 'lucide-react';
+import Header from '../components/Header';
+import Footer from '../components/Footer';
 
 const OrderTracking = () => {
   const location = useLocation();
@@ -161,11 +163,13 @@ const OrderTracking = () => {
   };
 
   return (
-    <div className="bg-[#F1F2F7] min-h-screen p-8">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-lg shadow-sm p-8 mb-6 text-center">
-          <h1 className="text-3xl font-bold text-[#072679] mb-4">Track Your Order</h1>
+    <div className="bg-[#F1F2F7] min-h-screen">
+      <Header />
+      <div className="p-8">
+        <div className="max-w-4xl mx-auto">
+          {/* Page Title */}
+          <div className="bg-white rounded-lg shadow-sm p-8 mb-6 text-center">
+            <h1 className="text-3xl font-bold text-[#072679] mb-4">Track Your Order</h1>
           <p className="text-[#36516C] mb-6">Enter your order ID to track the current status of your order</p>
           
           {/* Search Input */}
@@ -349,6 +353,8 @@ const OrderTracking = () => {
           </div>
         </div>
       </div>
+      </div>
+      <Footer />
     </div>
   );
 };

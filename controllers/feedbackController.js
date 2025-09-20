@@ -1,11 +1,11 @@
-const Feedback = require('../models/Feedback');
-const RepairRequest = require('../models/RepairRequest');
-const { sendEmail } = require('../utils/notification');
+import Feedback from '../models/Feedback.js';
+import RepairRequest from '../models/RepairRequest.js';
+import { sendEmail } from '../utils/notification.js';
 
 /**
  * 1️⃣ Submit Feedback (Customer)
  */
-exports.createFeedback = async (req, res) => {
+const createFeedback = async (req, res) => {
   try {
     const { requestId, requestType, customerId, description, category } = req.body;
 
@@ -43,7 +43,7 @@ exports.createFeedback = async (req, res) => {
 /**
  * 2️⃣ Get All Feedbacks (Service Manager Dashboard)
  */
-exports.getAllFeedback = async (req, res) => {
+const getAllFeedback = async (req, res) => {
   try {
     const feedbacks = await Feedback.find({ requestType: 'RepairRequest' })
       .populate('customerId', 'username email')
@@ -56,7 +56,7 @@ exports.getAllFeedback = async (req, res) => {
   }
 };
 // Get single feedback by ID
-exports.getFeedbackById = async (req, res) => {
+const getFeedbackById = async (req, res) => {
   try {
     const { id } = req.params;
     const feedback = await Feedback.findById(id)
@@ -77,7 +77,7 @@ exports.getFeedbackById = async (req, res) => {
  * - Update status or add response
  * - Send email to customer when responded
  */
-exports.updateFeedback = async (req, res) => {
+const updateFeedback = async (req, res) => {
   try {
     const { id } = req.params;
     const { status, response } = req.body;
@@ -109,7 +109,7 @@ exports.updateFeedback = async (req, res) => {
 /**
  * 4️⃣ Delete Feedback
  */
-exports.deleteFeedback = async (req, res) => {
+const deleteFeedback = async (req, res) => {
   try {
     const { id } = req.params;
     const deleted = await Feedback.findByIdAndDelete(id);
@@ -123,7 +123,7 @@ exports.deleteFeedback = async (req, res) => {
 /**
  * 5️⃣ Customer Dashboard - Get feedbacks submitted by customer
  */
-exports.getCustomerFeedbacks = async (req, res) => {
+const getCustomerFeedbacks = async (req, res) => {
   try {
     const { customerId } = req.params;
     const feedbacks = await Feedback.find({ customerId })
@@ -133,4 +133,13 @@ exports.getCustomerFeedbacks = async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+};
+
+export default {
+  createFeedback,
+  getAllFeedback,
+  getFeedbackById,
+  updateFeedback,
+  deleteFeedback,
+  getCustomerFeedbacks
 };

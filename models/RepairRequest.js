@@ -1,8 +1,10 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const repairRequestSchema = new mongoose.Schema({
   customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  equipmentType: { type: String, required: false },
   damageType: { type: String, required: true },
+  description: { type: String, required: false, default: '' },
   status: {
     type: String,
     enum: [
@@ -20,4 +22,4 @@ const repairRequestSchema = new mongoose.Schema({
   currentStage: { type: String }
 }, { timestamps: true });
 
-module.exports = mongoose.model('RepairRequest', repairRequestSchema);
+export default mongoose.model('RepairRequest', repairRequestSchema);
