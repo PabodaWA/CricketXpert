@@ -87,11 +87,6 @@ const Footer = () => {
                    FAQ
                  </Link>
                </li>
-               <li>
-                 <Link to="/admin-messages" className="text-gray-300 hover:text-white transition-colors text-sm">
-                   Admin Messages
-                 </Link>
-               </li>
              </ul>
           </div>
 
