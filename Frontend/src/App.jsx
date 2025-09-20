@@ -21,6 +21,7 @@ import MyOrders from './pages/MyOrders.jsx';
 // --- New E-commerce Pages ---
 import Home from './pages/Home.jsx';
 import Products from './pages/Products.jsx';
+import BuyPage from './pages/BuyPage.jsx';
 import Cart from './pages/Cart.jsx';
 import Delivery from './pages/Delivery.jsx';
 import Payment from './pages/Payment.jsx';
@@ -85,6 +86,7 @@ export default function App() {
         {/* --- E-commerce Public Routes --- */}
         <Route path="/" element={<Home />} />
         <Route path="/products" element={<Products />} />
+        <Route path="/buy" element={<BuyPage />} />
         <Route path="/cart" element={<Cart />} />
         <Route path="/delivery" element={<Delivery />} />
         <Route path="/payment" element={<Payment />} />

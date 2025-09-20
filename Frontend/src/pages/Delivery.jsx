@@ -7,7 +7,7 @@ import { Search, User, ShoppingCart } from 'lucide-react';
 const Delivery = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { cart, totalData } = location.state || { cart: [], totalData: { subtotal: 0, deliveryFee: 450, total: 0 } };
+  const { cart, totalData, singleProduct, quantity } = location.state || { cart: [], totalData: { subtotal: 0, deliveryFee: 450, total: 0 } };
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -110,6 +110,28 @@ const Delivery = () => {
               <p><strong>Address:</strong> {user?.address || 'No address provided'}</p>
             </div>
           </div>
+
+          {/* Single Product Details (when coming from BuyPage) */}
+          {singleProduct && (
+            <div className="bg-white rounded-lg p-6 shadow-sm mt-6">
+              <h2 className="text-xl font-bold mb-4">Order Summary</h2>
+              <div className="flex items-center space-x-4">
+                <img
+                  src={singleProduct.image_url || 'https://placehold.co/100x100'}
+                  alt={singleProduct.name}
+                  className="w-20 h-20 object-cover rounded-lg"
+                  onError={(e) => {
+                    e.target.src = 'https://placehold.co/100x100';
+                  }}
+                />
+                <div className="flex-1">
+                  <h3 className="font-semibold text-lg">{singleProduct.name}</h3>
+                  <p className="text-gray-600">Quantity: {quantity}</p>
+                  <p className="text-[#072679] font-bold">LKR {singleProduct.price?.toLocaleString()}</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Cart Totals */}
