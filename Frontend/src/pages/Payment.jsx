@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { getCurrentUserId, isLoggedIn } from '../utils/getCurrentUser';
+import Header from '../components/Header';
+import Footer from '../components/Footer';
 
 const Payment = () => {
   const location = useLocation();
@@ -251,8 +253,9 @@ const Payment = () => {
   );
 
   return (
-    <div className="bg-[#F1F2F7] min-h-screen text-[#36516C] p-8">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <div className="bg-[#F1F2F7] min-h-screen text-[#36516C]">
+      <Header />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 p-8">
         {/* Order/Enrollment Summary */}
         <div className="bg-white rounded-lg p-6 shadow-sm">
           {type === 'enrollment' ? (
@@ -370,6 +373,7 @@ const Payment = () => {
           </div>
         </div>
       </div>
+      <Footer />
     </div>
   );
 };
