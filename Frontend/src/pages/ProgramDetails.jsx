@@ -495,6 +495,21 @@ export default function ProgramDetails() {
                     </div>
                   </div>
                 </div>
+
+                {/* Email Confirmation Notice */}
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-start">
+                    <div className="text-green-600 mr-3">
+                      <span className="text-lg">📧</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-green-800">Email Confirmation</p>
+                      <p className="text-sm text-green-700">
+                        After enrollment, you'll receive a confirmation email with program details and next steps.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="flex justify-end space-x-4 mt-6">
