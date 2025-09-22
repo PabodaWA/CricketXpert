@@ -44,7 +44,8 @@ import {
   searchProducts,
   getProductsByCategory,
   getCategories,
-  getBrands
+  getBrands,
+  updateStock
 } from '../controllers/productController.js';
 
 // Search and filter routes
@@ -74,6 +75,7 @@ router.post('/', (req, res, next) => {
 router.get('/', getProducts);
 router.get('/:id', getProduct);
 router.put('/:id', upload.single('image'), updateProduct);
+router.put('/:id/stock', updateStock);
 router.delete('/:id', deleteProduct);
 
 export default router;

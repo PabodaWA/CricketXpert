@@ -23,6 +23,8 @@ export default function ProgramDetails() {
     experience: '',
     goals: ''
   });
+  const [showEnrollmentErrorModal, setShowEnrollmentErrorModal] = useState(false);
+  const [enrollmentErrorMessage, setEnrollmentErrorMessage] = useState('');
 
   useEffect(() => {
     if (id) {
@@ -121,7 +123,8 @@ export default function ProgramDetails() {
         alert('Please log in to enroll in programs');
         navigate('/login');
       } else if (err.response?.status === 400) {
-        alert(err.response.data.message || 'Unable to enroll in this program');
+        setEnrollmentErrorMessage(err.response.data.message || 'Unable to enroll in this program');
+        setShowEnrollmentErrorModal(true);
       } else if (err.response?.status === 404) {
         alert('Enrollment endpoint not found. Please check if the server is running.');
       } else {
@@ -495,6 +498,21 @@ export default function ProgramDetails() {
                     </div>
                   </div>
                 </div>
+
+                {/* Email Confirmation Notice */}
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-start">
+                    <div className="text-green-600 mr-3">
+                      <span className="text-lg">📧</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-green-800">Email Confirmation</p>
+                      <p className="text-sm text-green-700">
+                        After enrollment, you'll receive a confirmation email with program details and next steps.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="flex justify-end space-x-4 mt-6">
@@ -526,6 +544,42 @@ export default function ProgramDetails() {
           </div>
         </div>
       )}
+
+      {/* Enrollment Error Modal */}
+      {showEnrollmentErrorModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-gray-900">Enrollment Error</h2>
+                <button
+                  onClick={() => setShowEnrollmentErrorModal(false)}
+                  className="text-gray-400 hover:text-gray-600 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+              
+              <div className="mb-6">
+                <p className="text-gray-700">{enrollmentErrorMessage}</p>
+              </div>
+              
+              <div className="flex justify-end">
+                <button
+                  onClick={() => {
+                    setShowEnrollmentErrorModal(false);
+                    navigate('/customer/profile');
+                  }}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Footer />
     </div>
   );

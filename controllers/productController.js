@@ -197,6 +197,46 @@ const getBrands = async (req, res) => {
   }
 };
 
+// Update stock quantity
+const updateStock = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { stockChange } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid Product ID" });
+    }
+
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    const newStock = product.stock_quantity + stockChange;
+    if (newStock < 0) {
+      return res.status(400).json({ message: "Stock cannot be negative" });
+    }
+
+    product.stock_quantity = newStock;
+    await product.save();
+
+    // Check for low stock alert
+    if (product.stock_quantity <= 10) {
+      console.log(`⚠️ LOW STOCK ALERT: ${product.name} - Stock: ${product.stock_quantity}`);
+      try {
+        await sendLowStockAlert(product);
+        console.log(`📧 Low stock email alert sent for: ${product.name}`);
+      } catch (emailError) {
+        console.error(`❌ Failed to send low stock email for ${product.name}:`, emailError);
+      }
+    }
+
+    res.json(product);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export {
   createProduct,
   getProducts,
@@ -206,5 +246,6 @@ export {
   searchProducts,
   getProductsByCategory,
   getCategories,
-  getBrands
+  getBrands,
+  updateStock
 };
