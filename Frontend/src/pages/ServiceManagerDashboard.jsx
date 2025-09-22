@@ -396,7 +396,7 @@ const ServiceManagerDashboard = () => {
       {/* Main Content */}
       <main className="flex-1 p-8 relative">
         {/* Sidebar Toggle Button - Left Corner */}
-        <div className="absolute top-0 left-0 z-40">
+        <div className="absolute top-0 left-0 z-50">
           <button
             onClick={() => setShowSidebar(!showSidebar)}
             className="bg-white p-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
@@ -411,13 +411,13 @@ const ServiceManagerDashboard = () => {
       {/* Sidebar Overlay */}
       {showSidebar && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-30"
+          className="fixed inset-0 bg-black bg-opacity-50 z-40"
           onClick={() => setShowSidebar(false)}
         ></div>
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed top-0 left-0 h-full w-64 bg-white shadow-xl transform transition-transform duration-300 ease-in-out z-40 ${
+      <aside className={`fixed top-0 left-0 h-full w-64 bg-white shadow-xl transform transition-transform duration-300 ease-in-out z-50 ${
         showSidebar ? 'translate-x-0' : '-translate-x-full'
       }`}>
         <div className="p-4 h-full flex flex-col">
@@ -459,20 +459,6 @@ const ServiceManagerDashboard = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM3 20a6 6 0 0 1 12 0v1H3v-1z" />
               </svg>
               <span>New Technician</span>
-            </button>
-            <button
-              onClick={() => {
-                navigate('/technician');
-                setShowSidebar(false);
-              }}
-              className="w-full text-left px-4 py-3 rounded-lg font-medium text-gray-700 hover:text-white transition-colors flex items-center space-x-3"
-              onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#42ADF5'; }}
-              onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-              <span>Technicians</span>
             </button>
           </nav>
           

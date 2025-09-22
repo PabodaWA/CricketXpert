@@ -377,7 +377,7 @@ const TechnicianDashboard = () => {
       {/* Main Content */}
       <main className="flex-1 p-8 relative">
         {/* Sidebar Toggle Button - Left Corner */}
-        <div className="absolute top-0 left-0 z-40">
+        <div className="absolute top-0 left-0 z-50">
           <button
             onClick={() => setShowSidebar(!showSidebar)}
             className="bg-white p-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
@@ -392,13 +392,13 @@ const TechnicianDashboard = () => {
       {/* Sidebar Overlay */}
       {showSidebar && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-30"
+          className="fixed inset-0 bg-black bg-opacity-50 z-40"
           onClick={() => setShowSidebar(false)}
         ></div>
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed top-0 left-0 h-full w-64 bg-white shadow-xl transform transition-transform duration-300 ease-in-out z-40 ${
+      <aside className={`fixed top-0 left-0 h-full w-64 bg-white shadow-xl transform transition-transform duration-300 ease-in-out z-50 ${
         showSidebar ? 'translate-x-0' : '-translate-x-full'
       }`}>
         <div className="p-4 h-full flex flex-col">
