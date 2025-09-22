@@ -35,6 +35,14 @@ export default function Login() {
             } else if (data.role === 'order_manager') {
                     // Redirecting to the default page we set up in App.jsx
                 navigate('/order_manager/orders'); 
+            } else if (data.role === 'technician') {
+                navigate('/technician');
+            } else if (data.role === 'service_manager') {
+                navigate('/service-dashboard');
+            } else if (data.role === 'coach') {
+                navigate('/coach-dashboard');
+            } else if (data.role === 'coaching_manager') {
+                navigate('/manager-dashboard');
             } else {
                      // Redirect customers and all other roles to home
                  navigate('/'); 

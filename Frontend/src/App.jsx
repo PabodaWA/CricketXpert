@@ -114,21 +114,25 @@ export default function App() {
             </Route>
         </Route>
 
-        // PMedhani
         {/* --- 🏏 COACH ROUTES --- */}
-        {/* Temporarily disable authentication for testing */}
-        {/* <Route element={<ProtectedRoute allowedRoles={['coach']} />}> */}
+        <Route element={<ProtectedRoute allowedRoles={['coach']} />}>
             <Route path="/coach-dashboard" element={<CoachDashboard />} />
-        {/* </Route> */}
+        </Route>
 
-        {/* --- 📊 MANAGER ROUTES --- */}
-        {/* Temporarily disable authentication for testing */}
-        {/* <Route element={<ProtectedRoute allowedRoles={['manager', 'admin']} />}> */}
+        {/* --- 📊 COACHING MANAGER ROUTES --- */}
+        <Route element={<ProtectedRoute allowedRoles={['coaching_manager']} />}>
             <Route path="/manager-dashboard" element={<ManagerDashboard />} />
-        {/* </Route> */}
+        </Route>
 
-        {/* --- TEST ROUTE (temporary) --- */}
-        <Route path="/test-coach" element={<CoachDashboard />} />
+        {/* --- 🔧 TECHNICIAN ROUTES --- */}
+        <Route element={<ProtectedRoute allowedRoles={['technician']} />}>
+            <Route path="/technician" element={<TechnicianDashboard />} />
+        </Route>
+
+        {/* --- 🛠️ SERVICE MANAGER ROUTES --- */}
+        <Route element={<ProtectedRoute allowedRoles={['service_manager']} />}>
+            <Route path="/service-dashboard" element={<Dashboard />} />
+        </Route>
 
         =======
 
