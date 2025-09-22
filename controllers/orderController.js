@@ -195,9 +195,14 @@ const updateOrderStatus = async (req, res) => {
     const order = await Order.findById(req.params.id);
     if (!order) return res.status(404).json({ message: 'Order not found' });
 
-    // If order is being marked as completed, reduce stock
-    if (status === 'completed' && order.status !== 'completed') {
-      await reduceProductStock(order.items);
+    const previousStatus = order.status;
+
+    // Handle stock changes based on status transitions
+    if (status === 'cancelled' && previousStatus !== 'cancelled') {
+      // Order is being cancelled - restore stock if it was previously paid/created
+      if (previousStatus === 'created' || previousStatus === 'processing' || previousStatus === 'completed') {
+        await restoreProductStock(order.items);
+      }
     }
 
     // Update order status
@@ -224,15 +229,22 @@ const updateOrder = async (req, res) => {
       return res.status(400).json({ message: 'Invalid order status' });
     }
 
+    const previousStatus = order.status;
+
     // Update fields if provided
     if (address !== undefined) order.address = address;
     if (amount !== undefined) order.amount = amount;
     if (status !== undefined) order.status = status;
     if (items !== undefined) order.items = items;
 
-    // If order is being marked as completed, reduce stock
-    if (status === 'completed' && order.status !== 'completed') {
-      await reduceProductStock(order.items);
+    // Handle stock changes based on status transitions
+    if (status !== undefined) {
+      if (status === 'cancelled' && previousStatus !== 'cancelled') {
+        // Order is being cancelled - restore stock if it was previously paid/created
+        if (previousStatus === 'created' || previousStatus === 'processing' || previousStatus === 'completed') {
+          await restoreProductStock(order.items);
+        }
+      }
     }
 
     await order.save();
@@ -672,6 +684,28 @@ const reduceProductStock = async (orderItems) => {
     }
   } catch (error) {
     console.error('Error reducing product stock:', error);
+    throw error;
+  }
+};
+
+// Function to restore product stock when order is cancelled
+const restoreProductStock = async (orderItems) => {
+  try {
+    for (const item of orderItems) {
+      const product = await Product.findById(item.productId);
+      if (product) {
+        // Restore stock quantity
+        const newStock = product.stock_quantity + item.quantity;
+        product.stock_quantity = newStock;
+        
+        // Log stock restoration
+        console.log(`📦 Stock restored for ${product.name}: ${product.stock_quantity - item.quantity} → ${newStock} (restored by ${item.quantity})`);
+        
+        await product.save();
+      }
+    }
+  } catch (error) {
+    console.error('Error restoring product stock:', error);
     throw error;
   }
 };
