@@ -281,6 +281,10 @@ const updateCoach = async (req, res) => {
     const coachId = req.params.id;
     const updateData = { ...req.body };
 
+    console.log('=== COACH UPDATE REQUEST ===');
+    console.log('Coach ID:', coachId);
+    console.log('Update Data:', updateData);
+
     // Remove fields that shouldn't be updated via this endpoint
     delete updateData.userId;
     delete updateData.rating;
@@ -303,6 +307,28 @@ const updateCoach = async (req, res) => {
     //   });
     // }
 
+    // If userId data is provided, update the User document first
+    if (updateData.userId && typeof updateData.userId === 'object') {
+      const userUpdateData = {
+        firstName: updateData.userId.firstName,
+        lastName: updateData.userId.lastName,
+        email: updateData.userId.email
+      };
+      
+      console.log('Updating User with:', userUpdateData);
+      
+      await User.findByIdAndUpdate(
+        coach.userId,
+        userUpdateData,
+        { new: true, runValidators: true }
+      );
+      
+      // Remove userId from coach update data
+      delete updateData.userId;
+    }
+
+    console.log('Updating Coach with:', updateData);
+
     const updatedCoach = await Coach.findByIdAndUpdate(
       coachId,
       updateData,
@@ -310,12 +336,16 @@ const updateCoach = async (req, res) => {
     ).populate('userId', 'firstName lastName email profileImageURL')
      .populate('assignedPrograms', 'title description category specialization isActive price currentEnrollments maxParticipants duration startDate endDate');
 
+    console.log('Updated Coach:', updatedCoach);
+
     res.status(200).json({
       success: true,
       data: updatedCoach,
       message: 'Coach profile updated successfully'
     });
   } catch (error) {
+    console.error('Coach update error:', error);
+    
     if (error.name === 'ValidationError') {
       return res.status(400).json({
         success: false,
