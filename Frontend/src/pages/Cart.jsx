@@ -14,6 +14,8 @@ const Cart = () => {
   const [totalData, setTotalData] = useState({ subtotal: 0, deliveryFee: 450, total: 0 });
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
+  const [selectedItems, setSelectedItems] = useState(new Set());
+  const [selectedTotal, setSelectedTotal] = useState(0);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -171,6 +173,35 @@ const Cart = () => {
     });
   };
 
+  // Handle checkbox selection for individual items
+  const handleItemSelection = (productId) => {
+    setSelectedItems(prevSelected => {
+      const newSelected = new Set(prevSelected);
+      if (newSelected.has(productId)) {
+        newSelected.delete(productId);
+      } else {
+        newSelected.add(productId);
+      }
+      return newSelected;
+    });
+  };
+
+  // Calculate total for selected items
+  const calculateSelectedTotal = () => {
+    const total = cart
+      .filter(item => selectedItems.has(item.productId))
+      .reduce((sum, item) => {
+        const product = getProductDetails(item.productId);
+        return sum + (product.price || 0) * item.quantity;
+      }, 0);
+    setSelectedTotal(total);
+  };
+
+  // Update selected total whenever selected items or cart changes
+  useEffect(() => {
+    calculateSelectedTotal();
+  }, [selectedItems, cart, products]);
+
   const calculateTotal = async () => {
     try {
       const orderItems = cart.map(item => {
@@ -203,6 +234,45 @@ const Cart = () => {
     navigate('/delivery', { state: { cart, totalData } });
   };
 
+  // Handle checkout - use selected items if any are selected, otherwise use all cart items
+  const handleProceedToCheckout = () => {
+    if (cart.length === 0) {
+      alert('Your cart is empty. Please add items to proceed to checkout.');
+      return;
+    }
+
+    let checkoutCart, checkoutTotalData;
+
+    if (selectedItems.size > 0) {
+      // Use selected items only
+      checkoutCart = cart.filter(item => selectedItems.has(item.productId));
+      
+      const selectedSubtotal = checkoutCart.reduce((sum, item) => {
+        const product = getProductDetails(item.productId);
+        return sum + (product.price || 0) * item.quantity;
+      }, 0);
+      
+      checkoutTotalData = {
+        subtotal: selectedSubtotal,
+        deliveryFee: 450,
+        total: selectedSubtotal + 450
+      };
+    } else {
+      // Use all cart items
+      checkoutCart = cart;
+      checkoutTotalData = totalData;
+    }
+
+    // Navigate to delivery page
+    navigate('/delivery', { 
+      state: { 
+        cart: checkoutCart, 
+        totalData: checkoutTotalData,
+        fromSelectedItems: selectedItems.size > 0
+      } 
+    });
+  };
+
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   if (loading) {
@@ -222,7 +292,8 @@ const Cart = () => {
         {/* Items List */}
         <div className="lg:col-span-2">
           <div className="bg-white rounded-lg p-6 shadow-sm">
-            <div className="grid grid-cols-6 gap-4 text-gray-500 text-sm mb-4 pb-2 border-b">
+            <div className="grid grid-cols-7 gap-4 text-gray-500 text-sm mb-4 pb-2 border-b">
+              <span>Select</span>
               <span>Items</span>
               <span>Title</span>
               <span>Price</span>
@@ -237,7 +308,15 @@ const Cart = () => {
               cart.map((item) => {
                 const product = getProductDetails(item.productId);
                 return (
-                  <div key={item.productId} className="grid grid-cols-6 gap-4 items-center py-4 border-b">
+                  <div key={item.productId} className="grid grid-cols-7 gap-4 items-center py-4 border-b">
+                    <div className="flex items-center justify-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedItems.has(item.productId)}
+                        onChange={() => handleItemSelection(item.productId)}
+                        className="w-4 h-4 text-[#42ADF5] bg-gray-100 border-gray-300 rounded focus:ring-[#42ADF5] focus:ring-2"
+                      />
+                    </div>
                     <img 
                       src={product.image_url || 'https://placehold.co/50x50'} 
                       alt={product.name} 
@@ -294,15 +373,35 @@ const Cart = () => {
                 <span>LKR {totalData.total}</span>
               </div>
             </div>
-            <button 
-              onClick={handleProceedToDelivery}
-              className="w-full bg-[#42ADF5] text-white py-3 rounded-lg mt-4 hover:bg-[#2C8ED1] transition-colors"
-              disabled={cart.length === 0}
-            >
-              PROCEED TO CHECKOUT
-            </button>
           </div>
 
+          {/* Selected Items Total */}
+          {selectedItems.size > 0 && (
+            <div className="bg-white rounded-lg p-6 shadow-sm">
+              <h3 className="font-bold text-lg mb-4">Selected Items Total</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span>Selected Items ({selectedItems.size})</span>
+                  <span>LKR {selectedTotal}</span>
+                </div>
+                <div className="flex justify-between font-bold text-lg border-t pt-2">
+                  <span>Selected Total</span>
+                  <span>LKR {selectedTotal}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Proceed to Checkout Button */}
+          <div className="bg-white rounded-lg p-6 shadow-sm">
+            <button 
+              onClick={handleProceedToCheckout}
+              className="w-full bg-[#42ADF5] text-white py-3 rounded-lg hover:bg-[#2C8ED1] transition-colors"
+              disabled={cart.length === 0}
+            >
+              Proceed to Checkout
+            </button>
+          </div>
           
         </div>
       </div>
