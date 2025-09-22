@@ -66,9 +66,10 @@ export default function PaymentEnrollment({ enrollment, program, onClose }) {
                         <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
                             <p className="text-sm text-green-800">
                                 <strong>Next Steps:</strong><br/>
-                                • Check your email for enrollment confirmation<br/>
-                                • Visit your profile to manage sessions<br/>
-                                • Your coach will contact you soon
+                                • 📧 Check your email for enrollment confirmation<br/>
+                                • 👤 Visit your profile to manage sessions<br/>
+                                • 🏏 Your coach will contact you soon<br/>
+                                • 📱 You'll receive program details via email
                             </p>
                         </div>
                         <button

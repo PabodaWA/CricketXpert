@@ -2,6 +2,7 @@ import ProgramEnrollment from '../models/ProgramEnrollment.js';
 import CoachingProgram from '../models/CoachingProgram.js';
 import User from '../models/User.js';
 import mongoose from 'mongoose';
+import nodemailer from 'nodemailer';
 
 // Helper function for manual pagination
 const paginateHelper = async (Model, filter, options) => {
@@ -25,6 +26,113 @@ const paginateHelper = async (Model, filter, options) => {
     hasNextPage: options.page < totalPages,
     hasPrevPage: options.page > 1
   };
+};
+
+// Email configuration
+const createEmailTransporter = () => {
+  return nodemailer.createTransporter({
+    service: 'gmail', // You can change this to your preferred email service
+    auth: {
+      user: process.env.EMAIL_USER || 'your-email@gmail.com',
+      pass: process.env.EMAIL_PASS || 'your-app-password'
+    }
+  });
+};
+
+// Email template for enrollment confirmation
+const createEnrollmentEmailTemplate = (user, program, enrollment) => {
+  return {
+    subject: `Welcome to ${program.title} - Enrollment Confirmation`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+          <h1 style="margin: 0; font-size: 28px;">Welcome to Your Coaching Program!</h1>
+        </div>
+        
+        <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
+          <h2 style="color: #333; margin-top: 0;">Dear ${user.firstName || user.name},</h2>
+          
+          <p style="font-size: 16px; line-height: 1.6; color: #555;">
+            Congratulations! You have successfully enrolled in <strong>${program.title}</strong>. 
+            We're excited to have you join our coaching program and look forward to supporting your journey.
+          </p>
+          
+          <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea;">
+            <h3 style="color: #333; margin-top: 0;">Program Details:</h3>
+            <ul style="color: #555; line-height: 1.8;">
+              <li><strong>Program:</strong> ${program.title}</li>
+              <li><strong>Category:</strong> ${program.category || 'General Coaching'}</li>
+              <li><strong>Duration:</strong> ${program.duration || 'Ongoing'}</li>
+              <li><strong>Enrollment Date:</strong> ${new Date(enrollment.enrollmentDate).toLocaleDateString()}</li>
+              <li><strong>Status:</strong> ${enrollment.status}</li>
+            </ul>
+          </div>
+          
+          <div style="background: #e8f4fd; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #1976d2; margin-top: 0;">What's Next?</h3>
+            <p style="color: #555; margin: 0;">
+              You will receive further instructions about your coaching sessions and program materials within the next 24 hours. 
+              Please check your email regularly for updates.
+            </p>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <p style="color: #666; font-size: 14px;">
+              If you have any questions, please don't hesitate to contact our support team.
+            </p>
+          </div>
+        </div>
+        
+        <div style="text-align: center; padding: 20px; color: #999; font-size: 12px;">
+          <p>This is an automated message. Please do not reply to this email.</p>
+        </div>
+      </div>
+    `,
+    text: `
+      Welcome to ${program.title} - Enrollment Confirmation
+      
+      Dear ${user.firstName || user.name},
+      
+      Congratulations! You have successfully enrolled in ${program.title}.
+      
+      Program Details:
+      - Program: ${program.title}
+      - Category: ${program.category || 'General Coaching'}
+      - Duration: ${program.duration || 'Ongoing'}
+      - Enrollment Date: ${new Date(enrollment.enrollmentDate).toLocaleDateString()}
+      - Status: ${enrollment.status}
+      
+      What's Next?
+      You will receive further instructions about your coaching sessions and program materials within the next 24 hours.
+      
+      If you have any questions, please contact our support team.
+      
+      This is an automated message. Please do not reply to this email.
+    `
+  };
+};
+
+// Send enrollment confirmation email
+const sendEnrollmentConfirmationEmail = async (user, program, enrollment) => {
+  try {
+    const transporter = createEmailTransporter();
+    const emailTemplate = createEnrollmentEmailTemplate(user, program, enrollment);
+    
+    const mailOptions = {
+      from: process.env.EMAIL_USER || 'your-email@gmail.com',
+      to: user.email,
+      subject: emailTemplate.subject,
+      html: emailTemplate.html,
+      text: emailTemplate.text
+    };
+    
+    const result = await transporter.sendMail(mailOptions);
+    console.log('Enrollment confirmation email sent successfully:', result.messageId);
+    return { success: true, messageId: result.messageId };
+  } catch (error) {
+    console.error('Error sending enrollment confirmation email:', error);
+    return { success: false, error: error.message };
+  }
 };
 
 // @desc    Get all enrollments
@@ -181,8 +289,26 @@ const createEnrollment = async (req, res) => {
     await program.save();
 
     const populatedEnrollment = await ProgramEnrollment.findById(enrollment._id)
-      .populate('user', 'name email')
-      .populate('program', 'title price');
+      .populate('user', 'name email firstName lastName')
+      .populate('program', 'title price category duration');
+
+    // Send enrollment confirmation email
+    try {
+      const emailResult = await sendEnrollmentConfirmationEmail(
+        populatedEnrollment.user,
+        populatedEnrollment.program,
+        populatedEnrollment
+      );
+      
+      if (emailResult.success) {
+        console.log('Enrollment confirmation email sent successfully');
+      } else {
+        console.error('Failed to send enrollment confirmation email:', emailResult.error);
+      }
+    } catch (emailError) {
+      console.error('Error sending enrollment confirmation email:', emailError);
+      // Don't fail the enrollment if email fails
+    }
 
     res.status(201).json({
       success: true,
@@ -653,7 +779,25 @@ const processEnrollmentPayment = async (req, res) => {
     
     const updatedEnrollment = await ProgramEnrollment.findById(enrollment._id)
       .populate('user', 'firstName lastName email')
-      .populate('program', 'title description coach');
+      .populate('program', 'title description coach category duration');
+    
+    // Send enrollment confirmation email after successful payment
+    try {
+      const emailResult = await sendEnrollmentConfirmationEmail(
+        updatedEnrollment.user,
+        updatedEnrollment.program,
+        updatedEnrollment
+      );
+      
+      if (emailResult.success) {
+        console.log('Enrollment confirmation email sent successfully after payment');
+      } else {
+        console.error('Failed to send enrollment confirmation email after payment:', emailResult.error);
+      }
+    } catch (emailError) {
+      console.error('Error sending enrollment confirmation email after payment:', emailError);
+      // Don't fail the payment if email fails
+    }
     
     res.status(200).json({
       success: true,
