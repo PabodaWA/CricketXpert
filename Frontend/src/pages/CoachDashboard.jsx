@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Users, Star, Clock, MapPin, BookOpen, MessageSquare, Plus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Calendar, Users, Star, Clock, MapPin, BookOpen, MessageSquare, Plus, LogOut } from 'lucide-react';
 import axios from 'axios';
 
 const CoachDashboard = () => {
+  const navigate = useNavigate();
   const [coach, setCoach] = useState(null);
   const [assignedPrograms, setAssignedPrograms] = useState([]);
   const [upcomingSessions, setUpcomingSessions] = useState([]);
@@ -112,6 +114,13 @@ const CoachDashboard = () => {
     }
   };
 
+  const handleLogout = () => {
+    if (window.confirm('Are you sure you want to logout?')) {
+      localStorage.removeItem('userInfo');
+      navigate('/login');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -164,6 +173,14 @@ const CoachDashboard = () => {
                 <p className="text-blue-100 text-sm">Upcoming Sessions</p>
                 <p className="text-3xl font-bold">{upcomingSessions.length}</p>
               </div>
+              <button
+                onClick={handleLogout}
+                className="flex items-center space-x-2 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-colors duration-200"
+                title="Logout"
+              >
+                <LogOut className="h-5 w-5" />
+                <span>Logout</span>
+              </button>
             </div>
           </div>
         </div>

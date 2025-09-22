@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Users, 
   BookOpen, 
@@ -19,11 +20,13 @@ import {
   Clock,
   MapPin,
   Star,
-  AlertCircle
+  AlertCircle,
+  LogOut
 } from 'lucide-react';
 import axios from 'axios';
 
 const ManagerDashboard = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
   const [coaches, setCoaches] = useState([]);
   const [programs, setPrograms] = useState([]);
@@ -360,6 +363,13 @@ const ManagerDashboard = () => {
     });
   };
 
+  const handleLogout = () => {
+    if (window.confirm('Are you sure you want to logout?')) {
+      localStorage.removeItem('userInfo');
+      navigate('/login');
+    }
+  };
+
   const openProgramModal = (program = null) => {
     setSelectedProgram(program);
     if (program) {
@@ -429,6 +439,14 @@ const ManagerDashboard = () => {
                 <p className="text-purple-100 text-sm">Upcoming Sessions</p>
                 <p className="text-3xl font-bold">{sessions.filter(s => s.status === 'scheduled').length}</p>
               </div>
+              <button
+                onClick={handleLogout}
+                className="flex items-center space-x-2 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-colors duration-200"
+                title="Logout"
+              >
+                <LogOut className="h-5 w-5" />
+                <span>Logout</span>
+              </button>
             </div>
           </div>
         </div>
