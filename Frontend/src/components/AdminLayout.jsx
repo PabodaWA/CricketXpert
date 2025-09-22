@@ -68,10 +68,10 @@ export default function AdminLayout() {
                          <Link to="/admin/users" className={`flex items-center px-4 py-2 rounded-lg font-medium transition-colors ${isActive('/admin/users') ? 'bg-secondary text-white' : 'text-text-body hover:bg-gray-100'}`}>
                            <UserGroupIcon /> All Users
                         </Link>
-                        <a href="#" className="flex items-center px-4 py-2 rounded-lg font-medium text-text-body hover:bg-gray-100">
+                        <a href="/admin/payments" className="flex items-center px-4 py-2 rounded-lg font-medium text-text-body hover:bg-gray-100">
                            <CreditCardIcon /> All Payments
                         </a>
-                        <a href="#" className="flex items-center px-4 py-2 rounded-lg font-medium text-text-body hover:bg-gray-100">
+                        <a href="/admin/inventory" className="flex items-center px-4 py-2 rounded-lg font-medium text-text-body hover:bg-gray-100">
                            <PlusCircleIcon /> Inventory
                         </a>
                         <a href="/admin/orders" className="flex items-center px-4 py-2 rounded-lg font-medium text-text-body hover:bg-gray-100">
