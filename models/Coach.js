@@ -3,8 +3,9 @@ import mongoose from 'mongoose';
 const coachSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // 👈 Link to User table
   specializations: [{ type: String }], // e.g. ["Batting", "Bowling"]
-  experience: { type: Number },
+  experience: { type: Number, default: 0 },
   profileImage: { type: String },
+  isActive: { type: Boolean, default: true }, // 👈 ADDED MISSING FIELD
 
   availability: [{
     day: { type: String, required: true },
