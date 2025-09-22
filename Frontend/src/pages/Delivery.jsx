@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { getCurrentUserId, isLoggedIn } from '../utils/getCurrentUser';
-import { Search, User, ShoppingCart } from 'lucide-react';
+import { Pencil, Check, X } from 'lucide-react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 
@@ -13,6 +13,8 @@ const Delivery = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [editingField, setEditingField] = useState(null);
+  const [editedUser, setEditedUser] = useState({});
 
   // Get current logged-in user ID
   const userId = getCurrentUserId();
@@ -37,6 +39,13 @@ const Delivery = () => {
         };
         const response = await axios.get(`http://localhost:5000/api/users/profile`, config);
         setUser(response.data);
+        setEditedUser({
+          firstName: response.data.firstName || '',
+          lastName: response.data.lastName || '',
+          email: response.data.email || '',
+          contactNumber: response.data.contactNumber || '',
+          address: response.data.address || ''
+        });
         setLoading(false);
       } catch (err) {
         console.error('Error fetching user details:', err);
@@ -61,6 +70,44 @@ const Delivery = () => {
     navigate('/payment', { state: { cart, totalData, address: fullAddress } });
   };
 
+  const handleEdit = (field) => {
+    setEditingField(field);
+  };
+
+  const handleCancel = () => {
+    setEditingField(null);
+  };
+
+  const handleSave = async (field) => {
+    if (field === 'email') {
+      alert('Email cannot be changed here. Please contact support or an admin.');
+      return;
+    }
+    try {
+      const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+      const config = {
+        headers: {
+          Authorization: `Bearer ${userInfo?.token}`,
+          'Content-Type': 'application/json'
+        }
+      };
+      const payload = { [field]: editedUser[field] };
+      const { data } = await axios.put(`http://localhost:5000/api/users/profile`, payload, config);
+      setUser(data);
+      setEditedUser({
+        firstName: data.firstName || '',
+        lastName: data.lastName || '',
+        email: data.email || '',
+        contactNumber: data.contactNumber || '',
+        address: data.address || ''
+      });
+      setEditingField(null);
+    } catch (e) {
+      console.error('Failed to save user field', field, e);
+      alert('Failed to save changes. Please try again.');
+    }
+  };
+
   if (loading) return <div className="text-center p-8">Loading user details...</div>;
   if (error) return (
     <div className="text-center p-8">
@@ -68,7 +115,7 @@ const Delivery = () => {
       {error.includes('log in') && (
         <button 
           onClick={() => navigate('/login')}
-          className="bg-[#42ADF5] text-white px-6 py-2 rounded-lg hover:bg-[#2C8ED1] transition-colors"
+          className="bg-blue-900 text-white px-6 py-2 rounded-lg hover:bg-blue-800 transition-colors"
         >
           Go to Login
         </button>
@@ -77,19 +124,255 @@ const Delivery = () => {
   );
 
   return (
-    <div className="bg-[#F1F2F7] min-h-screen text-[#36516C]">
+    <div className="bg-gray-100 min-h-screen text-gray-900">
       <Header />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 p-8">
         {/* Delivery Information */}
         <div className="lg:col-span-2">
           <div className="bg-white rounded-lg p-6 shadow-sm">
             <h2 className="text-xl font-bold mb-6">Delivery Information</h2>
-            <div className="space-y-4">
-              <p><strong>First Name:</strong> {user?.firstName || 'N/A'}</p>
-              <p><strong>Last Name:</strong> {user?.lastName || 'N/A'}</p>
-              <p><strong>Email:</strong> {user?.email || 'N/A'}</p>
-              <p><strong>Phone:</strong> {user?.contactNumber || 'N/A'}</p>
-              <p><strong>Address:</strong> {user?.address || 'No address provided'}</p>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="text-left border-b">
+                    <th className="py-3 pr-4">Field</th>
+                    <th className="py-3 pr-4">Value</th>
+                    <th className="py-3">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b">
+                    <td className="py-3 pr-4 font-semibold">First Name</td>
+                    <td className="py-3 pr-4">
+                      {editingField === 'firstName' ? (
+                        <input
+                          type="text"
+                          className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-900 focus:border-blue-900"
+                          value={editedUser.firstName}
+                          onChange={(e) => setEditedUser({ ...editedUser, firstName: e.target.value })}
+                        />
+                      ) : (
+                        <span>{user?.firstName || 'N/A'}</span>
+                      )}
+                    </td>
+                    <td className="py-3">
+                      {editingField === 'firstName' ? (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleSave('firstName')}
+                            className="p-2 rounded border border-blue-900 bg-blue-900 text-white hover:bg-blue-800"
+                            aria-label="Save first name"
+                            title="Save"
+                          >
+                            <Check className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={handleCancel}
+                            className="p-2 rounded border text-gray-700 hover:bg-gray-100"
+                            aria-label="Cancel editing"
+                            title="Cancel"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => handleEdit('firstName')}
+                          className="p-2 rounded border border-blue-900 text-blue-900 hover:bg-blue-900 hover:text-white transition-colors"
+                          aria-label="Edit first name"
+                          title="Edit"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="py-3 pr-4 font-semibold">Last Name</td>
+                    <td className="py-3 pr-4">
+                      {editingField === 'lastName' ? (
+                        <input
+                          type="text"
+                          className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-900 focus:border-blue-900"
+                          value={editedUser.lastName}
+                          onChange={(e) => setEditedUser({ ...editedUser, lastName: e.target.value })}
+                        />
+                      ) : (
+                        <span>{user?.lastName || 'N/A'}</span>
+                      )}
+                    </td>
+                    <td className="py-3">
+                      {editingField === 'lastName' ? (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleSave('lastName')}
+                            className="p-2 rounded border border-blue-900 bg-blue-900 text-white hover:bg-blue-800"
+                            aria-label="Save last name"
+                            title="Save"
+                          >
+                            <Check className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={handleCancel}
+                            className="p-2 rounded border text-gray-700 hover:bg-gray-100"
+                            aria-label="Cancel editing"
+                            title="Cancel"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => handleEdit('lastName')}
+                          className="p-2 rounded border border-blue-900 text-blue-900 hover:bg-blue-900 hover:text-white transition-colors"
+                          aria-label="Edit last name"
+                          title="Edit"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="py-3 pr-4 font-semibold">Email</td>
+                    <td className="py-3 pr-4">
+                      {editingField === 'email' ? (
+                        <input
+                          type="email"
+                          className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-900 focus:border-blue-900"
+                          value={editedUser.email}
+                          onChange={(e) => setEditedUser({ ...editedUser, email: e.target.value })}
+                        />
+                      ) : (
+                        <span>{user?.email || 'N/A'}</span>
+                      )}
+                    </td>
+                    <td className="py-3">
+                      {editingField === 'email' ? (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleSave('email')}
+                            className="p-2 rounded border border-blue-900 bg-blue-900 text-white hover:bg-blue-800"
+                            aria-label="Save email"
+                            title="Save"
+                          >
+                            <Check className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={handleCancel}
+                            className="p-2 rounded border text-gray-700 hover:bg-gray-100"
+                            aria-label="Cancel editing"
+                            title="Cancel"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => handleEdit('email')}
+                          className="p-2 rounded border border-blue-900 text-blue-900 hover:bg-blue-900 hover:text-white transition-colors"
+                          aria-label="Edit email"
+                          title="Edit"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="py-3 pr-4 font-semibold">Phone</td>
+                    <td className="py-3 pr-4">
+                      {editingField === 'contactNumber' ? (
+                        <input
+                          type="text"
+                          className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-900 focus:border-blue-900"
+                          value={editedUser.contactNumber}
+                          onChange={(e) => setEditedUser({ ...editedUser, contactNumber: e.target.value })}
+                        />
+                      ) : (
+                        <span>{user?.contactNumber || 'N/A'}</span>
+                      )}
+                    </td>
+                    <td className="py-3">
+                      {editingField === 'contactNumber' ? (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleSave('contactNumber')}
+                            className="p-2 rounded border border-blue-900 bg-blue-900 text-white hover:bg-blue-800"
+                            aria-label="Save phone"
+                            title="Save"
+                          >
+                            <Check className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={handleCancel}
+                            className="p-2 rounded border text-gray-700 hover:bg-gray-100"
+                            aria-label="Cancel editing"
+                            title="Cancel"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => handleEdit('contactNumber')}
+                          className="p-2 rounded border border-blue-900 text-blue-900 hover:bg-blue-900 hover:text-white transition-colors"
+                          aria-label="Edit phone"
+                          title="Edit"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 pr-4 font-semibold">Address</td>
+                    <td className="py-3 pr-4">
+                      {editingField === 'address' ? (
+                        <input
+                          type="text"
+                          className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-900 focus:border-blue-900"
+                          value={editedUser.address}
+                          onChange={(e) => setEditedUser({ ...editedUser, address: e.target.value })}
+                        />
+                      ) : (
+                        <span>{user?.address || 'No address provided'}</span>
+                      )}
+                    </td>
+                    <td className="py-3">
+                      {editingField === 'address' ? (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleSave('address')}
+                            className="p-2 rounded border border-blue-900 bg-blue-900 text-white hover:bg-blue-800"
+                            aria-label="Save address"
+                            title="Save"
+                          >
+                            <Check className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={handleCancel}
+                            className="p-2 rounded border text-gray-700 hover:bg-gray-100"
+                            aria-label="Cancel editing"
+                            title="Cancel"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => handleEdit('address')}
+                          className="p-2 rounded border border-blue-900 text-blue-900 hover:bg-blue-900 hover:text-white transition-colors"
+                          aria-label="Edit address"
+                          title="Edit"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
 
@@ -135,7 +418,7 @@ const Delivery = () => {
           </div>
           <button 
             onClick={handleProceedToPayment}
-            className="w-full bg-[#42ADF5] text-white py-3 rounded-lg mt-4 hover:bg-[#2C8ED1] transition-colors"
+            className="w-full bg-blue-900 text-white py-3 rounded-lg mt-4 hover:bg-blue-800 transition-colors"
             disabled={!user || !cart.length}
           >
             Proceed to Payment
