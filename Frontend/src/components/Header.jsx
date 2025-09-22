@@ -63,7 +63,18 @@ const Header = () => {
     if (userInfo) {
       if (userInfo.role === 'admin') {
         navigate('/admin/dashboard');
+      } else if (userInfo.role === 'order_manager') {
+        navigate('/order_manager/orders');
+      } else if (userInfo.role === 'technician') {
+        navigate('/technician');
+      } else if (userInfo.role === 'service_manager') {
+        navigate('/service-dashboard');
+      } else if (userInfo.role === 'coach') {
+        navigate('/coach-dashboard');
+      } else if (userInfo.role === 'coaching_manager') {
+        navigate('/manager-dashboard');
       } else {
+        // Default for customer and other roles
         navigate('/customer/profile');
       }
     } else {
