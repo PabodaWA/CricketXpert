@@ -819,6 +819,7 @@ const debugSessionCreation = async (req, res) => {
 const getSessionsByEnrollment = async (req, res) => {
   try {
     const { enrollmentId } = req.params;
+    console.log('Fetching sessions for enrollment ID:', enrollmentId);
     
     // Find sessions where participants have this enrollment
     const sessions = await Session.find({
@@ -828,8 +829,15 @@ const getSessionsByEnrollment = async (req, res) => {
     .populate('coach', 'userId')
     .populate('coach.userId', 'firstName lastName')
     .populate('ground', 'name location')
-    .populate('participants.enrollment', 'status progress')
+    .populate({
+      path: 'participants.enrollment',
+      model: 'ProgramEnrollment',
+      select: 'status progress'
+    })
     .sort({ scheduledDate: 1 });
+
+    console.log('Found sessions:', sessions.length);
+    console.log('Sessions data:', sessions);
 
     res.status(200).json({
       success: true,
@@ -901,6 +909,25 @@ const createDirectSession = async (req, res) => {
       });
     }
     
+    // Check program total sessions limit
+    const programTotalSessions = enrollment.program.totalSessions || 10;
+    console.log('Program total sessions:', programTotalSessions);
+    
+    // Count existing sessions for this enrollment
+    const existingSessionsCount = await Session.countDocuments({
+      'participants.enrollment': enrollmentId
+    });
+    
+    console.log('Existing sessions count:', existingSessionsCount);
+    
+    // Check if user has reached the session limit
+    if (existingSessionsCount >= programTotalSessions) {
+      return res.status(400).json({
+        success: false,
+        message: `You have reached the maximum number of sessions (${programTotalSessions}) for this program`
+      });
+    }
+    
     // Check if program and coach exist
     if (!enrollment.program || !enrollment.program.coach) {
       return res.status(400).json({
@@ -936,23 +963,50 @@ const createDirectSession = async (req, res) => {
     // Get a default ground or create one if none exists
     let defaultGround = await Ground.findOne();
     if (!defaultGround) {
-      // Create a default ground
-      defaultGround = new Ground({
-        name: 'Default Cricket Ground',
-        location: 'Main Sports Complex',
-        pricePerSlot: 50,
-        description: 'Default ground for cricket sessions',
-        totalSlots: 12,
-        facilities: ['parking', 'changing_room'],
-        equipment: ['nets', 'balls', 'bats'],
-        isActive: true
+      try {
+        // Create a default ground
+        defaultGround = new Ground({
+          name: 'Default Cricket Ground',
+          location: 'Main Sports Complex',
+          pricePerSlot: 50,
+          description: 'Default ground for cricket sessions',
+          totalSlots: 12,
+          facilities: ['parking', 'changing_room'],
+          equipment: ['nets', 'balls', 'bats'],
+          isActive: true
+        });
+        await defaultGround.save();
+        console.log('Created default ground:', defaultGround._id);
+      } catch (groundError) {
+        console.error('Error creating default ground:', groundError);
+        return res.status(500).json({
+          success: false,
+          message: 'Error creating default ground',
+          error: groundError.message
+        });
+      }
+    }
+    
+    console.log('Using ground:', {
+      id: defaultGround._id,
+      name: defaultGround.name,
+      totalSlots: defaultGround.totalSlots
+    });
+    
+    // Calculate booking deadline (24 hours before session)
+    const bookingDeadline = new Date(startDateTime.getTime() - 24 * 60 * 60 * 1000);
+    
+    // Validate ground slot
+    const groundSlot = 1; // Default to slot 1
+    if (groundSlot < 1 || groundSlot > defaultGround.totalSlots) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid ground slot. Must be between 1 and ${defaultGround.totalSlots}`
       });
-      await defaultGround.save();
-      console.log('Created default ground:', defaultGround._id);
     }
     
     // Create session directly
-    const session = new Session({
+    const sessionData = {
       program: enrollment.program._id,
       coach: enrollment.program.coach._id,
       title: `Session ${nextSessionNumber} - ${enrollment.program.title}`,
@@ -963,7 +1017,7 @@ const createDirectSession = async (req, res) => {
       endTime: endTime,
       duration: duration || 60,
       ground: defaultGround._id,
-      groundSlot: 1, // Default slot
+      groundSlot: groundSlot,
       status: 'scheduled',
       participants: [{
         user: req.user._id,
@@ -971,15 +1025,32 @@ const createDirectSession = async (req, res) => {
         attended: false
       }],
       notes: notes || '',
-      createdBy: req.user._id,
-      sessionType: 'direct_booking'
-    });
+      bookingDeadline: bookingDeadline,
+      maxParticipants: 10,
+      isRecurring: false
+    };
+    
+    console.log('Creating session with data:', JSON.stringify(sessionData, null, 2));
+    
+    const session = new Session(sessionData);
     
     try {
       await session.save();
       console.log('Session created successfully:', session._id);
     } catch (saveError) {
       console.error('Error saving session:', saveError);
+      console.error('Session validation errors:', saveError.errors);
+      
+      // Handle specific validation errors
+      if (saveError.name === 'ValidationError') {
+        const validationErrors = Object.values(saveError.errors).map(err => err.message);
+        return res.status(400).json({
+          success: false,
+          message: 'Session validation failed',
+          errors: validationErrors
+        });
+      }
+      
       return res.status(500).json({
         success: false,
         message: 'Error creating session',
@@ -1008,6 +1079,9 @@ const createDirectSession = async (req, res) => {
       { path: 'coach', select: 'userId', populate: { path: 'userId', select: 'firstName lastName' } },
       { path: 'participants.user', select: 'firstName lastName' }
     ]);
+    
+    console.log('Session created successfully with ID:', session._id);
+    console.log('Session participants:', session.participants);
     
     res.status(201).json({
       success: true,

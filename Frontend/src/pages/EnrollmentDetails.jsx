@@ -60,10 +60,11 @@ export default function EnrollmentDetails() {
           const sessionsResponse = await axios.get(`http://localhost:5000/api/sessions/enrollment/${enrollmentId}`, config);
           console.log('Sessions response:', sessionsResponse.data);
           if (sessionsResponse.data.success) {
+            console.log('Setting sessions:', sessionsResponse.data.data);
             setSessions(sessionsResponse.data.data || []);
           }
         } catch (sessionErr) {
-          console.log('No sessions found for this enrollment:', sessionErr.message);
+          console.log('Error fetching sessions:', sessionErr.response?.data || sessionErr.message);
           setSessions([]);
         }
       } else {
@@ -157,8 +158,13 @@ export default function EnrollmentDetails() {
           duration: 60,
           notes: ''
         });
-        // Refresh enrollment details to show new session
-        fetchEnrollmentDetails();
+        // Add a small delay before refreshing to ensure session is saved
+        setTimeout(() => {
+          console.log('Refreshing enrollment details after session booking...');
+          // Force refresh by clearing sessions first
+          setSessions([]);
+          fetchEnrollmentDetails();
+        }, 1000);
       } else {
         alert(`Error: ${response.data.message || 'Failed to book session'}`);
       }
@@ -232,8 +238,10 @@ export default function EnrollmentDetails() {
   }
 
   const completedSessions = sessions.filter(session => session.status === 'completed').length;
-  const totalSessions = enrollment.program?.totalSessions || enrollment.progress?.totalSessions || 0;
+  const totalSessions = enrollment.program?.totalSessions || 10; // Use program's total sessions, not dynamic count
   const progressPercentage = totalSessions > 0 ? (completedSessions / totalSessions) * 100 : 0;
+  const bookedSessions = sessions.length;
+  const canBookMore = bookedSessions < totalSessions;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -292,7 +300,7 @@ export default function EnrollmentDetails() {
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-lg font-semibold text-gray-700">Progress</span>
                   <span className="text-lg font-bold text-blue-600">
-                    {completedSessions} / {totalSessions} sessions
+                    {bookedSessions} / {totalSessions} sessions booked
                   </span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-4">
@@ -343,9 +351,14 @@ export default function EnrollmentDetails() {
                   <div className="flex gap-2">
                     <button
                       onClick={handleBookSession}
-                      className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+                      disabled={!canBookMore}
+                      className={`px-4 py-2 text-white text-sm rounded-lg transition-colors flex items-center ${
+                        canBookMore 
+                          ? 'bg-blue-600 hover:bg-blue-700' 
+                          : 'bg-gray-400 cursor-not-allowed'
+                      }`}
                     >
-                      📅 Book Session
+                      📅 {canBookMore ? 'Book Session' : 'Session Limit Reached'}
                     </button>
                     <button
                       onClick={handleViewSessions}
@@ -365,6 +378,7 @@ export default function EnrollmentDetails() {
 
               {sessions.length > 0 ? (
                 <div className="space-y-4">
+                  {console.log('Rendering sessions:', sessions)}
                   {sessions.map((session) => (
                     <div key={session._id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
                       <div className="flex justify-between items-start">
@@ -414,13 +428,19 @@ export default function EnrollmentDetails() {
                   <div className="text-gray-400 text-4xl mb-4">📅</div>
                   <h3 className="text-lg font-semibold text-gray-700 mb-2">No Sessions Yet</h3>
                   <p className="text-gray-600 mb-4">You haven't booked any sessions for this program yet.</p>
-                  {enrollment.status === 'active' && (
+                  {enrollment.status === 'active' && canBookMore && (
                     <button
                       onClick={handleBookSession}
                       className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
                     >
                       Book Your First Session
                     </button>
+                  )}
+                  {enrollment.status === 'active' && !canBookMore && (
+                    <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded-lg">
+                      <p className="font-medium">Session Limit Reached</p>
+                      <p className="text-sm">You have reached the maximum number of sessions ({totalSessions}) for this program.</p>
+                    </div>
                   )}
                 </div>
               )}
@@ -486,12 +506,16 @@ export default function EnrollmentDetails() {
                 <h3 className="font-semibold text-gray-900 mb-3">Progress Summary</h3>
                 <div className="space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Sessions Completed</span>
-                    <span className="font-medium text-gray-900">{completedSessions}</span>
+                    <span className="text-sm text-gray-600">Sessions Booked</span>
+                    <span className="font-medium text-gray-900">{bookedSessions}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Total Sessions</span>
+                    <span className="text-sm text-gray-600">Program Limit</span>
                     <span className="font-medium text-gray-900">{totalSessions}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Sessions Completed</span>
+                    <span className="font-medium text-gray-900">{completedSessions}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Completion Rate</span>
