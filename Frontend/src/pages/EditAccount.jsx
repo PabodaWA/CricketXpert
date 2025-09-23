@@ -9,7 +9,7 @@ const srilankaData = {
   "North Central": ["Anuradhapura", "Polonnaruwa"],
   "Northern": ["Jaffna", "Kilinochchi", "Mannar", "Mullaitivu", "Vavuniya"],
   "North Western": ["Kurunegala", "Puttalam"],
-  "Sabaragamawa": ["Kegalle", "Ratnapura"],
+  "Sabaragamuwa": ["Kegalle", "Ratnapura"],
   "Southern": ["Galle", "Hambantota", "Matara"],
   "Uva": ["Badulla", "Monaragala"],
   "Western": ["Colombo", "Gampaha", "Kalutara"]
@@ -66,18 +66,67 @@ export default function EditAccount() {
                 // --- Smart Address Parsing ---
                 if (data.address) {
                     const parts = data.address.split(',').map(part => part.trim());
-                    const province = provinces.find(p => p === parts[parts.length - 1]);
+                    
+                    // Find province (last part that matches our provinces list)
+                    let province = '';
+                    let provinceIndex = -1;
+                    for (let i = parts.length - 1; i >= 0; i--) {
+                        if (provinces.includes(parts[i])) {
+                            province = parts[i];
+                            provinceIndex = i;
+                            break;
+                        }
+                    }
+                    
                     if (province) {
-                        const city = srilankaData[province].find(c => c === parts[parts.length - 2]);
+                        // Find city (part before province that matches cities in that province)
+                        let city = '';
+                        let cityIndex = -1;
+                        if (provinceIndex > 0) {
+                            for (let i = provinceIndex - 1; i >= 0; i--) {
+                                if (srilankaData[province].includes(parts[i])) {
+                                    city = parts[i];
+                                    cityIndex = i;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        // Zone is the part before city (if city exists) or before province
+                        let zone = '';
+                        if (city && cityIndex > 0) {
+                            zone = parts[cityIndex - 1];
+                        } else if (provinceIndex > 0) {
+                            zone = parts[provinceIndex - 1];
+                        }
+                        
+                        // Address line is everything before zone
+                        let addressLine = '';
+                        if (zone) {
+                            const zoneIndex = parts.indexOf(zone);
+                            addressLine = parts.slice(0, zoneIndex).join(', ');
+                        } else if (city) {
+                            const cityIndex = parts.indexOf(city);
+                            addressLine = parts.slice(0, cityIndex).join(', ');
+                        } else {
+                            addressLine = parts.slice(0, provinceIndex).join(', ');
+                        }
+                        
                         setAddressParts({
-                            addressLine: parts.slice(0, parts.length - 3).join(', ') || parts[0],
-                            zone: city ? parts[parts.length - 3] : '',
-                            city: city || '',
+                            addressLine: addressLine,
+                            zone: zone,
+                            city: city,
                             province: province,
                         });
                         setCities(srilankaData[province] || []);
                     } else {
-                        setAddressParts({ addressLine: data.address, zone: '', city: '', province: '' });
+                        // If no province found, put everything in addressLine
+                        setAddressParts({ 
+                            addressLine: data.address, 
+                            zone: '', 
+                            city: '', 
+                            province: '' 
+                        });
                     }
                 }
             } catch (err) {

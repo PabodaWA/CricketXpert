@@ -73,7 +73,25 @@ const sendPasswordResetCodeEmail = async (email, code) => {
   console.log(`Password reset code sent to ${email}`);
 };
 
-// --- Function 4: Low Stock Alert Email ---
+// --- Function 4: Email Verification Code ---
+const sendEmailVerificationCode = async (email, code) => {
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: email,
+    subject: 'Email Verification Code',
+    html: `
+      <h2>Email Verification</h2>
+      <p>Thank you for signing up! Please verify your email address using the following code:</p>
+      <h3><strong>${code}</strong></h3>
+      <p>This code will expire in 10 minutes.</p>
+      <p>If you did not create an account, please ignore this email.</p>
+    `,
+  };
+  await transporter.sendMail(mailOptions);
+  console.log(`Email verification code sent to ${email}`);
+};
+
+// --- Function 5: Low Stock Alert Email ---
 const sendLowStockAlert = async (product) => {
   const mailOptions = {
     from: process.env.EMAIL_USER,
@@ -119,5 +137,6 @@ export {
   sendWelcomeEmail,
   sendNewUserNotification,
   sendPasswordResetCodeEmail,
+  sendEmailVerificationCode,
   sendLowStockAlert,
 };
