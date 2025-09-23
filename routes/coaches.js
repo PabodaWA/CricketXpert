@@ -13,7 +13,9 @@ import {
   assignProgramToCoach,
   removeProgramFromCoach,
   getCoachStats,
-  toggleCoachStatus
+  toggleCoachStatus,
+  createCoachProfileForUser,
+  createMissingCoachProfiles
 } from '../controllers/coachController.js';
 
 // Middleware (Note: You'll need to implement these middleware functions)
@@ -42,6 +44,10 @@ router.put('/:id/remove-program', /* authorize('admin', 'coaching_manager'), */ 
 
 // System routes (for internal use)
 router.put('/:id/rating', /* authorize('admin', 'system'), */ updateCoachRating); // Update rating (called by feedback system)
+
+// Coach profile management routes
+router.post('/create-for-user/:userId', /* authorize('admin'), */ createCoachProfileForUser); // Create coach profile for specific user
+router.post('/create-missing-profiles', /* authorize('admin'), */ createMissingCoachProfiles); // Create missing coach profiles for all users with coach role
 
 export default router;
 
