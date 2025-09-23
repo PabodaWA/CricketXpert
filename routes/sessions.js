@@ -4,6 +4,7 @@ import {
   getAllSessions,
   getSession,
   createSession,
+  createDirectSession,
   updateSession,
   deleteSession,
   addParticipant,
@@ -11,15 +12,15 @@ import {
   markAttendance,
   getSessionsByProgram,
   getSessionsByCoach,
+  getSessionsByEnrollment,
   getGroundAvailability,
-  rescheduleSession
+  rescheduleSession,
+  debugSessionCreation
 } from '../controllers/sessionController.js';
+import { protect, authorizeRoles } from '../middleware/authMiddleware.js';
 
-// Middleware (Note: You'll need to implement these middleware functions)
-// const { protect, authorize } = require('../middleware/auth');
-
-// All routes require authentication (uncomment when auth middleware is available)
-// router.use(protect);
+// All routes require authentication
+router.use(protect);
 
 // General session routes
 router.get('/', getAllSessions);
@@ -40,12 +41,19 @@ router.put('/:id/attendance', /* authorize('coach', 'admin'), */ markAttendance)
 router.post('/:id/participants', addParticipant);
 router.delete('/:id/participants/:participantId', removeParticipant);
 
+// Direct session booking (no coach approval required)
+router.post('/direct-booking', createDirectSession);
+
 // Filter routes
 router.get('/program/:programId', getSessionsByProgram);
 router.get('/coach/:coachId', getSessionsByCoach);
+router.get('/enrollment/:enrollmentId', getSessionsByEnrollment);
 
 // Ground availability
 router.get('/ground/:groundId/availability', getGroundAvailability);
+
+// Debug route
+router.post('/debug', debugSessionCreation);
 
 export default router;
 

@@ -60,11 +60,34 @@ const getCoachingPrograms = async (req, res) => {
         select: 'specializations experience'
       });
 
+    // Transform programs to match frontend expectations
+    const transformedPrograms = programs.map(program => ({
+      ...program.toObject(),
+      // Ensure all required fields are present with defaults
+      title: program.title || 'Untitled Program',
+      description: program.description || 'No description available',
+      fee: program.fee || 0,
+      duration: program.duration || 0,
+      category: program.category || 'General',
+      difficulty: program.difficulty || 'beginner',
+      totalSessions: program.totalSessions || 10,
+      maxParticipants: program.maxParticipants || 20,
+      currentEnrollments: program.currentEnrollments || 0,
+      isActive: program.isActive !== undefined ? program.isActive : true,
+      // Ensure coach data is properly structured
+      coach: program.coach ? {
+        _id: program.coach._id,
+        userId: program.coach.userId,
+        specializations: program.coach.specializations || [],
+        experience: program.coach.experience || 'Not specified'
+      } : null
+    }));
+
     const totalDocs = await CoachingProgram.countDocuments(filter);
     const totalPages = Math.ceil(totalDocs / parseInt(limit));
 
     const result = {
-      docs: programs,
+      docs: transformedPrograms,
       totalDocs,
       limit: parseInt(limit),
       page: parseInt(page),
@@ -73,9 +96,17 @@ const getCoachingPrograms = async (req, res) => {
       hasPrevPage: parseInt(page) > 1
     };
 
+    // Add cache-busting headers to ensure fresh data
+    res.set({
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    });
+
     res.status(200).json({
       success: true,
-      data: result
+      data: result,
+      timestamp: new Date().toISOString()
     });
   } catch (error) {
     res.status(500).json({
@@ -108,9 +139,38 @@ const getCoachingProgram = async (req, res) => {
       });
     }
 
+    // Transform program to match frontend expectations
+    const transformedProgram = {
+      ...program.toObject(),
+      title: program.title || 'Untitled Program',
+      description: program.description || 'No description available',
+      fee: program.fee || 0,
+      duration: program.duration || 0,
+      category: program.category || 'General',
+      difficulty: program.difficulty || 'beginner',
+      totalSessions: program.totalSessions || 10,
+      maxParticipants: program.maxParticipants || 20,
+      currentEnrollments: program.currentEnrollments || 0,
+      isActive: program.isActive !== undefined ? program.isActive : true,
+      coach: program.coach ? {
+        _id: program.coach._id,
+        userId: program.coach.userId,
+        specializations: program.coach.specializations || [],
+        experience: program.coach.experience || 'Not specified'
+      } : null
+    };
+
+    // Add cache-busting headers to ensure fresh data
+    res.set({
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    });
+
     res.status(200).json({
       success: true,
-      data: program
+      data: transformedProgram,
+      timestamp: new Date().toISOString()
     });
   } catch (error) {
     res.status(500).json({

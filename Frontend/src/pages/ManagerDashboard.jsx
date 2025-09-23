@@ -99,23 +99,36 @@ const ManagerDashboard = () => {
       
       // Try to fetch from API, but fallback to mock data if API is not available
       try {
-        const [coachesRes, programsRes, sessionsRes] = await Promise.all([
-          axios.get('http://localhost:5000/api/coaches'),
-          axios.get('http://localhost:5000/api/programs'),
-          axios.get('http://localhost:5000/api/sessions')
-        ]);
-
-        const coachesData = coachesRes.data.data?.docs || coachesRes.data.data || coachesRes.data || [];
+        // Fetch programs first (this should work)
+        const programsRes = await axios.get('http://localhost:5000/api/programs');
         const programsData = programsRes.data.data?.docs || programsRes.data.data || programsRes.data || [];
-        const sessionsData = sessionsRes.data.data?.docs || sessionsRes.data.data || sessionsRes.data || [];
-
-        setCoaches(coachesData);
         setPrograms(programsData);
-        setSessions(sessionsData);
+        console.log('Programs fetched successfully:', programsData.length);
+        console.log('Programs data:', programsData);
+
+        // Try to fetch coaches and sessions, but don't fail if they don't work
+        try {
+          const coachesRes = await axios.get('http://localhost:5000/api/coaches');
+          const coachesData = coachesRes.data.data?.docs || coachesRes.data.data || coachesRes.data || [];
+          setCoaches(coachesData);
+          console.log('Coaches fetched successfully:', coachesData.length);
+        } catch (coachError) {
+          console.warn('Coaches API not available, using empty array:', coachError);
+          setCoaches([]);
+        }
+
+        try {
+          const sessionsRes = await axios.get('http://localhost:5000/api/sessions');
+          const sessionsData = sessionsRes.data.data?.docs || sessionsRes.data.data || sessionsRes.data || [];
+          setSessions(sessionsData);
+          console.log('Sessions fetched successfully:', sessionsData.length);
+        } catch (sessionError) {
+          console.warn('Sessions API not available, using empty array:', sessionError);
+          setSessions([]);
+        }
         
-        console.log('Data fetched successfully:', { coaches: coachesData.length, programs: programsData.length, sessions: sessionsData.length });
       } catch (apiError) {
-        console.warn('API not available, using mock data:', apiError);
+        console.warn('Programs API not available, using mock data:', apiError);
         
         // Use mock data for development
         const mockCoaches = [
@@ -535,8 +548,15 @@ const ManagerDashboard = () => {
   const handleUpdateCoach = async (e) => {
     e.preventDefault();
     
-    // Simple, direct update
     const coachId = selectedCoach._id;
+    
+    // Show loading state
+    const submitButton = e.target.querySelector('button[type="submit"]');
+    const originalText = submitButton?.textContent;
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.textContent = 'Updating...';
+    }
     
     // Create updated coach object
     const updatedCoach = {
@@ -552,31 +572,51 @@ const ManagerDashboard = () => {
       }
     };
     
-    // Update coaches array directly
-    const newCoaches = coaches.map(coach => 
-      coach._id === coachId ? updatedCoach : coach
-    );
-    
-    // Set the new state
-    setCoaches(newCoaches);
-    setSelectedCoach(updatedCoach);
-    
-    // Close modal
-    setShowEditCoachModal(false);
-    
-    // Show success
-    alert('Coach updated successfully!');
-    
-    // Try API update in background (don't wait)
     try {
-      await axios.put(`http://localhost:5000/api/coaches/${coachId}`, {
+      // First, update the database
+      const response = await axios.put(`http://localhost:5000/api/coaches/${coachId}`, {
         experience: updatedCoach.experience,
         specializations: updatedCoach.specializations,
         isActive: updatedCoach.isActive,
         userId: updatedCoach.userId
       });
+      
+      // Only update local state if database update succeeds
+      if (response.data.success) {
+        // Update coaches array
+        const newCoaches = coaches.map(coach => 
+          coach._id === coachId ? updatedCoach : coach
+        );
+        
+        // Set the new state
+        setCoaches(newCoaches);
+        setSelectedCoach(updatedCoach);
+        
+        // Close modal
+        setShowEditCoachModal(false);
+        
+        // Show success
+        alert('Coach updated successfully!');
+        
+        // Force refresh programs to get updated coach data
+        await fetchDashboardData();
+        
+        // Notify other pages that coach data has been updated
+        window.dispatchEvent(new CustomEvent('coachUpdated', { 
+          detail: { coachId, updatedCoach } 
+        }));
+      } else {
+        alert('Failed to update coach. Please try again.');
+      }
     } catch (error) {
-      console.log('API update failed, but local update succeeded');
+      console.error('Coach update error:', error);
+      alert('Failed to update coach. Please try again.');
+    } finally {
+      // Restore button state
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.textContent = originalText;
+      }
     }
   };
 
@@ -913,7 +953,7 @@ const OverviewTab = ({ coaches, programs, sessions }) => {
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-              <p className="text-2xl font-bold text-gray-900">${totalRevenue.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-900">LKR {totalRevenue.toLocaleString()}</p>
             </div>
           </div>
         </div>
@@ -1100,21 +1140,35 @@ const ProgramsTab = ({ programs, coaches, onEdit, onDelete, onAddMaterial, onAss
 
   // Filter programs based on search and filters
   const filteredPrograms = programs.filter(program => {
-    const matchesSearch = program.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         program.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         program.category.toLowerCase().includes(searchTerm.toLowerCase());
+    // Ensure all fields exist with fallbacks
+    const title = program.title || '';
+    const description = program.description || '';
+    const category = program.category || '';
+    const difficulty = program.difficulty || '';
+    const isActive = program.isActive !== undefined ? program.isActive : true;
     
-    const matchesCategory = !filterCategory || program.category === filterCategory;
-    const matchesDifficulty = !filterDifficulty || program.difficulty === filterDifficulty;
+    const matchesSearch = !searchTerm || 
+                         title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         category.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesCategory = !filterCategory || category === filterCategory;
+    const matchesDifficulty = !filterDifficulty || difficulty === filterDifficulty;
     const matchesStatus = !filterStatus || 
-                         (filterStatus === 'active' && program.isActive) ||
-                         (filterStatus === 'inactive' && !program.isActive);
+                         (filterStatus === 'active' && isActive) ||
+                         (filterStatus === 'inactive' && !isActive);
 
     return matchesSearch && matchesCategory && matchesDifficulty && matchesStatus;
   });
 
   // Get unique categories for filter
   const categories = [...new Set(programs.map(p => p.category))].filter(Boolean);
+  
+  // Debug logging (only when there are issues)
+  if (programs.length !== filteredPrograms.length) {
+    console.log('ProgramsTab - Total programs:', programs.length);
+    console.log('ProgramsTab - Filtered programs:', filteredPrograms.length);
+  }
 
   return (
     <div>
@@ -1204,19 +1258,27 @@ const ProgramsTab = ({ programs, coaches, onEdit, onDelete, onAddMaterial, onAss
         <p className="text-sm text-gray-600">
           Showing {filteredPrograms.length} of {programs.length} programs
         </p>
-        {filteredPrograms.length !== programs.length && (
+        <div className="flex space-x-2">
+          {filteredPrograms.length !== programs.length && (
+            <button
+              onClick={() => {
+                setSearchTerm('');
+                setFilterCategory('');
+                setFilterDifficulty('');
+                setFilterStatus('');
+              }}
+              className="text-sm text-blue-600 hover:text-blue-800"
+            >
+              Clear Filters
+            </button>
+          )}
           <button
-            onClick={() => {
-              setSearchTerm('');
-              setFilterCategory('');
-              setFilterDifficulty('');
-              setFilterStatus('');
-            }}
-            className="text-sm text-blue-600 hover:text-blue-800"
+            onClick={() => window.location.reload()}
+            className="text-sm text-green-600 hover:text-green-800"
           >
-            Clear Filters
+            Refresh Data
           </button>
-        )}
+        </div>
       </div>
 
       {/* Programs Grid */}
@@ -1266,7 +1328,7 @@ const ProgramsTab = ({ programs, coaches, onEdit, onDelete, onAddMaterial, onAss
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-500">Fee:</span>
-                  <span className="text-sm font-medium text-gray-900">${program.fee}</span>
+                  <span className="text-sm font-medium text-gray-900">LKR {program.fee}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-500">Duration:</span>
@@ -2642,7 +2704,7 @@ const CoachDetailsModal = ({ coach, programs, onEdit, onClose }) => {
                     <p className="text-sm text-gray-600 mb-3 line-clamp-2">{program.description}</p>
                     <div className="flex justify-between items-center text-sm">
                       <div className="flex space-x-4">
-                        <span className="text-gray-600">Fee: <span className="font-medium">${program.fee}</span></span>
+                        <span className="text-gray-600">Fee: <span className="font-medium">LKR {program.fee}</span></span>
                         <span className="text-gray-600">Duration: <span className="font-medium">{program.duration} weeks</span></span>
                       </div>
                       <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
