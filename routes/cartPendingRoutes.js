@@ -1,25 +1,32 @@
 import express from 'express';
-import { upsertCartItem, getCartItems, updateCartItemQuantity, removeCartItem, clearCart, checkoutCart } from '../controllers/cartPendingController.js';
+import {
+  addItem,
+  listByToken,
+  updateItemQuantity,
+  removeItem,
+  clearCart,
+  checkout
+} from '../controllers/cartPendingController.js';
 
 const router = express.Router();
 
-// Upsert item
-router.post('/', upsertCartItem);
+// Add or upsert item
+router.post('/', addItem);
 
-// Get items by cartToken
-router.get('/:cartToken', getCartItems);
+// List items for a cartToken
+router.get('/:cartToken', listByToken);
 
-// Update quantity
-router.put('/:cartToken/item/:productId', updateCartItemQuantity);
+// Update quantity for an item
+router.put('/:cartToken/item/:productId', updateItemQuantity);
 
-// Remove item
-router.delete('/:cartToken/item/:productId', removeCartItem);
+// Remove one item
+router.delete('/:cartToken/item/:productId', removeItem);
 
-// Clear cart
+// Clear cart for token
 router.delete('/:cartToken', clearCart);
 
-// Checkout
-router.post('/checkout', checkoutCart);
+// Checkout pending cart to an Order (status remains cart_pending)
+router.post('/checkout', checkout);
 
 export default router;
 

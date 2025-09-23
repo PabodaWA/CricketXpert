@@ -125,7 +125,10 @@ const Cart = () => {
       const items = res.data || [];
       // Map to local cart structure
       const mapped = items.map(i => ({ productId: i.productId?._id || i.productId, quantity: i.quantity }));
-      setCart(mapped);
+      // Only overwrite local cart if backend has items
+      if (mapped.length > 0) {
+        setCart(mapped);
+      }
     } catch (err) {
       // If no pending items, keep local cart
     }
