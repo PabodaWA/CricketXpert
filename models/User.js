@@ -23,6 +23,9 @@ const userSchema = new mongoose.Schema({
   // --- ADD THESE TWO FIELDS FOR PASSWORD RESET ---
   passwordResetCode: String,
   passwordResetExpires: Date,
+  // --- ADD THESE TWO FIELDS FOR EMAIL VERIFICATION ---
+  emailVerificationCode: String,
+  emailVerificationExpires: Date,
 
 }, { timestamps: true });
 

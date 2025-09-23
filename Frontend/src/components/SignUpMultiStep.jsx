@@ -50,6 +50,12 @@ export default function SignUpMultiStep() {
     const [error, setError] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const navigate = useNavigate(); // <-- INITIALIZE useNavigate
+    
+    // Email verification states
+    const [emailVerified, setEmailVerified] = useState(false);
+    const [verificationCode, setVerificationCode] = useState('');
+    const [tempVerificationData, setTempVerificationData] = useState(null);
+    const [verificationLoading, setVerificationLoading] = useState(false);
 
     const handleTextOnlyChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value.replace(/[^a-zA-Z\s]/g, '') });
     const handleNumbersOnlyChange = (e) => {
@@ -82,10 +88,50 @@ export default function SignUpMultiStep() {
         processFile(e.dataTransfer.files[0]);
     };
 
+    // Email verification functions
+    const sendVerificationCode = async () => {
+        setVerificationLoading(true);
+        setError('');
+        try {
+            const { data } = await axios.post('http://localhost:5000/api/auth/send-email-verification', { 
+                email: formData.email 
+            });
+            setTempVerificationData(data.tempData);
+            setMessage(data.message);
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to send verification code');
+        } finally {
+            setVerificationLoading(false);
+        }
+    };
+
+    const verifyEmailCode = async () => {
+        if (!verificationCode || verificationCode.length !== 6) {
+            setError('Please enter a valid 6-digit code');
+            return;
+        }
+        
+        setVerificationLoading(true);
+        setError('');
+        try {
+            const { data } = await axios.post('http://localhost:5000/api/auth/verify-email-code', {
+                email: formData.email,
+                code: verificationCode,
+                tempData: tempVerificationData
+            });
+            setEmailVerified(true);
+            setMessage(data.message);
+            setStep(2); // Move to address step
+        } catch (err) {
+            setError(err.response?.data?.message || 'Invalid verification code');
+        } finally {
+            setVerificationLoading(false);
+        }
+    };
+
     const nextStep = () => {
         const requiredFields = [formData.firstName, formData.lastName, formData.email, formData.dob, formData.contactNumber];
-        const requiredAddressFields = [addressParts.province, addressParts.city, addressParts.zone, addressParts.addressLine];
-        if ([...requiredFields, ...requiredAddressFields].some(field => field.trim() === '')) {
+        if (requiredFields.some(field => field.trim() === '')) {
             setError('Please fill in all required fields.');
             return;
         }
@@ -100,14 +146,25 @@ export default function SignUpMultiStep() {
             return;
         }
 
-        const { addressLine, zone, city, province } = addressParts;
-        const combinedAddress = [addressLine, zone, city, province].filter(Boolean).join(', ');
-        setFormData(prev => ({ ...prev, address: combinedAddress }));
-        setStep(2);
+        // If email is not verified, send verification code
+        if (!emailVerified) {
+            sendVerificationCode();
+            setStep(1.5); // Go to email verification step
+        } else {
+            setStep(2); // Go to address step
+        }
         setError('');
     };
 
-    const prevStep = () => setStep(1);
+    const prevStep = () => {
+        if (step === 1.5) {
+            setStep(1);
+        } else if (step === 2) {
+            setStep(1.5);
+        } else if (step === 3) {
+            setStep(2);
+        }
+    };
     const validatePassword = () => {
         const { password, confirmPassword } = formData;
         if (password !== confirmPassword) {
@@ -170,7 +227,7 @@ export default function SignUpMultiStep() {
         <div className="min-h-screen bg-[#F1F2F7] flex items-center justify-center p-4">
             <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl p-8 transition-all duration-500">
                 <h2 className="text-3xl font-bold text-center text-[#072679] mb-2">Create Your Account</h2>
-                <p className="text-center text-[#36516C] mb-6">Step {step} of 2</p>
+                <p className="text-center text-[#36516C] mb-6">Step {step === 1.5 ? '1.5' : step} of 3</p>
 
                 {step === 1 && (
                     <div className="space-y-4">
@@ -186,7 +243,68 @@ export default function SignUpMultiStep() {
                         <div className="relative"><span className="absolute inset-y-0 left-0 flex items-center pl-3"><EmailIcon /></span><input type="email" name="email" placeholder="Email Address*" value={formData.email} onChange={handleChange} required className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#42ADF5]" /></div>
                         <div className="relative"><span className="absolute inset-y-0 left-0 flex items-center pl-3"><CalendarIcon /></span><input type="date" name="dob" value={formData.dob} onChange={handleChange} required className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#42ADF5] text-gray-500" /></div>
                         <div className="relative"><span className="absolute inset-y-0 left-0 flex items-center pl-3"><PhoneIcon /></span><input type="tel" name="contactNumber" placeholder="Contact Number*" value={formData.contactNumber} onChange={handleNumbersOnlyChange} required className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#42ADF5]" /></div>
+                        
+                        <button onClick={nextStep} className="w-full bg-[#42ADF5] hover:bg-[#2C8ED1] text-white font-bold py-3 px-4 rounded-lg shadow-lg transition-colors">Next</button>
+                    </div>
+                )}
 
+                {step === 1.5 && (
+                    <div className="space-y-4">
+                        <div className="text-center">
+                            <h3 className="text-xl font-semibold text-[#072679] mb-2">Verify Your Email</h3>
+                            <p className="text-[#36516C] mb-4">We've sent a 6-digit verification code to:</p>
+                            <p className="font-medium text-[#42ADF5]">{formData.email}</p>
+                        </div>
+                        
+                        <div className="relative">
+                            <span className="absolute inset-y-0 left-0 flex items-center pl-3">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                                </svg>
+                            </span>
+                            <input 
+                                type="text" 
+                                placeholder="Enter 6-digit code" 
+                                value={verificationCode} 
+                                onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))} 
+                                required 
+                                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#42ADF5] text-center text-lg tracking-widest" 
+                            />
+                        </div>
+                        
+                        <div className="flex items-center justify-between space-x-4">
+                            <button 
+                                type="button" 
+                                onClick={prevStep} 
+                                className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-4 rounded-lg shadow-lg transition-colors"
+                            >
+                                Back
+                            </button>
+                            <button 
+                                type="button" 
+                                onClick={verifyEmailCode} 
+                                disabled={verificationLoading || verificationCode.length !== 6}
+                                className="w-full bg-[#42ADF5] hover:bg-[#2C8ED1] text-white font-bold py-3 px-4 rounded-lg shadow-lg transition-colors disabled:bg-gray-400"
+                            >
+                                {verificationLoading ? 'Verifying...' : 'Verify Email'}
+                            </button>
+                        </div>
+                        
+                        <div className="text-center">
+                            <button 
+                                type="button" 
+                                onClick={sendVerificationCode}
+                                disabled={verificationLoading}
+                                className="text-[#42ADF5] hover:text-[#2C8ED1] text-sm underline disabled:text-gray-400"
+                            >
+                                Resend Code
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {step === 2 && (
+                    <div className="space-y-4">
                         <div className="border-t pt-4">
                             <label className="block text-sm font-medium text-gray-600 mb-2">Address*</label>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -197,11 +315,25 @@ export default function SignUpMultiStep() {
                             </div>
                         </div>
                         
-                        <button onClick={nextStep} className="w-full bg-[#42ADF5] hover:bg-[#2C8ED1] text-white font-bold py-3 px-4 rounded-lg shadow-lg transition-colors">Next</button>
+                        <div className="flex items-center justify-between space-x-4">
+                            <button type="button" onClick={prevStep} className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-4 rounded-lg shadow-lg transition-colors">Back</button>
+                            <button type="button" onClick={() => {
+                                const requiredAddressFields = [addressParts.province, addressParts.city, addressParts.zone, addressParts.addressLine];
+                                if (requiredAddressFields.some(field => field.trim() === '')) {
+                                    setError('Please fill in all address fields.');
+                                    return;
+                                }
+                                const { addressLine, zone, city, province } = addressParts;
+                                const combinedAddress = [addressLine, zone, city, province].filter(Boolean).join(', ');
+                                setFormData(prev => ({ ...prev, address: combinedAddress }));
+                                setStep(3);
+                                setError('');
+                            }} className="w-full bg-[#42ADF5] hover:bg-[#2C8ED1] text-white font-bold py-3 px-4 rounded-lg shadow-lg transition-colors">Next</button>
+                        </div>
                     </div>
                 )}
 
-                {step === 2 && (
+                {step === 3 && (
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="relative"><span className="absolute inset-y-0 left-0 flex items-center pl-3"><UserIcon /></span><input type="text" name="username" placeholder="Username*" value={formData.username} onChange={handleChange} required className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#42ADF5]" /></div>
                         <div className="relative">
