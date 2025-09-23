@@ -471,7 +471,8 @@ const TechnicianDashboard = () => {
             <button
               onClick={() => {
                 localStorage.removeItem('cx_current_user');
-                navigate('/');
+                localStorage.removeItem('userInfo');
+                navigate('/login');
                 setShowSidebar(false);
               }}
               className="w-full text-left px-4 py-3 rounded-lg font-medium text-gray-700 hover:text-white transition-colors flex items-center space-x-3"
