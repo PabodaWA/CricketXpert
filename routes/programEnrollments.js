@@ -13,14 +13,12 @@ import {
   debugAllEnrollments,
   processEnrollmentPayment
 } from '../controllers/programEnrollmentController.js';
+import { protect, authorizeRoles } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-// Middleware (Note: You'll need to implement these middleware functions)
-// const { protect, authorize } = require('../middleware/auth');
-
-// All routes require authentication (uncomment when auth middleware is available)
-// router.use(protect);
+// All routes require authentication
+router.use(protect);
 
 // Admin only routes
 router.get('/', /* authorize('admin'), */ getAllEnrollments);

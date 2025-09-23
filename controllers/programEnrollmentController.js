@@ -193,8 +193,19 @@ const getAllEnrollments = async (req, res) => {
 const getEnrollment = async (req, res) => {
   try {
     const enrollment = await ProgramEnrollment.findById(req.params.id)
-      .populate('user', 'name email phone')
-      .populate('program', 'title description category specialization coach')
+      .populate('user', 'firstName lastName email contactNumber')
+      .populate({
+        path: 'program',
+        select: 'title description category specialization duration fee coach',
+        populate: {
+          path: 'coach',
+          select: 'userId',
+          populate: {
+            path: 'userId',
+            select: 'firstName lastName'
+          }
+        }
+      })
       .populate('sessions')
       .populate('paymentId');
 
@@ -206,7 +217,7 @@ const getEnrollment = async (req, res) => {
     }
 
     // Check if user has access to this enrollment
-    if (enrollment.user._id.toString() !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'coach') {
+    if (enrollment.user._id.toString() !== req.user._id.toString() && req.user.role !== 'admin' && req.user.role !== 'coach') {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to access this enrollment'

@@ -392,7 +392,11 @@ export default function Profile() {
                     ) : enrollments.length > 0 ? (
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             {enrollments.map((enrollment) => (
-                                <div key={enrollment._id} className="bg-white rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-shadow duration-300">
+                                <div 
+                                    key={enrollment._id} 
+                                    className="bg-white rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-shadow duration-300 cursor-pointer"
+                                    onClick={() => navigate(`/enrollment/${enrollment._id}`)}
+                                >
                                     {/* Program Header */}
                                     <div className="p-6">
                                         <div className="flex justify-between items-start mb-4">
@@ -497,7 +501,7 @@ export default function Profile() {
                                         )}
 
                                         {/* Action Buttons */}
-                                        <div className="flex flex-wrap gap-2">
+                                        <div className="flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
                                             {enrollment.status === 'active' && (
                                                 <>
                                                     <button

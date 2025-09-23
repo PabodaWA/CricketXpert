@@ -57,7 +57,7 @@ export default function SessionBooking({ enrollment, onClose, onBookingSuccess }
         try {
             setLoadingSlots(true);
             const { data } = await axios.get(
-                `http://localhost:5000/api/sessions/ground/${selectedGround}/availability?date=${selectedDate}`
+                `http://localhost:5000/api/session-grounds/ground/${selectedGround}/availability?date=${selectedDate}`
             );
             if (data.success) {
                 setAvailableSlots(data.data.availability || []);
@@ -88,6 +88,20 @@ export default function SessionBooking({ enrollment, onClose, onBookingSuccess }
             return;
         }
 
+        // Validate date is not in the past
+        const selectedDateTime = new Date(selectedDate);
+        const now = new Date();
+        if (selectedDateTime <= now) {
+            setError('Please select a future date');
+            return;
+        }
+
+        // Validate time range
+        if (selectedStartTime >= selectedEndTime) {
+            setError('End time must be after start time');
+            return;
+        }
+
         try {
             setLoading(true);
             setError('');
@@ -98,6 +112,11 @@ export default function SessionBooking({ enrollment, onClose, onBookingSuccess }
                     Authorization: `Bearer ${userInfo.token}`,
                 },
             };
+
+            // Calculate duration in minutes
+            const startTime = new Date(`2000-01-01T${selectedStartTime}:00`);
+            const endTime = new Date(`2000-01-01T${selectedEndTime}:00`);
+            const duration = Math.round((endTime - startTime) / (1000 * 60));
 
             // First, create a session
             const sessionData = {
@@ -110,13 +129,16 @@ export default function SessionBooking({ enrollment, onClose, onBookingSuccess }
                 scheduledDate: selectedDate,
                 startTime: selectedStartTime,
                 endTime: selectedEndTime,
-                duration: 60, // Calculate based on start/end time
+                duration: duration,
                 ground: selectedGround,
                 groundSlot: parseInt(selectedSlot),
                 maxParticipants: 10,
                 objectives: ['Skill development', 'Practice'],
                 materials: []
+                // Note: bookingDeadline will be set automatically by the model's pre-save middleware
             };
+
+            console.log('Creating session with data:', sessionData);
 
             const sessionResponse = await axios.post(
                 'http://localhost:5000/api/sessions',
@@ -125,27 +147,78 @@ export default function SessionBooking({ enrollment, onClose, onBookingSuccess }
             );
 
             if (sessionResponse.data.success) {
-                // Now add the user as a participant
-                const participantData = {
-                    userId: userInfo._id,
-                    enrollmentId: enrollment._id
+                // Now create the SessionGround booking
+                const bookingData = {
+                    sessionId: sessionResponse.data.data._id,
+                    groundId: selectedGround,
+                    groundSlot: parseInt(selectedSlot),
+                    bookingDate: selectedDate,
+                    startTime: selectedStartTime,
+                    endTime: selectedEndTime,
+                    duration: duration,
+                    bookingType: 'session',
+                    specialRequirements: [],
+                    notes: `Session booking for ${enrollment.program.title}`
                 };
 
-                await axios.post(
-                    `http://localhost:5000/api/sessions/${sessionResponse.data.data._id}/participants`,
-                    participantData,
+                console.log('Creating session ground booking with data:', bookingData);
+
+                const bookingResponse = await axios.post(
+                    'http://localhost:5000/api/session-grounds',
+                    bookingData,
                     config
                 );
 
-                setSuccess('Session booked successfully!');
-                setTimeout(() => {
-                    onBookingSuccess();
-                    onClose();
-                }, 1500);
+                if (bookingResponse.data.success) {
+                    // Now add the user as a participant
+                    const participantData = {
+                        userId: userInfo._id,
+                        enrollmentId: enrollment._id
+                    };
+
+                    await axios.post(
+                        `http://localhost:5000/api/sessions/${sessionResponse.data.data._id}/participants`,
+                        participantData,
+                        config
+                    );
+
+                    setSuccess('Session booked successfully!');
+                    setTimeout(() => {
+                        onBookingSuccess();
+                        onClose();
+                    }, 1500);
+                } else {
+                    setError('Failed to create ground booking');
+                }
             }
         } catch (err) {
-            console.error('Error booking session:', err);
-            setError(err.response?.data?.message || 'Failed to book session');
+            console.error('Booking error:', err);
+            console.error('Error response:', err.response?.data);
+            
+            let errorMessage = 'Failed to book session';
+            
+            if (err.response?.data?.message) {
+                errorMessage = err.response.data.message;
+            } else if (err.response?.data?.errors) {
+                if (Array.isArray(err.response.data.errors)) {
+                    errorMessage = err.response.data.errors.join(', ');
+                } else {
+                    errorMessage = err.response.data.errors;
+                }
+            } else if (err.message) {
+                errorMessage = err.message;
+            }
+            
+            // Show more specific error messages
+            if (errorMessage.includes('Validation error')) {
+                errorMessage = 'Please check all fields and try again. Make sure all required information is provided.';
+            } else if (errorMessage.includes('Ground slot is not available')) {
+                errorMessage = 'This time slot is already booked. Please choose a different time.';
+            } else if (errorMessage.includes('Not authorized')) {
+                errorMessage = 'You are not authorized to create this session.';
+            }
+            
+            setError(errorMessage);
         } finally {
             setLoading(false);
         }
