@@ -4,8 +4,6 @@ import { getAllRepairRequests, updateRepairStatus, assignTechnician, sendEstimat
 import { getAllTechnicians } from '../api/repairRequestApi';
 import { updateTechnician } from '../api/technicianApi';
 import Brand from '../brand';
-import Header from '../components/Header';
-import Footer from '../components/Footer';
 
 // Using shared Brand from ../brand
 
@@ -392,7 +390,6 @@ const ServiceManagerDashboard = () => {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: Brand.light }}>
-      <Header />
       {/* Main Content */}
       <main className="flex-1 p-8 relative">
         {/* Sidebar Toggle Button - Left Corner */}
@@ -1437,7 +1434,6 @@ const ServiceManagerDashboard = () => {
          </div>
        )}
          </main>
-       <Footer />
        </div>
      );
    };

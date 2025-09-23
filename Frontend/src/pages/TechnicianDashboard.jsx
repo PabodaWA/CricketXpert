@@ -3,8 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { getAllTechnicians, getAllRepairRequests, updateTaskProgress } from '../api/repairRequestApi';
 import { updateTechnician } from '../api/technicianApi';
 import Brand from '../brand';
-import Header from '../components/Header';
-import Footer from '../components/Footer';
 
 const TechnicianDashboard = () => {
   const navigate = useNavigate();
@@ -373,7 +371,6 @@ const TechnicianDashboard = () => {
 
     return (
     <div className="min-h-screen" style={{ backgroundColor: Brand.light }}>
-      <Header />
       {/* Main Content */}
       <main className="flex-1 p-8 relative">
         {/* Sidebar Toggle Button - Left Corner */}
@@ -1084,7 +1081,6 @@ const TechnicianDashboard = () => {
         )}
            </div>
          </main>
-       <Footer />
        </div>
      );
    };
