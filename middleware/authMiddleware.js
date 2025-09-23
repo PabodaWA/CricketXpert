@@ -1,5 +1,5 @@
-const jwt = require('jsonwebtoken');
-const User = require('../models/User.js'); // Make sure this path to your User model is correct
+import jwt from 'jsonwebtoken';
+import User from '../models/User.js';
 
 /**
  * Middleware to protect routes.
@@ -55,4 +55,4 @@ const authorizeRoles = (...roles) => {
     };
 };
 
-module.exports = { protect, authorizeRoles };
+export { protect, authorizeRoles };

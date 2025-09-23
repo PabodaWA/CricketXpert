@@ -286,7 +286,6 @@ const updateCoach = async (req, res) => {
     console.log('Update Data:', updateData);
 
     // Remove fields that shouldn't be updated via this endpoint
-    delete updateData.userId;
     delete updateData.rating;
     delete updateData.totalReviews;
 

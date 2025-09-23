@@ -35,6 +35,7 @@ import OrderDetails from './pages/OrderDetails.jsx';
 // --- Coaching Programs Pages ---
 import Programs from './pages/Programs.jsx';
 import ProgramDetails from './pages/ProgramDetails.jsx';
+import EnrollmentDetails from './pages/EnrollmentDetails.jsx';
 import CoachDashboard from './pages/CoachDashboard.jsx';
 import ManagerDashboard from './pages/ManagerDashboard.jsx';
 
@@ -100,6 +101,7 @@ export default function App() {
         {/* --- Coaching Programs Public Routes --- */}
         <Route path="/programs" element={<Programs />} />
         <Route path="/programs/:id" element={<ProgramDetails />} />
+        <Route path="/enrollment/:enrollmentId" element={<EnrollmentDetails />} />
         
         {/* --- Legacy Home Route --- */}
         <Route path="/homepage" element={<HomePage />} />

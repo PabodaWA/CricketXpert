@@ -134,10 +134,38 @@ const getSession = async (req, res) => {
 // @access  Private (Coach only)
 const createSession = async (req, res) => {
   try {
+    console.log('Session creation request:', {
+      body: req.body,
+      user: req.user,
+      headers: req.headers
+    });
+
     const sessionData = {
       ...req.body,
-      coach: req.user.coachId || req.body.coach
+      coach: req.user?.coachId || req.body.coach || req.user?.id
     };
+
+    // Ensure coach is provided
+    if (!sessionData.coach) {
+      return res.status(400).json({
+        success: false,
+        message: 'Coach information is required'
+      });
+    }
+
+    console.log('Processed session data:', sessionData);
+
+    // Validate required fields
+    const requiredFields = ['program', 'coach', 'title', 'sessionNumber', 'week', 'scheduledDate', 'startTime', 'endTime', 'duration', 'ground', 'groundSlot'];
+    const missingFields = requiredFields.filter(field => !sessionData[field]);
+    
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields',
+        missingFields: missingFields
+      });
+    }
 
     // Check if ground slot is available
     const isAvailable = await Session.isSlotAvailable(
@@ -743,10 +771,339 @@ const rescheduleSession = async (req, res) => {
   }
 };
 
+// @desc    Debug session creation
+// @route   POST /api/sessions/debug
+// @access  Private
+const debugSessionCreation = async (req, res) => {
+  try {
+    console.log('Debug session creation request:', {
+      body: req.body,
+      user: req.user,
+      headers: req.headers
+    });
+
+    const sessionData = {
+      ...req.body,
+      coach: req.user?.coachId || req.body.coach || req.user?.id
+    };
+
+    // Validate required fields
+    const requiredFields = ['program', 'coach', 'title', 'sessionNumber', 'week', 'scheduledDate', 'startTime', 'endTime', 'duration', 'ground', 'groundSlot'];
+    const missingFields = requiredFields.filter(field => !sessionData[field]);
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        sessionData,
+        missingFields,
+        user: req.user,
+        validation: {
+          hasAllRequiredFields: missingFields.length === 0,
+          coachProvided: !!sessionData.coach,
+          dateValid: sessionData.scheduledDate ? new Date(sessionData.scheduledDate) > new Date() : false
+        }
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Debug error',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get sessions by enrollment ID
+// @route   GET /api/sessions/enrollment/:enrollmentId
+// @access  Private
+const getSessionsByEnrollment = async (req, res) => {
+  try {
+    const { enrollmentId } = req.params;
+    console.log('Fetching sessions for enrollment ID:', enrollmentId);
+    
+    // Find sessions where participants have this enrollment
+    const sessions = await Session.find({
+      'participants.enrollment': enrollmentId
+    })
+    .populate('program', 'title description')
+    .populate('coach', 'userId')
+    .populate('coach.userId', 'firstName lastName')
+    .populate('ground', 'name location')
+    .populate({
+      path: 'participants.enrollment',
+      model: 'ProgramEnrollment',
+      select: 'status progress'
+    })
+    .sort({ scheduledDate: 1 });
+
+    console.log('Found sessions:', sessions.length);
+    console.log('Sessions data:', sessions);
+
+    res.status(200).json({
+      success: true,
+      data: sessions
+    });
+  } catch (error) {
+    console.error('Error fetching sessions by enrollment:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching sessions',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Create session directly for user enrollment
+// @route   POST /api/sessions/direct-booking
+// @access  Private
+const createDirectSession = async (req, res) => {
+  try {
+    console.log('Direct session booking request:', req.body);
+    console.log('User ID:', req.user._id);
+    
+    const { enrollmentId, scheduledDate, scheduledTime, duration, notes } = req.body;
+    
+    // Get enrollment details with program and coach populated
+    const enrollment = await ProgramEnrollment.findById(enrollmentId)
+      .populate({
+        path: 'program',
+        populate: {
+          path: 'coach',
+          populate: {
+            path: 'userId',
+            select: 'firstName lastName'
+          }
+        }
+      })
+      .populate('user');
+    
+    if (!enrollment) {
+      console.log('Enrollment not found for ID:', enrollmentId);
+      return res.status(404).json({
+        success: false,
+        message: 'Enrollment not found'
+      });
+    }
+    
+    console.log('Enrollment found:', {
+      id: enrollment._id,
+      status: enrollment.status,
+      user: enrollment.user._id,
+      program: enrollment.program?._id,
+      coach: enrollment.program?.coach?._id
+    });
+    
+    // Check if user owns this enrollment
+    if (enrollment.user._id.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to create session for this enrollment'
+      });
+    }
+    
+    // Check if enrollment is active
+    if (enrollment.status !== 'active') {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot create session for inactive enrollment'
+      });
+    }
+    
+    // Check program total sessions limit
+    const programTotalSessions = enrollment.program.totalSessions || 10;
+    console.log('Program total sessions:', programTotalSessions);
+    
+    // Count existing sessions for this enrollment
+    const existingSessionsCount = await Session.countDocuments({
+      'participants.enrollment': enrollmentId
+    });
+    
+    console.log('Existing sessions count:', existingSessionsCount);
+    
+    // Check if user has reached the session limit
+    if (existingSessionsCount >= programTotalSessions) {
+      return res.status(400).json({
+        success: false,
+        message: `You have reached the maximum number of sessions (${programTotalSessions}) for this program`
+      });
+    }
+    
+    // Check if program and coach exist
+    if (!enrollment.program || !enrollment.program.coach) {
+      return res.status(400).json({
+        success: false,
+        message: 'Program or coach not found'
+      });
+    }
+    
+    // Get the next session number for this enrollment
+    const existingSessions = await Session.find({ 
+      'participants.enrollment': enrollmentId 
+    }).sort({ sessionNumber: -1 });
+    
+    const nextSessionNumber = existingSessions.length > 0 ? existingSessions[0].sessionNumber + 1 : 1;
+    
+    // Calculate start and end times
+    const startTime = scheduledTime;
+    const [hours, minutes] = scheduledTime.split(':');
+    const startDateTime = new Date(scheduledDate);
+    startDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+    
+    const endDateTime = new Date(startDateTime.getTime() + (duration || 60) * 60000);
+    const endTime = endDateTime.toTimeString().slice(0, 5);
+    
+    console.log('Session timing:', {
+      scheduledDate,
+      scheduledTime,
+      startTime,
+      endTime,
+      duration: duration || 60
+    });
+    
+    // Get a default ground or create one if none exists
+    let defaultGround = await Ground.findOne();
+    if (!defaultGround) {
+      try {
+        // Create a default ground
+        defaultGround = new Ground({
+          name: 'Default Cricket Ground',
+          location: 'Main Sports Complex',
+          pricePerSlot: 50,
+          description: 'Default ground for cricket sessions',
+          totalSlots: 12,
+          facilities: ['parking', 'changing_room'],
+          equipment: ['nets', 'balls', 'bats'],
+          isActive: true
+        });
+        await defaultGround.save();
+        console.log('Created default ground:', defaultGround._id);
+      } catch (groundError) {
+        console.error('Error creating default ground:', groundError);
+        return res.status(500).json({
+          success: false,
+          message: 'Error creating default ground',
+          error: groundError.message
+        });
+      }
+    }
+    
+    console.log('Using ground:', {
+      id: defaultGround._id,
+      name: defaultGround.name,
+      totalSlots: defaultGround.totalSlots
+    });
+    
+    // Calculate booking deadline (24 hours before session)
+    const bookingDeadline = new Date(startDateTime.getTime() - 24 * 60 * 60 * 1000);
+    
+    // Validate ground slot
+    const groundSlot = 1; // Default to slot 1
+    if (groundSlot < 1 || groundSlot > defaultGround.totalSlots) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid ground slot. Must be between 1 and ${defaultGround.totalSlots}`
+      });
+    }
+    
+    // Create session directly
+    const sessionData = {
+      program: enrollment.program._id,
+      coach: enrollment.program.coach._id,
+      title: `Session ${nextSessionNumber} - ${enrollment.program.title}`,
+      sessionNumber: nextSessionNumber,
+      week: Math.ceil(nextSessionNumber / 2), // Assuming 2 sessions per week
+      scheduledDate: new Date(scheduledDate),
+      startTime: startTime,
+      endTime: endTime,
+      duration: duration || 60,
+      ground: defaultGround._id,
+      groundSlot: groundSlot,
+      status: 'scheduled',
+      participants: [{
+        user: req.user._id,
+        enrollment: enrollmentId,
+        attended: false
+      }],
+      notes: notes || '',
+      bookingDeadline: bookingDeadline,
+      maxParticipants: 10,
+      isRecurring: false
+    };
+    
+    console.log('Creating session with data:', JSON.stringify(sessionData, null, 2));
+    
+    const session = new Session(sessionData);
+    
+    try {
+      await session.save();
+      console.log('Session created successfully:', session._id);
+    } catch (saveError) {
+      console.error('Error saving session:', saveError);
+      console.error('Session validation errors:', saveError.errors);
+      
+      // Handle specific validation errors
+      if (saveError.name === 'ValidationError') {
+        const validationErrors = Object.values(saveError.errors).map(err => err.message);
+        return res.status(400).json({
+          success: false,
+          message: 'Session validation failed',
+          errors: validationErrors
+        });
+      }
+      
+      return res.status(500).json({
+        success: false,
+        message: 'Error creating session',
+        error: saveError.message
+      });
+    }
+    
+    // Update enrollment progress
+    if (enrollment.progress) {
+      enrollment.progress.totalSessions = (enrollment.progress.totalSessions || 0) + 1;
+      enrollment.progress.progressPercentage = Math.round(
+        ((enrollment.progress.completedSessions || 0) / enrollment.progress.totalSessions) * 100
+      );
+    } else {
+      enrollment.progress = {
+        totalSessions: 1,
+        completedSessions: 0,
+        progressPercentage: 0
+      };
+    }
+    await enrollment.save();
+    
+    // Populate the response
+    await session.populate([
+      { path: 'program', select: 'title' },
+      { path: 'coach', select: 'userId', populate: { path: 'userId', select: 'firstName lastName' } },
+      { path: 'participants.user', select: 'firstName lastName' }
+    ]);
+    
+    console.log('Session created successfully with ID:', session._id);
+    console.log('Session participants:', session.participants);
+    
+    res.status(201).json({
+      success: true,
+      message: 'Session created successfully',
+      data: session
+    });
+    
+  } catch (error) {
+    console.error('Error creating direct session:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error creating session',
+      error: error.message
+    });
+  }
+};
+
 export {
   getAllSessions,
   getSession,
   createSession,
+  createDirectSession,
   updateSession,
   deleteSession,
   addParticipant,
@@ -754,6 +1111,8 @@ export {
   markAttendance,
   getSessionsByProgram,
   getSessionsByCoach,
+  getSessionsByEnrollment,
   getGroundAvailability,
-  rescheduleSession
+  rescheduleSession,
+  debugSessionCreation
 };

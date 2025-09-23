@@ -30,6 +30,19 @@ export default function ProgramDetails() {
     if (id) {
       fetchProgramDetails();
     }
+    
+    // Listen for coach updates from other pages
+    const handleCoachUpdate = () => {
+      if (id) {
+        fetchProgramDetails();
+      }
+    };
+    
+    window.addEventListener('coachUpdated', handleCoachUpdate);
+    
+    return () => {
+      window.removeEventListener('coachUpdated', handleCoachUpdate);
+    };
   }, [id]);
 
   const fetchProgramDetails = async () => {
@@ -311,7 +324,7 @@ export default function ProgramDetails() {
                     <span className="text-gray-600 mr-3">💰</span>
                     <div>
                       <p className="text-sm text-gray-600">Fee</p>
-                      <p className="font-bold text-green-600 text-xl">${program.fee}</p>
+                      <p className="font-bold text-green-600 text-xl">LKR {program.fee}</p>
                     </div>
                   </div>
                 )}
@@ -490,7 +503,7 @@ export default function ProgramDetails() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-gray-600">Program Fee</p>
-                      <p className="text-2xl font-bold text-green-600">${program?.fee}</p>
+                      <p className="text-2xl font-bold text-green-600">LKR {program?.fee}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-sm text-gray-600">Duration</p>

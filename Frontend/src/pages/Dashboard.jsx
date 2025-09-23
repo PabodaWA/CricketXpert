@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAllRepairRequests, getAllTechnicians } from '../api/repairRequestApi';
 import Brand from '../brand';
-import Header from '../components/Header';
-import Footer from '../components/Footer';
 
 // Using shared Brand from ../brand
 
@@ -75,7 +73,6 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#F1F2F7' }}>
-      <Header />
       {/* Main Content */}
       <main className="flex-1 p-8 relative">
         {/* Sidebar Toggle Button - Left Corner */}
@@ -150,7 +147,8 @@ const Dashboard = () => {
                                       <button
                onClick={() => {
                  localStorage.removeItem('cx_current_user');
-                 navigate('/');
+                 localStorage.removeItem('userInfo');
+                 navigate('/login');
                  setShowSidebar(false);
                }}
                                className="w-full text-left px-4 py-3 rounded-lg font-medium text-gray-700 hover:text-white transition-colors flex items-center space-x-3"
@@ -449,7 +447,6 @@ const Dashboard = () => {
                </div>
            </div>
          </main>
-      <Footer />
       </div>
     );
   };

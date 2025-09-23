@@ -170,7 +170,8 @@ const Payment = () => {
         
         // Show success notification and redirect to profile
         alert('Payment successful! You have been enrolled in the program.');
-        navigate('/profile');
+        // Use window.location.href for reliable navigation to customer profile
+        window.location.href = '/customer/profile';
       } else {
         // Handle order payment: ensure Cart_Pending is converted to order if needed
         let orderToComplete = cartOrder;
@@ -270,12 +271,12 @@ const Payment = () => {
           {type === 'enrollment' ? (
             <>
               <div className="text-2xl font-bold mb-4">Program Enrollment Payment</div>
-              <div className="text-3xl font-bold text-green-600 mb-6">${amount}.00</div>
+              <div className="text-3xl font-bold text-green-600 mb-6">LKR {amount}.00</div>
               
               <div className="space-y-3">
                 <div className="flex justify-between text-sm">
                   <span>Program: {program?.title}</span>
-                  <span>${program?.fee}.00</span>
+                  <span>LKR {program?.fee}.00</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Duration</span>
@@ -287,7 +288,7 @@ const Payment = () => {
                 </div>
                 <div className="flex justify-between text-sm border-t pt-2">
                   <span>Total</span>
-                  <span className="font-bold">${amount}.00</span>
+                  <span className="font-bold">LKR {amount}.00</span>
                 </div>
               </div>
             </>

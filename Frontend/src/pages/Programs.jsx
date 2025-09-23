@@ -11,6 +11,17 @@ export default function Programs() {
 
   useEffect(() => {
     fetchPrograms();
+    
+    // Listen for coach updates from other pages
+    const handleCoachUpdate = () => {
+      fetchPrograms();
+    };
+    
+    window.addEventListener('coachUpdated', handleCoachUpdate);
+    
+    return () => {
+      window.removeEventListener('coachUpdated', handleCoachUpdate);
+    };
   }, []);
 
   const fetchPrograms = async () => {
@@ -135,7 +146,7 @@ export default function Programs() {
                     {program.fee && (
                       <div className="flex items-center text-sm text-gray-600">
                         <span className="mr-2">💰</span>
-                        <span className="font-semibold text-green-600">${program.fee}</span>
+                        <span className="font-semibold text-green-600">LKR {program.fee}</span>
                       </div>
                     )}
                   </div>

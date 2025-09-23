@@ -103,9 +103,18 @@ export default function Profile() {
         if (paymentData) {
             try {
                 const data = JSON.parse(paymentData);
-                setPaymentEnrollmentData(data);
-                setShowPaymentEnrollment(true);
-                // Clear the data from localStorage after showing
+                // Only show PaymentEnrollment modal if enrollment is not already active
+                if (data.enrollment && data.enrollment.status !== 'active') {
+                    setPaymentEnrollmentData(data);
+                    setShowPaymentEnrollment(true);
+                } else {
+                    // Enrollment is already active, just show success message
+                    setShowSuccessMessage(true);
+                    setTimeout(() => {
+                        setShowSuccessMessage(false);
+                    }, 5000);
+                }
+                // Clear the data from localStorage after processing
                 localStorage.removeItem('paymentEnrollmentData');
             } catch (err) {
                 console.error('Error parsing payment enrollment data:', err);
@@ -383,7 +392,11 @@ export default function Profile() {
                     ) : enrollments.length > 0 ? (
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             {enrollments.map((enrollment) => (
-                                <div key={enrollment._id} className="bg-white rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-shadow duration-300">
+                                <div 
+                                    key={enrollment._id} 
+                                    className="bg-white rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-shadow duration-300 cursor-pointer"
+                                    onClick={() => navigate(`/enrollment/${enrollment._id}`)}
+                                >
                                     {/* Program Header */}
                                     <div className="p-6">
                                         <div className="flex justify-between items-start mb-4">
@@ -398,7 +411,7 @@ export default function Profile() {
                                                     <span className="font-medium">Duration:</span> {enrollment.program?.duration} weeks
                                                 </p>
                                                 <p className="text-text-body text-sm mb-1">
-                                                    <span className="font-medium">Fee:</span> ${enrollment.program?.fee}
+                                                    <span className="font-medium">Fee:</span> LKR {enrollment.program?.fee}
                                                 </p>
                                                 <p className="text-text-body text-sm">
                                                     <span className="font-medium">Enrolled:</span> {new Date(enrollment.enrollmentDate || enrollment.createdAt).toLocaleDateString()}
@@ -488,7 +501,7 @@ export default function Profile() {
                                         )}
 
                                         {/* Action Buttons */}
-                                        <div className="flex flex-wrap gap-2">
+                                        <div className="flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
                                             {enrollment.status === 'active' && (
                                                 <>
                                                     <button

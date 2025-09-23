@@ -1,8 +1,8 @@
-const mongoose = require('mongoose');
-const Ground = require('./models/Ground');
+import mongoose from 'mongoose';
+import Ground from './models/Ground.js';
 
 // Connect to MongoDB
-mongoose.connect('mongodb://localhost:27017/your-database-name', {
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/cricket-coaching', {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 });
