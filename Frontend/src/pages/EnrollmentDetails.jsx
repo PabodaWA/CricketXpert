@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import CoachAvailability from '../components/CoachAvailability';
+import WeeklySessionBooking from '../components/WeeklySessionBooking';
 
 export default function EnrollmentDetails() {
   const { enrollmentId } = useParams();
@@ -17,10 +19,12 @@ export default function EnrollmentDetails() {
   const [bookingForm, setBookingForm] = useState({
     requestedDate: '',
     requestedTime: '',
-    duration: 60,
+    duration: 120, // Default to 2 hours
     notes: ''
   });
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [bookingMode, setBookingMode] = useState('weekly'); // 'weekly' or 'regular'
 
   useEffect(() => {
     if (enrollmentId) {
@@ -117,6 +121,29 @@ export default function EnrollmentDetails() {
     }));
   };
 
+  const handleTimeSlotSelect = (timeSlot) => {
+    setSelectedTimeSlot(timeSlot);
+    if (timeSlot) {
+      setBookingForm(prev => ({
+        ...prev,
+        requestedDate: timeSlot.date,
+        requestedTime: timeSlot.startTime
+      }));
+    }
+  };
+
+  const handleWeeklySessionSelect = (sessionData) => {
+    setSelectedTimeSlot(sessionData);
+    if (sessionData) {
+      setBookingForm(prev => ({
+        ...prev,
+        requestedDate: sessionData.date,
+        requestedTime: sessionData.startTime,
+        duration: sessionData.duration
+      }));
+    }
+  };
+
   const handleDirectSessionBooking = async () => {
     try {
       setSubmitting(true);
@@ -139,7 +166,11 @@ export default function EnrollmentDetails() {
         scheduledDate: bookingForm.requestedDate,
         scheduledTime: bookingForm.requestedTime,
         duration: parseInt(bookingForm.duration),
-        notes: bookingForm.notes
+        notes: bookingForm.notes,
+        sessionNumber: selectedTimeSlot?.sessionNumber || 1,
+        week: selectedTimeSlot?.week || 1,
+        ground: selectedTimeSlot?.ground?._id,
+        groundSlot: selectedTimeSlot?.groundSlot?.slotNumber
       };
 
       console.log('Submitting session data:', sessionData);
@@ -556,7 +587,7 @@ export default function EnrollmentDetails() {
       {/* Session Booking Modal */}
       {showBookingModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">Book a Session</h2>
@@ -568,74 +599,112 @@ export default function EnrollmentDetails() {
                 </button>
               </div>
               
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Weekly Session Booking Section */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Session Date *
-                  </label>
-                  <input
-                    type="date"
-                    value={bookingForm.requestedDate}
-                    onChange={(e) => handleBookingFormChange('requestedDate', e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    min={new Date().toISOString().split('T')[0]}
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Session Time *
-                  </label>
-                  <input
-                    type="time"
-                    value={bookingForm.requestedTime}
-                    onChange={(e) => handleBookingFormChange('requestedTime', e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Duration (minutes) *
-                  </label>
-                  <select 
-                    value={bookingForm.duration}
-                    onChange={(e) => handleBookingFormChange('duration', e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  >
-                    <option value="60">60 minutes</option>
-                    <option value="90">90 minutes</option>
-                    <option value="120">120 minutes</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Session Notes (Optional)
-                  </label>
-                  <textarea
-                    value={bookingForm.notes}
-                    onChange={(e) => handleBookingFormChange('notes', e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    rows="3"
-                    placeholder="Any specific requirements or notes for this session..."
-                  />
-                </div>
-                
-                <div className="bg-green-50 p-4 rounded-lg">
-                  <div className="flex items-center">
-                    <div className="text-green-600 mr-3">
-                      <span className="text-lg">✅</span>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Weekly Session Booking</h3>
+                  {enrollment?.program?.coach?._id ? (
+                    <WeeklySessionBooking
+                      coachId={enrollment.program.coach._id}
+                      onSessionSelect={handleWeeklySessionSelect}
+                      enrollmentDate={enrollment.enrollmentDate}
+                      programDuration={enrollment.program?.duration}
+                      existingSessions={sessions}
+                    />
+                  ) : (
+                    <div className="bg-yellow-50 p-4 rounded-lg">
+                      <p className="text-yellow-800">Coach information not available</p>
                     </div>
+                  )}
+                </div>
+
+                {/* Session Details Section */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Session Details</h3>
+                  
+                  <div className="space-y-4">
+                    {/* Selected Session Details */}
+                    {selectedTimeSlot && (
+                      <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                        <div className="flex items-center mb-3">
+                          <div className="text-green-600 mr-3">
+                            <span className="text-lg">✅</span>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-green-800">Selected Session</p>
+                          </div>
+                        </div>
+                        <div className="text-sm text-green-700 space-y-1">
+                          <p><strong>Session:</strong> Session {selectedTimeSlot.sessionNumber} - Week {selectedTimeSlot.week}</p>
+                          <p><strong>Date:</strong> {selectedTimeSlot.dayName}, {new Date(selectedTimeSlot.date).toLocaleDateString()}</p>
+                          <p><strong>Time:</strong> {selectedTimeSlot.startTime} - {selectedTimeSlot.endTime}</p>
+                          <p><strong>Duration:</strong> 2 hours</p>
+                          {selectedTimeSlot.ground && (
+                            <>
+                              <p><strong>Ground:</strong> {selectedTimeSlot.ground.name} - {selectedTimeSlot.ground.location}</p>
+                              <p><strong>Ground Slot:</strong> Slot {selectedTimeSlot.groundSlot?.slotNumber}</p>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Duration is now fixed at 2 hours */}
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                      <div className="flex items-center">
+                        <div className="text-blue-600 mr-3">
+                          <span className="text-lg">⏱️</span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-blue-800">Session Duration</p>
+                          <p className="text-sm text-blue-700">All sessions are 2 hours long</p>
+                        </div>
+                      </div>
+                    </div>
+                    
                     <div>
-                      <p className="text-sm font-medium text-green-800">Direct Session Booking</p>
-                      <p className="text-sm text-green-700">
-                        Your session will be created immediately upon submission. 
-                        No coach approval required - you can book sessions directly!
-                      </p>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Session Notes (Optional)
+                      </label>
+                      <textarea
+                        value={bookingForm.notes}
+                        onChange={(e) => handleBookingFormChange('notes', e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        rows="3"
+                        placeholder="Any specific requirements or notes for this session..."
+                      />
+                    </div>
+
+                    {/* Selected Time Display */}
+                    {selectedTimeSlot && (
+                      <div className="bg-green-50 p-4 rounded-lg">
+                        <div className="flex items-center">
+                          <div className="text-green-600 mr-3">
+                            <span className="text-lg">✅</span>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-green-800">Selected Time Slot</p>
+                            <p className="text-sm text-green-700">
+                              {new Date(selectedTimeSlot.date).toLocaleDateString()} at {selectedTimeSlot.startTime}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                      <div className="flex items-center">
+                        <div className="text-blue-600 mr-3">
+                          <span className="text-lg">ℹ️</span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-blue-800">Booking Information</p>
+                          <p className="text-sm text-blue-700">
+                            Your session will be created immediately upon submission. 
+                            Only available coach time slots can be booked.
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -651,7 +720,7 @@ export default function EnrollmentDetails() {
                 </button>
                 <button
                   onClick={handleDirectSessionBooking}
-                  disabled={submitting || !bookingForm.requestedDate || !bookingForm.requestedTime}
+                  disabled={submitting || !selectedTimeSlot || !selectedTimeSlot.ground || !selectedTimeSlot.groundSlot}
                   className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed transition-colors"
                 >
                   {submitting ? 'Booking...' : 'Book Session'}

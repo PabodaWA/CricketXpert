@@ -196,7 +196,7 @@ const getEnrollment = async (req, res) => {
       .populate('user', 'firstName lastName email contactNumber')
       .populate({
         path: 'program',
-        select: 'title description category specialization duration fee coach',
+        select: 'title description category specialization duration fee coach totalSessions',
         populate: {
           path: 'coach',
           select: 'userId',
@@ -223,6 +223,13 @@ const getEnrollment = async (req, res) => {
         message: 'Not authorized to access this enrollment'
       });
     }
+
+    // Add cache-busting headers to ensure fresh data
+    res.set({
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    });
 
     res.status(200).json({
       success: true,
@@ -301,7 +308,7 @@ const createEnrollment = async (req, res) => {
 
     const populatedEnrollment = await ProgramEnrollment.findById(enrollment._id)
       .populate('user', 'name email firstName lastName')
-      .populate('program', 'title price category duration');
+      .populate('program', 'title price category duration totalSessions');
 
     // Send enrollment confirmation email
     try {
@@ -480,7 +487,7 @@ const getUserEnrollments = async (req, res) => {
       populate: [
         { 
           path: 'program', 
-          select: 'title description category specialization price startDate endDate imageUrl duration fee',
+          select: 'title description category specialization price startDate endDate imageUrl duration fee totalSessions',
           populate: { 
             path: 'coach', 
             select: 'name',
@@ -790,7 +797,7 @@ const processEnrollmentPayment = async (req, res) => {
     
     const updatedEnrollment = await ProgramEnrollment.findById(enrollment._id)
       .populate('user', 'firstName lastName email')
-      .populate('program', 'title description coach category duration');
+      .populate('program', 'title description coach category duration totalSessions');
     
     // Send enrollment confirmation email after successful payment
     try {

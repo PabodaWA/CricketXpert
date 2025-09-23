@@ -192,6 +192,11 @@ const createCoachingProgram = async (req, res) => {
       coach: req.body.coach // Use coach ID from request body
     };
 
+    // Ensure totalSessions equals duration (1 session per week)
+    if (programData.duration) {
+      programData.totalSessions = programData.duration;
+    }
+
     const program = await CoachingProgram.create(programData);
     
     // IMPORTANT: Add the program to the coach's assignedPrograms array
@@ -257,6 +262,11 @@ const updateCoachingProgram = async (req, res) => {
 
     const oldCoachId = program.coach.toString();
     const newCoachId = req.body.coach;
+
+    // Ensure totalSessions equals duration (1 session per week)
+    if (req.body.duration) {
+      req.body.totalSessions = req.body.duration;
+    }
 
     const updatedProgram = await CoachingProgram.findByIdAndUpdate(
       req.params.id,
