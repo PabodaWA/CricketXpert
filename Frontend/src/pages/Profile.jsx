@@ -451,28 +451,7 @@ export default function Profile() {
                                             </div>
                                         </div>
 
-                                        {/* Progress Section */}
-                                        {enrollment.progress && (
-                                            <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-                                                <div className="flex justify-between items-center mb-2">
-                                                    <span className="text-sm font-medium text-gray-700">Progress</span>
-                                                    <span className="text-sm font-bold text-primary">
-                                                        {enrollment.progress.completedSessions || 0} / {enrollment.progress.totalSessions || 0} sessions
-                                                    </span>
-                                                </div>
-                                                <div className="w-full bg-gray-200 rounded-full h-2">
-                                                    <div 
-                                                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                                        style={{ 
-                                                            width: `${enrollment.progress.progressPercentage || 0}%` 
-                                                        }}
-                                                    ></div>
-                                                </div>
-                                                <p className="text-xs text-gray-600 mt-1">
-                                                    {enrollment.progress.progressPercentage || 0}% complete
-                                                </p>
-                                            </div>
-                                        )}
+                                        
 
                                         {/* Program Details */}
                                         {enrollment.program?.description && (
@@ -502,28 +481,7 @@ export default function Profile() {
 
                                         {/* Action Buttons */}
                                         <div className="flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
-                                            {enrollment.status === 'active' && (
-                                                <>
-                                                    <button
-                                                        onClick={() => handleBookSession(enrollment)}
-                                                        className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center"
-                                                    >
-                                                        📅 Book Session
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleViewSessions(enrollment)}
-                                                        className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors flex items-center"
-                                                    >
-                                                        📋 My Sessions
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleViewCalendar(enrollment)}
-                                                        className="px-4 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition-colors flex items-center"
-                                                    >
-                                                        📊 Calendar
-                                                    </button>
-                                                </>
-                                            )}
+                                            
                                             
                                             {enrollment.status === 'pending' && enrollment.paymentStatus === 'pending' && (
                                                 <button
@@ -541,11 +499,7 @@ export default function Profile() {
                                                 </button>
                                             )}
 
-                                            {enrollment.status === 'completed' && (
-                                                <div className="flex items-center text-green-600 text-sm font-medium">
-                                                    🎓 Program Completed
-                                                </div>
-                                            )}
+                                           
                                         </div>
                                     </div>
                                 </div>

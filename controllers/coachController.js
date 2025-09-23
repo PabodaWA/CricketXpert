@@ -725,6 +725,396 @@ const toggleCoachStatus = async (req, res) => {
   }
 };
 
+// @desc    Create coach profile for user with coach role
+// @route   POST /api/coaches/create-for-user/:userId
+// @access  Private (Admin only)
+const createCoachProfileForUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { specializations, experience, bio, hourlyRate, achievements } = req.body;
+
+    // Check if user exists and has coach role
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    if (user.role !== 'coach') {
+      return res.status(400).json({
+        success: false,
+        message: 'User must have coach role to create coach profile'
+      });
+    }
+
+    // Check if coach profile already exists
+    const existingCoach = await Coach.findOne({ userId });
+    if (existingCoach) {
+      return res.status(400).json({
+        success: false,
+        message: 'Coach profile already exists for this user'
+      });
+    }
+
+    // Create coach profile with provided data or defaults
+    const coachData = {
+      userId,
+      specializations: specializations || ['General Coaching'],
+      experience: experience || 0,
+      bio: bio || '',
+      hourlyRate: hourlyRate || 0,
+      achievements: achievements || [],
+      isActive: true,
+      availability: [],
+      assignedSessions: 0,
+      assignedPrograms: []
+    };
+
+    const coach = await Coach.create(coachData);
+    
+    // Populate user data for response
+    const populatedCoach = await Coach.findById(coach._id)
+      .populate('userId', 'firstName lastName email profileImageURL')
+      .populate('assignedPrograms', 'title description category specialization isActive price currentEnrollments maxParticipants duration startDate endDate');
+
+    res.status(201).json({
+      success: true,
+      data: populatedCoach,
+      message: 'Coach profile created successfully for user'
+    });
+  } catch (error) {
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: Object.values(error.errors).map(err => err.message)
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Error creating coach profile for user',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Create coach profiles for all users with coach role who don't have profiles
+// @route   POST /api/coaches/create-missing-profiles
+// @access  Private (Admin only)
+const createMissingCoachProfiles = async (req, res) => {
+  try {
+    // Find all users with coach role
+    const coachUsers = await User.find({ role: 'coach' });
+    
+    if (coachUsers.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: 'No users with coach role found',
+        created: 0
+      });
+    }
+
+    // Find existing coach profiles
+    const existingCoachUserIds = await Coach.find({}).distinct('userId');
+    
+    // Find users without coach profiles
+    const usersWithoutProfiles = coachUsers.filter(user => 
+      !existingCoachUserIds.some(coachUserId => coachUserId.toString() === user._id.toString())
+    );
+
+    if (usersWithoutProfiles.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: 'All users with coach role already have coach profiles',
+        created: 0
+      });
+    }
+
+    // Create coach profiles for users without them
+    const createdProfiles = [];
+    for (const user of usersWithoutProfiles) {
+      const coachData = {
+        userId: user._id,
+        specializations: ['General Coaching'],
+        experience: 0,
+        bio: '',
+        hourlyRate: 0,
+        achievements: [],
+        isActive: true,
+        availability: [],
+        assignedSessions: 0,
+        assignedPrograms: []
+      };
+
+      const coach = await Coach.create(coachData);
+      createdProfiles.push({
+        userId: user._id,
+        userName: `${user.firstName} ${user.lastName}`,
+        coachId: coach._id
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Created ${createdProfiles.length} coach profiles`,
+      created: createdProfiles.length,
+      profiles: createdProfiles
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error creating missing coach profiles',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get coach availability for booking
+// @route   GET /api/coaches/:id/availability
+// @access  Public
+const getCoachAvailability = async (req, res) => {
+  try {
+    const { id: coachId } = req.params;
+    const { date, duration = 60, enrollmentDate, programDuration, sessionNumber } = req.query;
+
+    const coach = await Coach.findById(coachId)
+      .populate('userId', 'firstName lastName email');
+
+    if (!coach) {
+      return res.status(404).json({
+        success: false,
+        message: 'Coach not found'
+      });
+    }
+
+    if (!coach.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: 'Coach is not currently active'
+      });
+    }
+
+    // Get coach's general availability
+    const coachAvailability = coach.availability || [];
+
+    // If specific date is requested, check for existing sessions
+    let availableSlots = [];
+    if (date) {
+      const searchDate = new Date(date);
+      
+      // Validate that the requested date is within the program duration
+      if (enrollmentDate && programDuration) {
+        const enrollment = new Date(enrollmentDate);
+        const programEndDate = new Date(enrollment);
+        programEndDate.setDate(programEndDate.getDate() + (parseInt(programDuration) * 7)); // Add weeks
+        
+        if (searchDate < enrollment || searchDate > programEndDate) {
+          return res.status(400).json({
+            success: false,
+            message: `Session can only be booked between ${enrollment.toDateString()} and ${programEndDate.toDateString()}`,
+            validDateRange: {
+              startDate: enrollment,
+              endDate: programEndDate
+            }
+          });
+        }
+
+        // If sessionNumber is provided, validate it's in the correct week
+        if (sessionNumber) {
+          const sessionNum = parseInt(sessionNumber);
+          const enrollmentWeek = Math.floor((searchDate - enrollment) / (7 * 24 * 60 * 60 * 1000)) + 1;
+          
+          if (sessionNum !== enrollmentWeek) {
+            return res.status(400).json({
+              success: false,
+              message: `Session ${sessionNum} must be booked in Week ${sessionNum}. You are trying to book in Week ${enrollmentWeek}`,
+              expectedWeek: sessionNum,
+              actualWeek: enrollmentWeek
+            });
+          }
+        }
+      }
+      
+      const startOfDay = new Date(searchDate.setHours(0, 0, 0, 0));
+      const endOfDay = new Date(searchDate.setHours(23, 59, 59, 999));
+
+      // Get existing sessions for this coach on this date
+      const Session = (await import('../models/Session.js')).default;
+      const existingSessions = await Session.find({
+        coach: coachId,
+        scheduledDate: {
+          $gte: startOfDay,
+          $lt: endOfDay
+        },
+        status: { $nin: ['cancelled'] }
+      }).select('startTime endTime duration');
+
+      // Generate available time slots based on coach's availability
+      const availableTimes = [];
+      
+      for (const availability of coachAvailability) {
+        const dayOfWeek = searchDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+        const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const currentDayName = dayNames[dayOfWeek].toLowerCase();
+        
+        if (availability.day.toLowerCase() === currentDayName) {
+          // Generate hourly slots within coach's availability window
+          const startHour = parseInt(availability.startTime.split(':')[0]);
+          const endHour = parseInt(availability.endTime.split(':')[0]);
+          
+          // Generate 2-hour slots within coach's availability window
+          for (let hour = startHour; hour < endHour - 1; hour += 2) {
+            const slotStartTime = `${hour.toString().padStart(2, '0')}:00`;
+            const slotEndTime = `${(hour + 2).toString().padStart(2, '0')}:00`;
+            
+            // Check if this slot conflicts with existing sessions
+            const hasConflict = existingSessions.some(session => {
+              const sessionStart = session.startTime;
+              const sessionEnd = session.endTime;
+              return (slotStartTime < sessionEnd && slotEndTime > sessionStart);
+            });
+            
+            if (!hasConflict) {
+              availableTimes.push({
+                startTime: slotStartTime,
+                endTime: slotEndTime,
+                available: true,
+                duration: 120 // 2 hours in minutes
+              });
+            }
+          }
+        }
+      }
+
+      availableSlots = availableTimes;
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        coach: {
+          _id: coach._id,
+          name: `${coach.userId.firstName} ${coach.userId.lastName}`,
+          email: coach.userId.email
+        },
+        generalAvailability: coachAvailability,
+        availableSlots: availableSlots,
+        requestedDate: date || null
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching coach availability',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get valid booking date range for a program
+// @route   GET /api/coaches/:id/booking-range
+// @access  Public
+const getBookingDateRange = async (req, res) => {
+  try {
+    const { id: coachId } = req.params;
+    const { enrollmentDate, programDuration } = req.query;
+
+    if (!enrollmentDate || !programDuration) {
+      return res.status(400).json({
+        success: false,
+        message: 'Enrollment date and program duration are required'
+      });
+    }
+
+    const enrollment = new Date(enrollmentDate);
+    const programEndDate = new Date(enrollment);
+    programEndDate.setDate(programEndDate.getDate() + (parseInt(programDuration) * 7));
+
+    // Generate all valid dates within the program duration
+    const validDates = [];
+    const currentDate = new Date(enrollment);
+    
+    while (currentDate <= programEndDate) {
+      validDates.push(new Date(currentDate));
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        enrollmentDate: enrollment,
+        programEndDate: programEndDate,
+        validDates: validDates,
+        totalDays: validDates.length,
+        programDuration: parseInt(programDuration)
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching booking date range',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get weekly session structure for a program
+// @route   GET /api/coaches/:id/weekly-sessions
+// @access  Public
+const getWeeklySessionStructure = async (req, res) => {
+  try {
+    const { id: coachId } = req.params;
+    const { enrollmentDate, programDuration } = req.query;
+
+    if (!enrollmentDate || !programDuration) {
+      return res.status(400).json({
+        success: false,
+        message: 'Enrollment date and program duration are required'
+      });
+    }
+
+    const enrollment = new Date(enrollmentDate);
+    const totalWeeks = parseInt(programDuration);
+    const weeklySessions = [];
+
+    for (let week = 1; week <= totalWeeks; week++) {
+      const weekStartDate = new Date(enrollment);
+      weekStartDate.setDate(weekStartDate.getDate() + ((week - 1) * 7));
+      
+      const weekEndDate = new Date(weekStartDate);
+      weekEndDate.setDate(weekEndDate.getDate() + 6);
+
+      weeklySessions.push({
+        week: week,
+        sessionNumber: week,
+        weekStartDate: weekStartDate,
+        weekEndDate: weekEndDate,
+        weekLabel: `Week ${week}`,
+        sessionLabel: `Session ${week}`
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        enrollmentDate: enrollment,
+        programDuration: totalWeeks,
+        totalSessions: totalWeeks,
+        weeklySessions: weeklySessions
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching weekly session structure',
+      error: error.message
+    });
+  }
+};
+
 export {
   getAllCoaches,
   getCoach,
@@ -738,6 +1128,11 @@ export {
   assignProgramToCoach,
   removeProgramFromCoach,
   getCoachStats,
-  toggleCoachStatus
+  toggleCoachStatus,
+  createCoachProfileForUser,
+  createMissingCoachProfiles,
+  getCoachAvailability,
+  getBookingDateRange,
+  getWeeklySessionStructure
 };
 
