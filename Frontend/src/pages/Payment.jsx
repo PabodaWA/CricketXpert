@@ -173,71 +173,28 @@ const Payment = () => {
         // Use window.location.href for reliable navigation to customer profile
         window.location.href = '/customer/profile';
       } else {
-        // Handle order payment: ensure Cart_Pending is converted to order if needed
-        let orderToComplete = cartOrder;
+        // Handle order payment for selected items from Cart_Pending
+        // Determine productIds being purchased (cart array contains only items being paid for on this flow)
+        const productIds = cart.map(i => i.productId);
+        const deliveryAddress = address || user?.address || 'No address provided';
 
-        // If no cart order exists, create one first
-        if (!cartOrder) {
-          if (cartToken) {
-            // Checkout Cart_Pending to create an order
-            const deliveryAddress = address || user?.address || 'No address provided';
-            const checkoutRes = await axios.post('http://localhost:5000/api/cart-pending/checkout', {
-              cartToken,
-              customerId: userId,
-              address: deliveryAddress
-            }, config);
-            orderToComplete = checkoutRes.data;
-          } else {
-            console.log('No cartToken present, falling back to direct order creation');
-            const orderItems = cart.map(item => {
-              const product = getProductDetails(item.productId);
-              return {
-                productId: item.productId,
-                quantity: item.quantity,
-                priceAtOrder: product.price || 0
-              };
-            });
-            const deliveryAddress = address || user?.address || 'No address provided';
-            const newCartOrder = await axios.post('http://localhost:5000/api/orders/cart', {
-              customerId: userId,
-              items: orderItems,
-              amount: totalData.total,
-              address: deliveryAddress
-            }, config);
-            orderToComplete = newCartOrder.data;
-          }
-          setCartOrder(orderToComplete);
-        }
-
-        console.log('Creating payment with:', { 
-          userId, 
-          orderId: orderToComplete._id, 
-          paymentType: 'order_payment', 
-          amount: totalData.total, 
-          status: 'success', 
-          paymentDate: new Date() 
-        });
-        
-        const paymentRes = await axios.post('http://localhost:5000/api/payment/', {
-          userId,
-          orderId: orderToComplete._id,
-          paymentType: 'order_payment',
-          amount: totalData.total,
-          status: 'success',
-          paymentDate: new Date()
+        const payRes = await axios.post('http://localhost:5000/api/payment/pay-selected', {
+          cartToken,
+          productIds,
+          customerId: userId,
+          address: deliveryAddress,
+          paymentMethod: 'card'
         }, config);
-        console.log('Payment created:', paymentRes.data);
 
-        // Complete the cart order (change status from 'cart_pending' to 'created')
-        console.log('Completing cart order:', orderToComplete._id);
-        const completedOrder = await axios.put('http://localhost:5000/api/orders/cart/complete', {
-          orderId: orderToComplete._id,
-          paymentId: paymentRes.data._id
-        }, config);
-        console.log('Order completed:', completedOrder.data);
+        // Update local storage cart to remove purchased items only
+        const currentLocal = JSON.parse(localStorage.getItem('cricketCart') || '[]');
+        const purchasedSet = new Set(productIds.map(String));
+        const remainingLocal = currentLocal.filter(line => !purchasedSet.has(String(line.productId)));
+        localStorage.setItem('cricketCart', JSON.stringify(remainingLocal));
 
-        localStorage.removeItem('cricketCart');
-        navigate('/orders', { state: { order: completedOrder.data, payment: paymentRes.data } });
+        // If we came from selecting subset, Payment received only selected items in cart state.
+        // After success, return to cart to reflect remaining items, or go to orders page.
+        navigate('/orders', { state: { order: payRes.data.order, payment: payRes.data.payment } });
       }
     } catch (err) {
       console.error('Error details:', err.response?.data || err.message);

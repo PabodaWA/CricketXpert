@@ -11,7 +11,8 @@ import {
     getPaymentsByOrder,
     processOrderPayment,
     processRefund,
-    getPaymentStats
+    getPaymentStats,
+    paySelectedCartItems
 } from '../controllers/paymentController.js';
 import { protect, authorizeRoles } from '../utils/protect.js';
 
@@ -32,5 +33,8 @@ router.get('/order/:orderId', protect, getPaymentsByOrder);
 
 // --- Public or Customer Route to create a payment ---
 router.post('/', protect, createPayment); // Assuming any logged-in user can create a payment
+
+// Customer route: pay for selected cart items and remove from cart
+router.post('/pay-selected', protect, paySelectedCartItems);
 
 export default router;

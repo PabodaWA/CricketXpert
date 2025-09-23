@@ -1,5 +1,7 @@
 import Payment from '../models/Payments.js';
 import Order from '../models/Order.js';
+import CartPending from '../models/cart_Pending.js';
+import Product from '../models/Product.js';
 
 // Create payment
 const createPayment = async (req, res) => {
@@ -311,4 +313,99 @@ export {
   processOrderPayment,
   processRefund,
   getPaymentStats
+};
+
+// New: Pay for selected Cart_Pending items by cartToken and productIds
+// - Creates a completed Order with only the selected items
+// - Creates a Payment record
+// - Deletes those items from Cart_Pending
+// - Returns order, payment, and remaining cart items for the cartToken
+export const paySelectedCartItems = async (req, res) => {
+  try {
+    const { cartToken, productIds, customerId, address, paymentMethod } = req.body;
+
+    if (!cartToken || !Array.isArray(productIds) || productIds.length === 0) {
+      return res.status(400).json({ message: 'cartToken and productIds are required' });
+    }
+
+    if (!customerId) {
+      return res.status(400).json({ message: 'customerId is required' });
+    }
+
+    // Fetch selected cart pending items
+    const items = await CartPending.find({
+      cartToken,
+      productId: { $in: productIds },
+      status: 'cart_pending'
+    }).populate('productId');
+
+    if (!items || items.length === 0) {
+      return res.status(404).json({ message: 'No matching cart items found to pay' });
+    }
+
+    // Build order items and compute totals using current stored line price/quantity
+    let subtotal = 0;
+    const orderItems = items.map((i) => {
+      const unitPrice = Number(i.price ?? i.productId?.price) || 0;
+      const qty = Number(i.quantity) || 1;
+      subtotal += unitPrice * qty;
+      return {
+        productId: i.productId?._id || i.productId,
+        quantity: qty,
+        priceAtOrder: unitPrice
+      };
+    });
+
+    const deliveryCharge = 450; // align with frontend
+    const amount = subtotal + deliveryCharge;
+
+    // Create completed order
+    const order = new Order({
+      customerId,
+      items: orderItems,
+      amount,
+      address: address || '',
+      status: 'completed',
+      date: new Date()
+    });
+    await order.save();
+
+    // Create payment linked to the order
+    const payment = new Payment({
+      userId: customerId,
+      orderId: order._id,
+      paymentType: 'order_payment',
+      amount,
+      status: 'success',
+      method: paymentMethod || 'card',
+      paymentDate: new Date()
+    });
+    await payment.save();
+
+    // Attach paymentId to order
+    order.paymentId = payment._id;
+    await order.save();
+
+    // Delete the purchased items from Cart_Pending
+    await CartPending.deleteMany({ cartToken, productId: { $in: productIds } });
+
+    // Return remaining cart items for the token
+    const remainingCart = await CartPending.find({ cartToken, status: { $ne: 'removed' } })
+      .populate('productId')
+      .sort({ createdAt: 1 });
+
+    const populatedOrder = await Order.findById(order._id)
+      .populate('items.productId')
+      .populate('paymentId');
+
+    return res.status(200).json({
+      success: true,
+      order: populatedOrder,
+      payment,
+      remainingCart
+    });
+  } catch (error) {
+    console.error('paySelectedCartItems error:', error);
+    return res.status(500).json({ message: error.message });
+  }
 };

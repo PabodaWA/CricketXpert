@@ -295,7 +295,7 @@ const Cart = () => {
       checkoutTotalData = totalData;
     }
 
-    // Navigate to delivery page
+    // Navigate to delivery page (includes cartToken for payment step)
     navigate('/delivery', { 
       state: { 
         cart: checkoutCart, 

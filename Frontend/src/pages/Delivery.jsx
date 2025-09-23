@@ -9,7 +9,7 @@ import Footer from '../components/Footer';
 const Delivery = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { cart, totalData, singleProduct, quantity } = location.state || { cart: [], totalData: { subtotal: 0, deliveryFee: 450, total: 0 } };
+  const { cart, totalData, singleProduct, quantity, cartToken } = location.state || { cart: [], totalData: { subtotal: 0, deliveryFee: 450, total: 0 }, cartToken: localStorage.getItem('cartToken') || '' };
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -67,7 +67,7 @@ const Delivery = () => {
       return;
     }
     const fullAddress = user.address || 'No address provided';
-    navigate('/payment', { state: { cart, totalData, address: fullAddress } });
+    navigate('/payment', { state: { cart, totalData, address: fullAddress, cartToken } });
   };
 
   const handleEdit = (field) => {
@@ -130,7 +130,7 @@ const Delivery = () => {
         {/* Delivery Information */}
         <div className="lg:col-span-2">
           <div className="bg-white rounded-lg p-6 shadow-sm">
-            <h2 className="text-xl font-bold mb-6">Delivery Information</h2>
+            <h2 className="text-xl font-bold mb-6">Customer Information</h2>
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
                 <thead>
