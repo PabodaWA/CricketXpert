@@ -21,6 +21,7 @@ const Products = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState(null);
   const [cart, setCart] = useState([]); // Local cart state
+  const [cartToken, setCartToken] = useState('');
   const [user, setUser] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null); // For image modal
   const navigate = useNavigate();
@@ -42,6 +43,13 @@ const Products = () => {
   );
 
   useEffect(() => {
+    // Ensure cartToken exists for session
+    let token = localStorage.getItem('cartToken');
+    if (!token) {
+      token = `${userId || 'guest'}-${Date.now()}-${Math.random().toString(36).slice(2,10)}`;
+      localStorage.setItem('cartToken', token);
+    }
+    setCartToken(token);
     fetchCategories();
     fetchProducts();
     fetchUserDetails();
@@ -83,11 +91,13 @@ const Products = () => {
     // Save cart to localStorage whenever it changes
     localStorage.setItem('cricketCart', JSON.stringify(cart));
     
-    // Update cart order in database when cart changes
-    if (cart.length > 0) {
-      updateCartOrder();
-    } else {
-      deleteCartOrder();
+    // Sync each cart item to Cart_Pending
+    if (cartToken) {
+      if (cart.length > 0) {
+        syncCartPending();
+      } else {
+        clearCartPending();
+      }
     }
   }, [cart]);
 
@@ -137,54 +147,31 @@ const Products = () => {
     }
   };
 
-  // Create or update cart order in database
-  const updateCartOrder = async () => {
+  // Sync local cart to Cart_Pending table
+  const syncCartPending = async () => {
     try {
-      if (cart.length === 0) return;
-
-      const orderItems = cart.map(item => {
+      for (const item of cart) {
         const product = products.find(p => p._id === item.productId);
-        if (!product) {
-          console.error('Product not found for item:', item.productId);
-          return null;
-        }
-        return {
+        if (!product) continue;
+        await axios.post('http://localhost:5000/api/cart-pending', {
+          cartToken: cartToken,
           productId: item.productId,
-          quantity: item.quantity,
-          priceAtOrder: product.price
-        };
-      }).filter(item => item !== null);
-
-      // Calculate total amount
-      const subtotal = cart.reduce((sum, item) => {
-        const product = products.find(p => p._id === item.productId);
-        return sum + (product?.price || 0) * item.quantity;
-      }, 0);
-      const total = subtotal + 450; // Adding delivery charge
-
-      const cartOrderData = {
-        customerId: userId,
-        items: orderItems,
-        amount: total,
-        address: user?.address || 'No address provided'
-      };
-
-      await axios.post('http://localhost:5000/api/orders/cart', cartOrderData);
-      console.log('Cart order updated in database from Products page');
+          title: product.name,
+          price: product.price,
+          quantity: item.quantity
+        });
+      }
     } catch (err) {
-      console.error('Error updating cart order from Products:', err);
-      // Don't show error to user as this is background sync
+      console.error('Error syncing Cart_Pending:', err);
     }
   };
 
-  // Delete cart order from database
-  const deleteCartOrder = async () => {
+  const clearCartPending = async () => {
     try {
-      await axios.delete(`http://localhost:5000/api/orders/cart/${userId}`);
-      console.log('Cart order deleted from database from Products page');
+      if (!cartToken) return;
+      await axios.delete(`http://localhost:5000/api/cart-pending/${cartToken}`);
     } catch (err) {
-      console.error('Error deleting cart order from Products:', err);
-      // Don't show error to user as this is background sync
+      console.error('Error clearing Cart_Pending:', err);
     }
   };
 

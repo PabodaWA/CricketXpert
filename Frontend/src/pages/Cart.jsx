@@ -10,6 +10,7 @@ const Cart = () => {
   const [cart, setCart] = useState([]);
   const [products, setProducts] = useState([]);
   const [promoCode, setPromoCode] = useState('');
+  const [cartToken, setCartToken] = useState('');
   const [error, setError] = useState(null);
   const [totalData, setTotalData] = useState({ subtotal: 0, deliveryFee: 450, total: 0 });
   const [loading, setLoading] = useState(true);
@@ -24,6 +25,12 @@ const Cart = () => {
 
   useEffect(() => {
     // Load cart from localStorage on mount, use location.state if available
+    let token = localStorage.getItem('cartToken');
+    if (!token) {
+      token = `${userId || 'guest'}-${Date.now()}-${Math.random().toString(36).slice(2,10)}`;
+      localStorage.setItem('cartToken', token);
+    }
+    setCartToken(token);
     const savedCart = JSON.parse(localStorage.getItem('cricketCart') || '[]');
     const cartFromState = location.state?.cart;
     const finalCart = cartFromState || savedCart;
@@ -31,6 +38,7 @@ const Cart = () => {
       setCart(finalCart);
     }
     fetchProducts();
+    if (token) fetchCartPending(token);
     fetchUserDetails();
   }, [location.state]);
 
@@ -39,12 +47,11 @@ const Cart = () => {
     localStorage.setItem('cricketCart', JSON.stringify(cart));
     if (cart.length > 0) {
       calculateTotal();
-      // Create/update cart order in database
-      updateCartOrder();
+      // Sync to Cart_Pending
+      syncCartPending();
     } else {
       setTotalData({ subtotal: 0, deliveryFee: 450, total: 450 });
-      // Delete cart order from database if cart is empty
-      deleteCartOrder();
+      clearCartPending();
     }
   }, [cart]);
 
@@ -83,47 +90,44 @@ const Cart = () => {
     return products.find(product => product._id === productId) || {};
   };
 
-  // Create or update cart order in database
-  const updateCartOrder = async () => {
+  // Sync local cart to Cart_Pending table
+  const syncCartPending = async () => {
     try {
-      if (cart.length === 0) return;
-
-      const orderItems = cart.map(item => {
+      if (!cartToken) return;
+      for (const item of cart) {
         const product = getProductDetails(item.productId);
-        if (!product) {
-          console.error('Product not found for item:', item.productId);
-          return null;
-        }
-        return {
+        if (!product) continue;
+        await axios.post('http://localhost:5000/api/cart-pending', {
+          cartToken: cartToken,
           productId: item.productId,
-          quantity: item.quantity,
-          priceAtOrder: product.price
-        };
-      }).filter(item => item !== null);
-
-      const cartOrderData = {
-        customerId: userId,
-        items: orderItems,
-        amount: totalData.total,
-        address: user?.address || 'No address provided'
-      };
-
-      await axios.post('http://localhost:5000/api/orders/cart', cartOrderData);
-      console.log('Cart order updated in database');
+          title: product.name,
+          price: product.price,
+          quantity: item.quantity
+        });
+      }
     } catch (err) {
-      console.error('Error updating cart order:', err);
-      // Don't show error to user as this is background sync
+      console.error('Error syncing Cart_Pending:', err);
     }
   };
 
-  // Delete cart order from database
-  const deleteCartOrder = async () => {
+  const clearCartPending = async () => {
     try {
-      await axios.delete(`http://localhost:5000/api/orders/cart/${userId}`);
-      console.log('Cart order deleted from database');
+      if (!cartToken) return;
+      await axios.delete(`http://localhost:5000/api/cart-pending/${cartToken}`);
     } catch (err) {
-      console.error('Error deleting cart order:', err);
-      // Don't show error to user as this is background sync
+      console.error('Error clearing Cart_Pending:', err);
+    }
+  };
+
+  const fetchCartPending = async (token) => {
+    try {
+      const res = await axios.get(`http://localhost:5000/api/cart-pending/${token}`);
+      const items = res.data || [];
+      // Map to local cart structure
+      const mapped = items.map(i => ({ productId: i.productId?._id || i.productId, quantity: i.quantity }));
+      setCart(mapped);
+    } catch (err) {
+      // If no pending items, keep local cart
     }
   };
 
@@ -134,6 +138,10 @@ const Cart = () => {
       window.dispatchEvent(new CustomEvent('cartUpdated'));
       return newCart;
     });
+    // remove from backend
+    if (cartToken) {
+      axios.delete(`http://localhost:5000/api/cart-pending/${cartToken}/item/${productId}`).catch(() => {});
+    }
   };
 
   const handleQuantityChange = (productId, change) => {
@@ -155,6 +163,10 @@ const Cart = () => {
           newCart = prevCart.map(item =>
             item.productId === productId ? { ...item, quantity: newQuantity } : item
           );
+          // push to backend
+          if (cartToken) {
+            axios.put(`http://localhost:5000/api/cart-pending/${cartToken}/item/${productId}`, { quantity: newQuantity }).catch(() => {});
+          }
         }
       } else if (change > 0) {
         if (product.stock_quantity <= 0) {
@@ -162,6 +174,15 @@ const Cart = () => {
           return prevCart;
         }
         newCart = [...prevCart, { productId, quantity: 1 }];
+        if (cartToken) {
+          axios.post('http://localhost:5000/api/cart-pending', {
+            cartToken: cartToken,
+            productId: productId,
+            title: product.name,
+            price: product.price,
+            quantity: 1
+          }).catch(() => {});
+        }
       } else {
         return prevCart;
       }
@@ -231,7 +252,7 @@ const Cart = () => {
   };
 
   const handleProceedToDelivery = () => {
-    navigate('/delivery', { state: { cart, totalData } });
+    navigate('/delivery', { state: { cart, totalData, cartToken } });
   };
 
   // Handle checkout - use selected items if any are selected, otherwise use all cart items
@@ -268,7 +289,8 @@ const Cart = () => {
       state: { 
         cart: checkoutCart, 
         totalData: checkoutTotalData,
-        fromSelectedItems: selectedItems.size > 0
+        fromSelectedItems: selectedItems.size > 0,
+        cartToken: cartToken
       } 
     });
   };

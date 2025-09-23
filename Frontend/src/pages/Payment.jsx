@@ -8,14 +8,15 @@ import Footer from '../components/Footer';
 const Payment = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { cart, totalData, address, enrollment, program, amount, type } = location.state || { 
+  const { cart, totalData, address, enrollment, program, amount, type, cartToken } = location.state || { 
     cart: [], 
     totalData: { subtotal: 0, deliveryFee: 450, total: 0 }, 
     address: '',
     enrollment: null,
     program: null,
     amount: 0,
-    type: 'order'
+    type: 'order',
+    cartToken: localStorage.getItem('cartToken') || ''
   };
   const [paymentInfo, setPaymentInfo] = useState({
     cardNumber: '',
@@ -171,31 +172,39 @@ const Payment = () => {
         alert('Payment successful! You have been enrolled in the program.');
         navigate('/profile');
       } else {
-        // Handle order payment (existing logic)
+        // Handle order payment: ensure Cart_Pending is converted to order if needed
         let orderToComplete = cartOrder;
 
         // If no cart order exists, create one first
         if (!cartOrder) {
-          console.log('No cart order found, creating one...');
-          const orderItems = cart.map(item => {
-            const product = getProductDetails(item.productId);
-            return {
-              productId: item.productId,
-              quantity: item.quantity,
-              priceAtOrder: product.price || 0
-            };
-          });
-          
-          // Use the address from state, user data, or fallback
-          const deliveryAddress = address || user?.address || 'No address provided';
-          
-          const newCartOrder = await axios.post('http://localhost:5000/api/orders/cart', {
-            customerId: userId,
-            items: orderItems,
-            amount: totalData.total,
-            address: deliveryAddress
-          }, config);
-          orderToComplete = newCartOrder.data;
+          if (cartToken) {
+            // Checkout Cart_Pending to create an order
+            const deliveryAddress = address || user?.address || 'No address provided';
+            const checkoutRes = await axios.post('http://localhost:5000/api/cart-pending/checkout', {
+              cartToken,
+              customerId: userId,
+              address: deliveryAddress
+            }, config);
+            orderToComplete = checkoutRes.data;
+          } else {
+            console.log('No cartToken present, falling back to direct order creation');
+            const orderItems = cart.map(item => {
+              const product = getProductDetails(item.productId);
+              return {
+                productId: item.productId,
+                quantity: item.quantity,
+                priceAtOrder: product.price || 0
+              };
+            });
+            const deliveryAddress = address || user?.address || 'No address provided';
+            const newCartOrder = await axios.post('http://localhost:5000/api/orders/cart', {
+              customerId: userId,
+              items: orderItems,
+              amount: totalData.total,
+              address: deliveryAddress
+            }, config);
+            orderToComplete = newCartOrder.data;
+          }
           setCartOrder(orderToComplete);
         }
 
