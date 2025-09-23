@@ -43,6 +43,7 @@ import ManagerDashboard from './pages/ManagerDashboard.jsx';
 import ListOrders from './pages/OrderManager/ListOrders.jsx';
 import ListProducts from './pages/OrderManager/ListProducts.jsx';
 import AddProducts from './pages/OrderManager/AddProduct.jsx';
+// Removed CartPending page; cart pending now shown in orders list
 // Add other Order Manager page imports here
 
 // --- Placeholder Pages for Admin Dashboard ---

@@ -7,6 +7,7 @@ const CogIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5
 const PlusIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>;
 const ClipboardListIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>;
 const ShoppingBagIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>;
+const ClockIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 22a10 10 0 110-20 10 10 0 010 20z" /></svg>;
 const LogoutIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>;
 
 
@@ -60,15 +61,16 @@ export default function OrderManagerLayout() {
                         </Link>
 
                         <p className="px-4 py-2 mt-4 text-xs font-semibold text-gray-400 uppercase">Manager Functions</p>
-                        <Link to="/order_manager/add_product" className={`flex items-center px-4 py-3 rounded-lg font-medium transition-colors ${isActive('/order-manager/add-product') ? 'bg-[#42ADF5] text-white' : 'text-gray-700 hover:bg-gray-100'}`}>
+                        <Link to="/order_manager/add_product" className={`flex items-center px-4 py-3 rounded-lg font-medium transition-colors ${isActive('/order_manager/add_product') ? 'bg-[#42ADF5] text-white' : 'text-gray-700 hover:bg-gray-100'}`}>
                            <PlusIcon /> Add Product
                         </Link>
-                        <Link to="/order_manager/products" className={`flex items-center px-4 py-3 rounded-lg font-medium transition-colors ${isActive('/order-manager/products') ? 'bg-[#42ADF5] text-white' : 'text-gray-700 hover:bg-gray-100'}`}>
+                        <Link to="/order_manager/products" className={`flex items-center px-4 py-3 rounded-lg font-medium transition-colors ${isActive('/order_manager/products') ? 'bg-[#42ADF5] text-white' : 'text-gray-700 hover:bg-gray-100'}`}>
                            <ClipboardListIcon /> Product List
                         </Link>
-                         <Link to="/order_manager/orders" className={`flex items-center px-4 py-3 rounded-lg font-medium transition-colors ${isActive('/order-manager/orders') ? 'bg-[#42ADF5] text-white' : 'text-gray-700 hover:bg-gray-100'}`}>
+                         <Link to="/order_manager/orders" className={`flex items-center px-4 py-3 rounded-lg font-medium transition-colors ${isActive('/order_manager/orders') ? 'bg-[#42ADF5] text-white' : 'text-gray-700 hover:bg-gray-100'}`}>
                            <ShoppingBagIcon /> Manage Orders
                         </Link>
+                        {/* Cart Pending link removed; shown within Orders */}
                     </nav>
 
                     <div className="mt-auto pt-4">

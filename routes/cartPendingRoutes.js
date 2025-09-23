@@ -5,10 +5,14 @@ import {
   updateItemQuantity,
   removeItem,
   clearCart,
-  checkout
+  checkout,
+  listAllCartPending
 } from '../controllers/cartPendingController.js';
 
 const router = express.Router();
+
+// List all cart pending items (manager)
+router.get('/all', listAllCartPending);
 
 // Add or upsert item
 router.post('/', addItem);

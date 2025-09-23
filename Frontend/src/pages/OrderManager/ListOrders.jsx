@@ -69,9 +69,14 @@ export default function ListOrders() {
     const fetchOrders = async () => {
         try {
             setLoading(true);
-            const url = selectedStatus ? `http://localhost:5000/api/orders/status/${selectedStatus}` : 'http://localhost:5000/api/orders/';
+            let url;
+            if (selectedStatus) {
+                url = `http://localhost:5000/api/orders/status/${selectedStatus}`;
+            } else {
+                url = 'http://localhost:5000/api/orders?includeCartPending=true';
+            }
             const { data } = await axios.get(url);
-            setOrders(data);
+            setOrders(Array.isArray(data) ? data : []);
         } catch (err) { 
             console.error('Error fetching orders:', err);
             alert('Error fetching orders: ' + (err.response?.data?.message || err.message));
@@ -85,6 +90,8 @@ export default function ListOrders() {
         const handler = setTimeout(() => fetchOrders(), 300);
         return () => clearTimeout(handler);
     }, [searchQuery, selectedStatus]);
+
+    // Removed background polling to prevent constant loading state
     
     const handleUpdateStatus = async (id, status) => {
         try {
@@ -289,9 +296,9 @@ export default function ListOrders() {
                         <table className="w-full text-left">
                             <thead>
                                 <tr className="bg-gray-50 border-b">
-                                    <th className="p-4">Order ID</th>
-                                    <th className="p-4">Customer</th>
-                                    <th className="p-4">Amount</th>
+                                    <th className="p-4">Order / Token</th>
+                                    <th className="p-4">Customer / Product</th>
+                                    <th className="p-4">Amount / Total</th>
                                     <th className="p-4">Status</th>
                                     <th className="p-4">Date</th>
                                     <th className="p-4">Actions</th>
@@ -305,47 +312,65 @@ export default function ListOrders() {
                                         </td>
                                     </tr>
                                 ) : (
-                                    filteredOrders.map(order => (
-                                   <tr key={order._id} className="border-b hover:bg-gray-50">
-                                       <td className="p-4 font-mono text-xs text-gray-600">...{order._id.slice(-8)}</td>
-                                       <td className="p-4 text-sm font-medium text-gray-800">{order.customerId?.slice(-8) || 'N/A'}...</td>
-                                       <td className="p-4 font-semibold text-[#072679]">LKR {order.amount?.toFixed(2)}</td>
-                                       <td className="p-4">{getStatusPill(order.status)}</td>
-                                       <td className="p-4 text-sm text-gray-500">{new Date(order.date || order.createdAt).toLocaleDateString()}</td>
-                                            <td className="p-4">
-                                                <div className="flex gap-2">
-                                                    <button 
-                                                        onClick={(e) => {
-                                                            e.preventDefault();
-                                                            e.stopPropagation();
-                                                            console.log('View button clicked for order:', order);
-                                                            console.log('Setting selectedOrder to:', order);
-                                                            setSelectedOrder(order);
-                                                        }} 
-                                                        className="p-2 text-blue-600 hover:bg-blue-100 rounded-full transition-colors"
-                                                        title="View Details"
-                                                        type="button"
-                                                    >
-                                                        <Eye size={16}/>
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => handleEditOrder(order)} 
-                                                        className="p-2 text-green-600 hover:bg-green-100 rounded-full"
-                                                        title="Edit Order"
-                                                    >
-                                                        <Edit size={16}/>
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => handleDeleteOrder(order._id)} 
-                                                        className="p-2 text-red-600 hover:bg-red-100 rounded-full"
-                                                        title="Delete Order"
-                                                    >
-                                                        <Trash2 size={16}/>
-                                                    </button>
-                                                </div>
-                                            </td>
-                                   </tr>
-                                    ))
+                                    filteredOrders.map(order => {
+                                        const isCartPendingRow = order.type === 'cart_pending' || order.status === 'cart_pending';
+                                        const baseRowClass = 'border-b hover:bg-gray-50';
+                                        const pendingBg = isCartPendingRow ? 'bg-gray-50' : '';
+                                        return (
+                                        <tr key={order._id} className={`${baseRowClass} ${pendingBg}`}>
+                                           <td className="p-4 font-mono text-xs text-gray-600">
+                                               {isCartPendingRow ? (
+                                                   <span className="inline-flex items-center gap-2">
+                                                       <span className="px-1.5 py-0.5 rounded bg-gray-200 text-gray-800 text-[10px] font-semibold">PENDING</span>
+                                                       <span>...{String(order.cartToken || order._id).slice(-8)}</span>
+                                                   </span>
+                                               ) : (
+                                                   <>...{order._id.slice(-8)}</>
+                                               )}
+                                           </td>
+                                           <td className="p-4 text-sm font-medium text-gray-800">
+                                               {isCartPendingRow ? (order.productTitle || 'Unknown Product') : (<>{order.customerId?.slice(-8) || 'N/A'}...</>)}
+                                           </td>
+                                           <td className="p-4 font-semibold text-[#072679]">LKR {(order.amount ?? order.total ?? 0).toFixed(2)}</td>
+                                           <td className="p-4">{getStatusPill(order.status)}</td>
+                                           <td className="p-4 text-sm text-gray-500">{new Date(order.date || order.createdAt).toLocaleDateString()}</td>
+                                           <td className="p-4">
+                                                {isCartPendingRow ? (
+                                                    <div className="text-xs text-gray-400">Read-only</div>
+                                                ) : (
+                                                    <div className="flex gap-2">
+                                                        <button 
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                                setSelectedOrder(order);
+                                                            }} 
+                                                            className="p-2 text-blue-600 hover:bg-blue-100 rounded-full transition-colors"
+                                                            title="View Details"
+                                                            type="button"
+                                                        >
+                                                            <Eye size={16}/>
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => handleEditOrder(order)} 
+                                                            className="p-2 text-green-600 hover:bg-green-100 rounded-full"
+                                                            title="Edit Order"
+                                                        >
+                                                            <Edit size={16}/>
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => handleDeleteOrder(order._id)} 
+                                                            className="p-2 text-red-600 hover:bg-red-100 rounded-full"
+                                                            title="Delete Order"
+                                                        >
+                                                            <Trash2 size={16}/>
+                                                        </button>
+                                                    </div>
+                                                )}
+                                           </td>
+                                       </tr>
+                                        );
+                                    })
                                 )}
                            </tbody>
                         </table>

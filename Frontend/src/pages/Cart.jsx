@@ -141,9 +141,12 @@ const Cart = () => {
       window.dispatchEvent(new CustomEvent('cartUpdated'));
       return newCart;
     });
-    // remove from backend
+    // remove from backend and refresh
     if (cartToken) {
-      axios.delete(`http://localhost:5000/api/cart-pending/${cartToken}/item/${productId}`).catch(() => {});
+      axios
+        .delete(`http://localhost:5000/api/cart-pending/${cartToken}/item/${productId}`)
+        .then(() => fetchCartPending(cartToken))
+        .catch(() => {});
     }
   };
 
@@ -257,6 +260,11 @@ const Cart = () => {
   const handleProceedToDelivery = () => {
     navigate('/delivery', { state: { cart, totalData, cartToken } });
   };
+
+  // Refresh cart from backend after potential external changes
+  useEffect(() => {
+    if (cartToken) fetchCartPending(cartToken);
+  }, [cartToken]);
 
   // Handle checkout - use selected items if any are selected, otherwise use all cart items
   const handleProceedToCheckout = () => {

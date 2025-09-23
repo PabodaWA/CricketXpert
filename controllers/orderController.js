@@ -87,7 +87,8 @@ const completeCartOrder = async (req, res) => {
     }
     
     // Update order status and add payment ID
-    order.status = 'created';
+    // After payment, mark as completed per requirement
+    order.status = 'completed';
     order.paymentId = paymentId;
     order.date = new Date();
     await order.save();
@@ -120,11 +121,59 @@ const deleteCartOrder = async (req, res) => {
   }
 };
 
-// Get all orders
+// Get all orders (optionally include cart pending items from Cart_Pending)
 const getOrders = async (req, res) => {
   try {
+    const includeCartPending = String(req.query.includeCartPending || '').toLowerCase();
+    const shouldIncludeCartPending = includeCartPending === '1' || includeCartPending === 'true';
+
     const orders = await Order.find().populate("items.productId");
-    res.json(orders);
+
+    // Map orders with a type field for unified frontend rendering
+    const typedOrders = orders.map((o) => ({ ...o.toObject(), type: 'order' }));
+
+    if (!shouldIncludeCartPending) {
+      return res.json(typedOrders);
+    }
+
+    // Lazy import to avoid circular deps at top (and only when needed)
+    const { default: CartPending } = await import('../models/cart_Pending.js');
+
+    const cartPendingItems = await CartPending.find({ status: { $ne: 'removed' } })
+      .populate('productId')
+      .sort({ createdAt: -1 });
+
+    // Normalize cart pending items to order-like objects
+    const normalizedCartPending = cartPendingItems.map((cp) => {
+      const product = cp.productId || {};
+      return {
+        _id: cp._id,
+        type: 'cart_pending',
+        status: cp.status || 'cart_pending',
+        cartToken: cp.cartToken,
+        productTitle: cp.title || product.name || 'Unknown',
+        price: Number(cp.price || product.price || 0),
+        quantity: Number(cp.quantity || 1),
+        total: Number(cp.total || 0),
+        amount: Number(cp.total || 0),
+        createdAt: cp.createdAt,
+        updatedAt: cp.updatedAt,
+        date: cp.createdAt,
+        // Keep existing fields for compatibility (set to sensible defaults)
+        customerId: null,
+        address: '',
+        items: [],
+      };
+    });
+
+    // Combine and sort by newest first using date/createdAt
+    const combined = [...typedOrders, ...normalizedCartPending].sort((a, b) => {
+      const aTime = new Date(a.date || a.createdAt || 0).getTime();
+      const bTime = new Date(b.date || b.createdAt || 0).getTime();
+      return bTime - aTime;
+    });
+
+    return res.json(combined);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

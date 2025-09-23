@@ -149,7 +149,8 @@ const checkout = async (req, res) => {
         items: orderItems,
         amount,
         address: address || '',
-        status: 'cart_pending',
+        // On checkout, move to processing
+        status: 'processing',
         date: new Date()
       });
     } else {
@@ -157,14 +158,13 @@ const checkout = async (req, res) => {
       order.amount = amount;
       order.address = address || order.address;
       order.date = new Date();
+      // Ensure status is processing after checkout
+      order.status = 'processing';
     }
     await order.save();
 
-    // Mark cart pending items as moved_to_order
-    await CartPending.updateMany(
-      { cartToken, status: 'cart_pending' },
-      { $set: { status: 'moved_to_order' } }
-    );
+    // Remove cart pending items now that they've been converted to an order
+    await CartPending.deleteMany({ cartToken });
 
     return res.json(order);
   } catch (err) {
@@ -183,3 +183,32 @@ export {
 };
 
 
+
+// New: list all cart pending items (manager view)
+// Supports optional grouping by cartToken via query param groupBy=cartToken
+export const listAllCartPending = async (req, res) => {
+  try {
+    const { groupBy } = req.query;
+    const items = await CartPending.find({ status: { $ne: 'removed' } })
+      .populate({
+        path: 'productId',
+        select: 'name image_url price category brand'
+      })
+      .sort({ createdAt: -1 });
+
+    if (groupBy === 'cartToken') {
+      const grouped = items.reduce((acc, item) => {
+        const key = item.cartToken || 'unknown';
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(item);
+        return acc;
+      }, {});
+      return res.json({ groupedByCartToken: grouped });
+    }
+
+    return res.json(items);
+  } catch (err) {
+    console.error('listAllCartPending error:', err);
+    return res.status(500).json({ message: err.message });
+  }
+};
