@@ -535,8 +535,15 @@ const ManagerDashboard = () => {
   const handleUpdateCoach = async (e) => {
     e.preventDefault();
     
-    // Simple, direct update
     const coachId = selectedCoach._id;
+    
+    // Show loading state
+    const submitButton = e.target.querySelector('button[type="submit"]');
+    const originalText = submitButton?.textContent;
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.textContent = 'Updating...';
+    }
     
     // Create updated coach object
     const updatedCoach = {
@@ -552,31 +559,51 @@ const ManagerDashboard = () => {
       }
     };
     
-    // Update coaches array directly
-    const newCoaches = coaches.map(coach => 
-      coach._id === coachId ? updatedCoach : coach
-    );
-    
-    // Set the new state
-    setCoaches(newCoaches);
-    setSelectedCoach(updatedCoach);
-    
-    // Close modal
-    setShowEditCoachModal(false);
-    
-    // Show success
-    alert('Coach updated successfully!');
-    
-    // Try API update in background (don't wait)
     try {
-      await axios.put(`http://localhost:5000/api/coaches/${coachId}`, {
+      // First, update the database
+      const response = await axios.put(`http://localhost:5000/api/coaches/${coachId}`, {
         experience: updatedCoach.experience,
         specializations: updatedCoach.specializations,
         isActive: updatedCoach.isActive,
         userId: updatedCoach.userId
       });
+      
+      // Only update local state if database update succeeds
+      if (response.data.success) {
+        // Update coaches array
+        const newCoaches = coaches.map(coach => 
+          coach._id === coachId ? updatedCoach : coach
+        );
+        
+        // Set the new state
+        setCoaches(newCoaches);
+        setSelectedCoach(updatedCoach);
+        
+        // Close modal
+        setShowEditCoachModal(false);
+        
+        // Show success
+        alert('Coach updated successfully!');
+        
+        // Force refresh programs to get updated coach data
+        await fetchDashboardData();
+        
+        // Notify other pages that coach data has been updated
+        window.dispatchEvent(new CustomEvent('coachUpdated', { 
+          detail: { coachId, updatedCoach } 
+        }));
+      } else {
+        alert('Failed to update coach. Please try again.');
+      }
     } catch (error) {
-      console.log('API update failed, but local update succeeded');
+      console.error('Coach update error:', error);
+      alert('Failed to update coach. Please try again.');
+    } finally {
+      // Restore button state
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.textContent = originalText;
+      }
     }
   };
 
@@ -913,7 +940,7 @@ const OverviewTab = ({ coaches, programs, sessions }) => {
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-              <p className="text-2xl font-bold text-gray-900">${totalRevenue.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-900">LKR {totalRevenue.toLocaleString()}</p>
             </div>
           </div>
         </div>
@@ -1266,7 +1293,7 @@ const ProgramsTab = ({ programs, coaches, onEdit, onDelete, onAddMaterial, onAss
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-500">Fee:</span>
-                  <span className="text-sm font-medium text-gray-900">${program.fee}</span>
+                  <span className="text-sm font-medium text-gray-900">LKR {program.fee}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-500">Duration:</span>
@@ -2642,7 +2669,7 @@ const CoachDetailsModal = ({ coach, programs, onEdit, onClose }) => {
                     <p className="text-sm text-gray-600 mb-3 line-clamp-2">{program.description}</p>
                     <div className="flex justify-between items-center text-sm">
                       <div className="flex space-x-4">
-                        <span className="text-gray-600">Fee: <span className="font-medium">${program.fee}</span></span>
+                        <span className="text-gray-600">Fee: <span className="font-medium">LKR {program.fee}</span></span>
                         <span className="text-gray-600">Duration: <span className="font-medium">{program.duration} weeks</span></span>
                       </div>
                       <span className={`px-2 py-1 text-xs font-semibold rounded-full ${

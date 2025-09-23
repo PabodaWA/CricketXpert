@@ -23,8 +23,8 @@ export default function PaymentEnrollment({ enrollment, program, onClose }) {
         onClose();
         // Force navigation to profile with a small delay to ensure modal closes
         setTimeout(() => {
-            // Use window.location.href for reliable navigation
-            window.location.href = '/profile';
+            // Use window.location.href for reliable navigation to customer profile
+            window.location.href = '/customer/profile';
         }, 100);
     };
 
@@ -39,6 +39,13 @@ export default function PaymentEnrollment({ enrollment, program, onClose }) {
                     Authorization: `Bearer ${userInfo.token}`,
                 },
             };
+
+            // Check if enrollment is already active
+            if (enrollment.status === 'active' && enrollment.paymentStatus === 'completed') {
+                // Enrollment is already active, just show success
+                setSuccess(true);
+                return;
+            }
 
             // Update enrollment status to active
             await axios.put(`http://localhost:5000/api/enrollments/${enrollment._id}/activate`, {}, config);
@@ -90,7 +97,7 @@ export default function PaymentEnrollment({ enrollment, program, onClose }) {
                         <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                             <p className="text-sm text-blue-800">
                                 <strong>Having trouble?</strong> 
-                                <a href="/profile" className="text-blue-600 underline ml-1">
+                                <a href="/customer/profile" className="text-blue-600 underline ml-1">
                                     Click here to go to your profile
                                 </a>
                             </p>
@@ -132,7 +139,7 @@ export default function PaymentEnrollment({ enrollment, program, onClose }) {
                         </div>
                         <div className="flex justify-between">
                             <span className="text-gray-600">Fee Paid:</span>
-                            <span className="font-medium text-green-600">${program?.fee}</span>
+                            <span className="font-medium text-green-600">LKR {program?.fee}</span>
                         </div>
                         <div className="flex justify-between">
                             <span className="text-gray-600">Status:</span>

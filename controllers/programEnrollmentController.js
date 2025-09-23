@@ -677,8 +677,8 @@ const activateEnrollment = async (req, res) => {
       });
     }
 
-    // Check authorization
-    if (enrollment.user.toString() !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'coach') {
+    // Check authorization (skip if no auth middleware)
+    if (req.user && enrollment.user.toString() !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'coach') {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to activate this enrollment'

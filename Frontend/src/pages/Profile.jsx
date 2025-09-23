@@ -103,9 +103,18 @@ export default function Profile() {
         if (paymentData) {
             try {
                 const data = JSON.parse(paymentData);
-                setPaymentEnrollmentData(data);
-                setShowPaymentEnrollment(true);
-                // Clear the data from localStorage after showing
+                // Only show PaymentEnrollment modal if enrollment is not already active
+                if (data.enrollment && data.enrollment.status !== 'active') {
+                    setPaymentEnrollmentData(data);
+                    setShowPaymentEnrollment(true);
+                } else {
+                    // Enrollment is already active, just show success message
+                    setShowSuccessMessage(true);
+                    setTimeout(() => {
+                        setShowSuccessMessage(false);
+                    }, 5000);
+                }
+                // Clear the data from localStorage after processing
                 localStorage.removeItem('paymentEnrollmentData');
             } catch (err) {
                 console.error('Error parsing payment enrollment data:', err);
@@ -398,7 +407,7 @@ export default function Profile() {
                                                     <span className="font-medium">Duration:</span> {enrollment.program?.duration} weeks
                                                 </p>
                                                 <p className="text-text-body text-sm mb-1">
-                                                    <span className="font-medium">Fee:</span> ${enrollment.program?.fee}
+                                                    <span className="font-medium">Fee:</span> LKR {enrollment.program?.fee}
                                                 </p>
                                                 <p className="text-text-body text-sm">
                                                     <span className="font-medium">Enrolled:</span> {new Date(enrollment.enrollmentDate || enrollment.createdAt).toLocaleDateString()}
