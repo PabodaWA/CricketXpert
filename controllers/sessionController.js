@@ -1119,15 +1119,20 @@ const customerRescheduleSession = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Session not found' });
     }
 
-    // Check if session can be rescheduled (more than 24 hours away)
-    const sessionDate = new Date(session.scheduledDate);
+    // Check if new session date is more than 24 hours away
     const now = new Date();
-    const hoursUntilSession = (sessionDate - now) / (1000 * 60 * 60);
+    const newSessionDate = new Date(newDate);
+    const hoursUntilNewSession = (newSessionDate - now) / (1000 * 60 * 60);
     
-    if (hoursUntilSession <= 24) {
+    console.log('New session date:', newSessionDate);
+    console.log('Current time:', now);
+    console.log('Hours until new session:', hoursUntilNewSession);
+    
+    if (hoursUntilNewSession <= 24) {
+      console.log('New session is too close to current time');
       return res.status(400).json({ 
         success: false, 
-        message: 'Session cannot be rescheduled less than 24 hours before the scheduled time' 
+        message: 'New session date must be more than 24 hours from now' 
       });
     }
 
@@ -1140,7 +1145,6 @@ const customerRescheduleSession = async (req, res) => {
     }
 
     // Validate new date is within 7 days
-    const newSessionDate = new Date(newDate);
     const daysDifference = (newSessionDate - now) / (1000 * 60 * 60 * 24);
     
     if (daysDifference > 7) {
