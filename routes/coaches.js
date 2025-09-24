@@ -19,7 +19,8 @@ import {
   syncCoaches,
   getCoachAvailability,
   getBookingDateRange,
-  getWeeklySessionStructure
+  getWeeklySessionStructure,
+  getCoachEnrolledPrograms
 } from '../controllers/coachController.js';
 
 // Middleware (Note: You'll need to implement these middleware functions)
@@ -34,6 +35,7 @@ router.get('/:id', getCoach); // Get single coach profile
 router.get('/:id/availability', getCoachAvailability); // Get coach availability for booking
 router.get('/:id/booking-range', getBookingDateRange); // Get valid booking date range
 router.get('/:id/weekly-sessions', getWeeklySessionStructure); // Get weekly session structure
+router.get('/:id/enrolled-programs', getCoachEnrolledPrograms); // Get enrolled programs for a coach
 
 // Protected routes (uncomment when auth middleware is available)
 // router.use(protect); // Require authentication for all routes below

@@ -169,7 +169,7 @@ const getCoach = async (req, res) => {
   try {
     const coach = await Coach.findById(req.params.id)
       .populate('userId', 'firstName lastName email profileImageURL contactNumber')
-      .populate('assignedPrograms', 'title description category specialization isActive price currentEnrollments maxParticipants duration startDate endDate');
+      .populate('assignedPrograms', 'title description category specialization difficulty fee duration totalSessions isActive maxParticipants currentEnrollments');
 
     if (!coach) {
       return res.status(404).json({
@@ -198,7 +198,7 @@ const getCoachByUserId = async (req, res) => {
   try {
     const coach = await Coach.findOne({ userId: req.params.userId })
       .populate('userId', 'firstName lastName email profileImageURL contactNumber')
-      .populate('assignedPrograms', 'title description category specialization isActive price currentEnrollments maxParticipants duration startDate endDate');
+      .populate('assignedPrograms', 'title description category specialization difficulty fee duration totalSessions isActive maxParticipants currentEnrollments');
 
     if (!coach) {
       return res.status(404).json({
@@ -279,7 +279,7 @@ const createCoach = async (req, res) => {
     // Populate user data for response
     const populatedCoach = await Coach.findById(coach._id)
       .populate('userId', 'firstName lastName email profileImageURL')
-      .populate('assignedPrograms', 'title description category specialization isActive price currentEnrollments maxParticipants duration startDate endDate');
+      .populate('assignedPrograms', 'title description category specialization difficulty fee duration totalSessions isActive maxParticipants currentEnrollments');
 
     res.status(201).json({
       success: true,
@@ -503,7 +503,7 @@ const updateCoachAvailability = async (req, res) => {
 
     const updatedCoach = await Coach.findById(coachId)
       .populate('userId', 'firstName lastName email profileImageURL')
-      .populate('assignedPrograms', 'title description category specialization isActive price currentEnrollments maxParticipants duration startDate endDate');
+      .populate('assignedPrograms', 'title description category specialization difficulty fee duration totalSessions isActive maxParticipants currentEnrollments');
 
     res.status(200).json({
       success: true,
@@ -542,7 +542,7 @@ const updateCoachRating = async (req, res) => {
 
     const updatedCoach = await Coach.findById(coachId)
       .populate('userId', 'firstName lastName email profileImageURL')
-      .populate('assignedPrograms', 'title description category specialization isActive price currentEnrollments maxParticipants duration startDate endDate');
+      .populate('assignedPrograms', 'title description category specialization difficulty fee duration totalSessions isActive maxParticipants currentEnrollments');
 
     res.status(200).json({
       success: true,
@@ -588,7 +588,7 @@ const assignProgramToCoach = async (req, res) => {
 
     const updatedCoach = await Coach.findById(coachId)
       .populate('userId', 'firstName lastName email profileImageURL')
-      .populate('assignedPrograms', 'title description category specialization isActive price currentEnrollments maxParticipants duration startDate endDate');
+      .populate('assignedPrograms', 'title description category specialization difficulty fee duration totalSessions isActive maxParticipants currentEnrollments');
 
     res.status(200).json({
       success: true,
@@ -629,7 +629,7 @@ const removeProgramFromCoach = async (req, res) => {
 
     const updatedCoach = await Coach.findById(coachId)
       .populate('userId', 'firstName lastName email profileImageURL')
-      .populate('assignedPrograms', 'title description category specialization isActive price currentEnrollments maxParticipants duration startDate endDate');
+      .populate('assignedPrograms', 'title description category specialization difficulty fee duration totalSessions isActive maxParticipants currentEnrollments');
 
     res.status(200).json({
       success: true,
@@ -746,7 +746,7 @@ const toggleCoachStatus = async (req, res) => {
 
     const updatedCoach = await Coach.findById(coach._id)
       .populate('userId', 'firstName lastName email profileImageURL')
-      .populate('assignedPrograms', 'title description category specialization isActive price currentEnrollments maxParticipants duration startDate endDate');
+      .populate('assignedPrograms', 'title description category specialization difficulty fee duration totalSessions isActive maxParticipants currentEnrollments');
 
     res.status(200).json({
       success: true,
@@ -814,7 +814,7 @@ const createCoachProfileForUser = async (req, res) => {
     // Populate user data for response
     const populatedCoach = await Coach.findById(coach._id)
       .populate('userId', 'firstName lastName email profileImageURL')
-      .populate('assignedPrograms', 'title description category specialization isActive price currentEnrollments maxParticipants duration startDate endDate');
+      .populate('assignedPrograms', 'title description category specialization difficulty fee duration totalSessions isActive maxParticipants currentEnrollments');
 
     res.status(201).json({
       success: true,
@@ -1220,6 +1220,94 @@ const getWeeklySessionStructure = async (req, res) => {
   }
 };
 
+// @desc    Get enrolled programs for a coach
+// @route   GET /api/coaches/:id/enrolled-programs
+// @access  Public
+const getCoachEnrolledPrograms = async (req, res) => {
+  try {
+    const { id: coachId } = req.params;
+    const { page = 1, limit = 10, status } = req.query;
+
+    // Import ProgramEnrollment model
+    const ProgramEnrollment = (await import('../models/ProgramEnrollment.js')).default;
+
+    // First, find all programs where this coach is assigned
+    const CoachingProgram = (await import('../models/CoachingProgram.js')).default;
+    const coachPrograms = await CoachingProgram.find({ coach: coachId }).select('_id');
+    const programIds = coachPrograms.map(program => program._id);
+    
+    // Build filter to find enrollments for these programs
+    const filter = {
+      program: { $in: programIds },
+      status: status || { $in: ['active', 'pending', 'completed'] }
+    };
+
+    const options = {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      sort: { enrollmentDate: -1 },
+      populate: [
+        { 
+          path: 'user', 
+          select: 'firstName lastName email contactNumber' 
+        },
+        { 
+          path: 'program', 
+          select: 'title description category specialization fee duration totalSessions isActive',
+          populate: {
+            path: 'coach',
+            select: 'userId',
+            populate: {
+              path: 'userId',
+              select: 'firstName lastName email'
+            }
+          }
+        },
+        { 
+          path: 'sessions', 
+          select: 'title scheduledDate status startTime endTime' 
+        }
+      ]
+    };
+
+    // Get enrollments for programs where this coach is assigned
+    const enrollments = await ProgramEnrollment.find(filter)
+      .populate(options.populate)
+      .sort(options.sort)
+      .skip((options.page - 1) * options.limit)
+      .limit(options.limit);
+
+    const totalDocs = await ProgramEnrollment.countDocuments(filter);
+    const totalPages = Math.ceil(totalDocs / options.limit);
+
+    console.log('Coach ID:', coachId);
+    console.log('Program IDs found:', programIds);
+    console.log('Enrollments found:', enrollments.length);
+    console.log('Sample enrollment:', enrollments[0]);
+
+    const result = {
+      docs: enrollments,
+      totalDocs,
+      limit: options.limit,
+      page: options.page,
+      totalPages,
+      hasNextPage: options.page < totalPages,
+      hasPrevPage: options.page > 1
+    };
+
+    res.status(200).json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching coach enrolled programs',
+      error: error.message
+    });
+  }
+};
+
 export {
   getAllCoaches,
   getCoach,
@@ -1239,6 +1327,7 @@ export {
   syncCoaches,
   getCoachAvailability,
   getBookingDateRange,
-  getWeeklySessionStructure
+  getWeeklySessionStructure,
+  getCoachEnrolledPrograms
 };
 

@@ -30,6 +30,7 @@ const CoachDashboard = () => {
   const [assignedPrograms, setAssignedPrograms] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [sessions, setSessions] = useState([]);
+  const [enrolledPrograms, setEnrolledPrograms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -53,126 +54,93 @@ const CoachDashboard = () => {
       // Check if user is authenticated
       const userInfo = JSON.parse(localStorage.getItem('userInfo') || 'null');
       
-      // Use mock data for testing - no authentication required
-      const mockCoach = {
-        _id: 'mock-coach-id',
-        userId: {
-          firstName: userInfo?.firstName || 'John',
-          lastName: userInfo?.lastName || 'Smith',
-          email: userInfo?.email || 'john.smith@example.com'
-        },
-        specializations: ['Batting', 'Bowling', 'Fielding'],
-        assignedPrograms: ['program1', 'program2']
-      };
-      setCoach(mockCoach);
+      if (!userInfo || !userInfo._id) {
+        setError('Please log in to access the coach dashboard');
+        setLoading(false);
+        navigate('/login');
+        return;
+      }
+
+      // Get coach profile by user ID
+      const coachResponse = await axios.get(`/api/coaches/user/${userInfo._id}`);
+      const coachData = coachResponse.data.data;
       
-      // Mock programs
-      const mockPrograms = [
-        {
-          _id: 'program1',
-          title: 'Beginner Cricket Training',
-          description: 'Learn the basics of cricket including batting, bowling, and fielding techniques.',
-          currentEnrollments: 8,
-          maxParticipants: 15,
-          duration: 8,
-          difficulty: 'beginner',
-          category: 'Training',
-          fee: 200,
-          totalSessions: 10,
-          isActive: true
-        },
-        {
-          _id: 'program2',
-          title: 'Advanced Batting Masterclass',
-          description: 'Advanced techniques for experienced players looking to improve their batting skills.',
-          currentEnrollments: 5,
-          maxParticipants: 10,
-          duration: 6,
-          difficulty: 'advanced',
-          category: 'Specialized',
-          fee: 350,
-          totalSessions: 8,
-          isActive: true
-        }
-      ];
-      setAssignedPrograms(mockPrograms);
+      console.log('Coach data received:', coachData);
+      console.log('Assigned programs:', coachData.assignedPrograms);
       
-      // Mock customers
-      const mockCustomers = [
-        {
-          _id: 'customer1',
-          user: { firstName: 'Alice', lastName: 'Johnson', email: 'alice@example.com' },
-          enrolledPrograms: ['program1'],
-          totalSessions: 5,
-          completedSessions: 3
-        },
-        {
-          _id: 'customer2',
-          user: { firstName: 'Bob', lastName: 'Wilson', email: 'bob@example.com' },
-          enrolledPrograms: ['program1', 'program2'],
-          totalSessions: 8,
-          completedSessions: 6
-        },
-        {
-          _id: 'customer3',
-          user: { firstName: 'Charlie', lastName: 'Brown', email: 'charlie@example.com' },
-          enrolledPrograms: ['program2'],
-          totalSessions: 3,
-          completedSessions: 1
-        }
-      ];
-      setCustomers(mockCustomers);
+      if (!coachData) {
+        setError('Coach profile not found. Please contact support.');
+        setLoading(false);
+        return;
+      }
       
-      // Mock sessions
-      const mockSessions = [
-        {
-          _id: 'session1',
-          title: 'Basic Batting Techniques',
-          program: { title: 'Beginner Cricket Training' },
-          scheduledDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
-          startTime: '10:00',
-          endTime: '12:00',
-          status: 'scheduled',
-          ground: { name: 'Main Cricket Ground' },
-          participants: [
-            { _id: 'p1', user: { firstName: 'Alice', lastName: 'Johnson' } },
-            { _id: 'p2', user: { firstName: 'Bob', lastName: 'Wilson' } }
-          ]
-        },
-        {
-          _id: 'session2',
-          title: 'Bowling Fundamentals',
-          program: { title: 'Beginner Cricket Training' },
-          scheduledDate: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(),
-          startTime: '14:00',
-          endTime: '16:00',
-          status: 'scheduled',
-          ground: { name: 'Practice Ground' },
-          participants: [
-            { _id: 'p3', user: { firstName: 'Charlie', lastName: 'Brown' } }
-          ]
+      setCoach(coachData);
+      
+      // Get coach's assigned programs
+      if (coachData.assignedPrograms && coachData.assignedPrograms.length > 0) {
+        setAssignedPrograms(coachData.assignedPrograms);
+      } else {
+        setAssignedPrograms([]);
+      }
+      
+      // Get coach's enrolled programs (students enrolled in coach's programs)
+      let enrolledProgramsData = [];
+      try {
+        const enrolledProgramsResponse = await axios.get(`/api/coaches/${coachData._id}/enrolled-programs`);
+        enrolledProgramsData = enrolledProgramsResponse.data.data.docs || [];
+        console.log('Enrolled programs data:', enrolledProgramsData);
+        setEnrolledPrograms(enrolledProgramsData);
+      } catch (enrolledError) {
+        console.warn('Could not fetch enrolled programs:', enrolledError);
+        setEnrolledPrograms([]);
+      }
+      
+      // Extract customers from enrolled programs
+      const customersData = enrolledProgramsData.map(enrollment => {
+        console.log('Processing enrollment:', {
+          userId: enrollment.user._id,
+          programTitle: enrollment.program.title,
+          programTotalSessions: enrollment.program.totalSessions,
+          programDuration: enrollment.program.duration,
+          progressTotalSessions: enrollment.progress.totalSessions,
+          completedSessions: enrollment.progress.completedSessions
+        });
+        
+        return {
+          _id: enrollment.user._id,
+          user: enrollment.user,
+          enrolledPrograms: [enrollment.program._id],
+          totalSessions: enrollment.program.totalSessions || enrollment.program.duration || 2,
+          completedSessions: enrollment.progress.completedSessions
+        };
+      });
+      console.log('Customers data extracted:', customersData);
+      setCustomers(customersData);
+      
+      // Extract sessions from enrolled programs
+      const sessionsData = [];
+      enrolledProgramsData.forEach(enrollment => {
+        if (enrollment.sessions && enrollment.sessions.length > 0) {
+          enrollment.sessions.forEach(session => {
+            sessionsData.push({
+              ...session,
+              program: { title: enrollment.program.title },
+              participants: [{ _id: enrollment.user._id, user: enrollment.user }]
+            });
+          });
         }
-      ];
-      setSessions(mockSessions);
+      });
+      setSessions(sessionsData);
       
     } catch (error) {
       console.error('Error fetching coach data:', error);
-      // Set default data even if there's an error
-      const defaultCoach = {
-        _id: 'default-coach-id',
-        userId: {
-          firstName: 'John',
-          lastName: 'Smith',
-          email: 'john.smith@example.com'
-        },
-        specializations: ['Batting', 'Bowling', 'Fielding'],
-        assignedPrograms: []
-      };
-      setCoach(defaultCoach);
+      setError('Failed to load coach data. Please try again.');
+      // Set empty data on error
+      setCoach(null);
       setAssignedPrograms([]);
       setCustomers([]);
       setSessions([]);
-      setError(null); // Clear any previous errors
+      setEnrolledPrograms([]);
     } finally {
       setLoading(false);
     }
@@ -262,6 +230,20 @@ const CoachDashboard = () => {
     });
   };
 
+  const getFilteredEnrolledPrograms = () => {
+    return enrolledPrograms.filter(enrollment => {
+      const studentName = `${enrollment.user.firstName} ${enrollment.user.lastName}`.toLowerCase();
+      const programTitle = enrollment.program.title.toLowerCase();
+      const matchesSearch = studentName.includes(searchTerm.toLowerCase()) ||
+                           programTitle.includes(searchTerm.toLowerCase()) ||
+                           enrollment.user.email.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === 'All Status' || enrollment.status === statusFilter;
+      const matchesCategory = categoryFilter === 'All Categories' || enrollment.program.category === categoryFilter;
+      
+      return matchesSearch && matchesStatus && matchesCategory;
+    });
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
@@ -312,6 +294,30 @@ const CoachDashboard = () => {
             >
               <Calendar className="h-5 w-5 mr-3" />
               Sessions
+            </button>
+            
+            <button
+              onClick={() => setActiveTab('enrolled')}
+              className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
+                activeTab === 'enrolled' 
+                  ? 'bg-blue-800 text-white' 
+                  : 'text-blue-200 hover:bg-blue-800 hover:text-white'
+              }`}
+            >
+              <BookOpen className="h-5 w-5 mr-3" />
+              Enrolled Programs
+            </button>
+            
+            <button
+              onClick={() => setActiveTab('profile')}
+              className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
+                activeTab === 'profile' 
+                  ? 'bg-blue-800 text-white' 
+                  : 'text-blue-200 hover:bg-blue-800 hover:text-white'
+              }`}
+            >
+              <User className="h-5 w-5 mr-3" />
+              Profile
             </button>
           </div>
         </nav>
@@ -412,6 +418,7 @@ const CoachDashboard = () => {
                   <ProgramCard
                     key={program._id}
                     program={program}
+                    coach={coach}
                     onViewSessions={() => setSelectedProgram(program)}
                   />
                 ))}
@@ -438,11 +445,32 @@ const CoachDashboard = () => {
               </div>
 
               {/* Customer Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {getFilteredCustomers().map((customer) => (
-                  <CustomerCard key={customer._id} customer={customer} />
-                ))}
-              </div>
+              {getFilteredCustomers().length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {getFilteredCustomers().map((customer) => {
+                    // Find the enrollment data for this customer
+                    const enrollment = enrolledPrograms.find(ep => ep.user._id === customer._id);
+                    return (
+                      <CustomerCard 
+                        key={customer._id} 
+                        customer={customer} 
+                        enrollment={enrollment}
+                      />
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No customers found</h3>
+                  <p className="text-gray-500">
+                    {customers.length === 0 
+                      ? "No students are currently enrolled in your programs."
+                      : "No customers match your search criteria."
+                    }
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
@@ -493,6 +521,76 @@ const CoachDashboard = () => {
               </div>
             </div>
           )}
+
+          {activeTab === 'enrolled' && (
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">Enrolled Programs</h2>
+              
+              {/* Filter Bar */}
+              <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <input
+                      type="text"
+                      placeholder="Search by student name, program..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="All Status">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="pending">Pending</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                  
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="All Categories">All Categories</option>
+                    <option value="Training">Training</option>
+                    <option value="Specialized">Specialized</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Enrolled Programs Cards */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {getFilteredEnrolledPrograms().map((enrollment) => (
+                  <EnrolledProgramCard key={enrollment._id} enrollment={enrollment} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'profile' && (
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">My Profile</h2>
+              
+              {coach ? (
+                <CoachProfileCard 
+                  coach={coach} 
+                  enrolledPrograms={enrolledPrograms}
+                  sessions={sessions}
+                />
+              ) : (
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Loading profile...</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -524,7 +622,7 @@ const CoachDashboard = () => {
 };
 
 // Program Card Component
-const ProgramCard = ({ program, onViewSessions }) => {
+const ProgramCard = ({ program, coach, onViewSessions }) => {
   const enrollmentPercentage = Math.round((program.currentEnrollments / program.maxParticipants) * 100);
   
   return (
@@ -544,7 +642,7 @@ const ProgramCard = ({ program, onViewSessions }) => {
       
       <div className="space-y-3">
         <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-500">Coach: John Smith</span>
+          <span className="text-gray-500">Coach: {coach?.userId?.firstName} {coach?.userId?.lastName}</span>
           <span className="text-gray-500">Fee: LKR {program.fee}</span>
         </div>
         
@@ -594,8 +692,26 @@ const ProgramCard = ({ program, onViewSessions }) => {
 };
 
 // Customer Card Component
-const CustomerCard = ({ customer }) => {
+const CustomerCard = ({ customer, enrollment }) => {
   const completionPercentage = Math.round((customer.completedSessions / customer.totalSessions) * 100);
+  
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'active': return 'bg-green-100 text-green-800';
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'completed': return 'bg-blue-100 text-blue-800';
+      case 'cancelled': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
   
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
@@ -608,15 +724,45 @@ const CustomerCard = ({ customer }) => {
             {customer.user.firstName} {customer.user.lastName}
           </h3>
           <p className="text-sm text-gray-600">{customer.user.email}</p>
+          {customer.user.contactNumber && (
+            <p className="text-sm text-gray-500">{customer.user.contactNumber}</p>
+          )}
         </div>
       </div>
       
-      <div className="space-y-3">
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-500">Programs Enrolled</span>
-          <span className="text-gray-900 font-medium">{customer.enrolledPrograms.length}</span>
+      {/* Program Enrollment Details */}
+      {enrollment && (
+        <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="font-medium text-gray-900">{enrollment.program.title}</h4>
+            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(enrollment.status)}`}>
+              {enrollment.status}
+            </span>
+          </div>
+          <p className="text-sm text-gray-600 mb-3">{enrollment.program.description}</p>
+          
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <span className="text-gray-500">Category:</span>
+              <span className="ml-2 text-gray-900">{enrollment.program.category}</span>
+            </div>
+            <div>
+              <span className="text-gray-500">Fee:</span>
+              <span className="ml-2 text-gray-900">LKR {enrollment.program.fee}</span>
+            </div>
+            <div>
+              <span className="text-gray-500">Duration:</span>
+              <span className="ml-2 text-gray-900">{enrollment.program.duration} weeks</span>
+            </div>
+            <div>
+              <span className="text-gray-500">Enrolled:</span>
+              <span className="ml-2 text-gray-900">{formatDate(enrollment.enrollmentDate)}</span>
+            </div>
+          </div>
         </div>
-        
+      )}
+      
+      <div className="space-y-3">
         <div className="flex items-center justify-between text-sm">
           <span className="text-gray-500">Total Sessions</span>
           <span className="text-gray-900 font-medium">{customer.totalSessions}</span>
@@ -887,6 +1033,500 @@ const FeedbackModal = ({ participant, onSubmit, onClose }) => {
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+};
+
+// Coach Profile Card Component
+const CoachProfileCard = ({ coach, enrolledPrograms, sessions }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editData, setEditData] = useState({
+    specializations: coach.specializations || [],
+    experience: coach.experience || 0,
+    bio: coach.bio || '',
+    hourlyRate: coach.hourlyRate || 0,
+    achievements: coach.achievements || []
+  });
+
+  const handleEdit = () => {
+    setIsEditing(true);
+    setEditData({
+      specializations: coach.specializations || [],
+      experience: coach.experience || 0,
+      bio: coach.bio || '',
+      hourlyRate: coach.hourlyRate || 0,
+      achievements: coach.achievements || []
+    });
+  };
+
+  const handleSave = async () => {
+    try {
+      // Here you would make an API call to update the coach profile
+      // await axios.put(`/api/coaches/${coach._id}`, editData);
+      console.log('Saving profile data:', editData);
+      setIsEditing(false);
+      // You might want to refresh the coach data here
+    } catch (error) {
+      console.error('Error updating profile:', error);
+    }
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    setEditData({
+      specializations: coach.specializations || [],
+      experience: coach.experience || 0,
+      bio: coach.bio || '',
+      hourlyRate: coach.hourlyRate || 0,
+      achievements: coach.achievements || []
+    });
+  };
+
+  const addSpecialization = () => {
+    setEditData(prev => ({
+      ...prev,
+      specializations: [...prev.specializations, '']
+    }));
+  };
+
+  const updateSpecialization = (index, value) => {
+    setEditData(prev => ({
+      ...prev,
+      specializations: prev.specializations.map((spec, i) => i === index ? value : spec)
+    }));
+  };
+
+  const removeSpecialization = (index) => {
+    setEditData(prev => ({
+      ...prev,
+      specializations: prev.specializations.filter((_, i) => i !== index)
+    }));
+  };
+
+  const addAchievement = () => {
+    setEditData(prev => ({
+      ...prev,
+      achievements: [...prev.achievements, '']
+    }));
+  };
+
+  const updateAchievement = (index, value) => {
+    setEditData(prev => ({
+      ...prev,
+      achievements: prev.achievements.map((ach, i) => i === index ? value : ach)
+    }));
+  };
+
+  const removeAchievement = (index) => {
+    setEditData(prev => ({
+      ...prev,
+      achievements: prev.achievements.filter((_, i) => i !== index)
+    }));
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="flex justify-between items-start mb-6">
+        <div className="flex items-center space-x-4">
+          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+            <User className="h-8 w-8 text-blue-600" />
+          </div>
+          <div>
+            <h3 className="text-2xl font-bold text-gray-900">
+              {coach.userId?.firstName} {coach.userId?.lastName}
+            </h3>
+            <p className="text-gray-600">{coach.userId?.email}</p>
+            <div className="flex items-center space-x-2 mt-1">
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                coach.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+              }`}>
+                {coach.isActive ? 'Active' : 'Inactive'}
+              </span>
+              <span className="text-sm text-gray-500">
+                {coach.assignedPrograms?.length || 0} Programs
+              </span>
+            </div>
+          </div>
+        </div>
+        <div className="flex space-x-2">
+          {!isEditing ? (
+            <button
+              onClick={handleEdit}
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Edit className="h-4 w-4 mr-2" />
+              Edit Profile
+            </button>
+          ) : (
+            <div className="flex space-x-2">
+              <button
+                onClick={handleSave}
+                className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                Save
+              </button>
+              <button
+                onClick={handleCancel}
+                className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Personal Information */}
+        <div className="space-y-4">
+          <h4 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">
+            Personal Information
+          </h4>
+          
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">First Name</label>
+              <p className="text-gray-900">{coach.userId?.firstName}</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Last Name</label>
+              <p className="text-gray-900">{coach.userId?.lastName}</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Email</label>
+              <p className="text-gray-900">{coach.userId?.email}</p>
+            </div>
+            {coach.userId?.contactNumber && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Contact Number</label>
+                <p className="text-gray-900">{coach.userId.contactNumber}</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Professional Information */}
+        <div className="space-y-4">
+          <h4 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">
+            Professional Information
+          </h4>
+          
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Experience</label>
+              {isEditing ? (
+                <input
+                  type="number"
+                  value={editData.experience}
+                  onChange={(e) => setEditData(prev => ({ ...prev, experience: parseInt(e.target.value) || 0 }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  min="0"
+                />
+              ) : (
+                <p className="text-gray-900">{coach.experience || 0} years</p>
+              )}
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Hourly Rate</label>
+              {isEditing ? (
+                <input
+                  type="number"
+                  value={editData.hourlyRate}
+                  onChange={(e) => setEditData(prev => ({ ...prev, hourlyRate: parseFloat(e.target.value) || 0 }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  min="0"
+                  step="0.01"
+                />
+              ) : (
+                <p className="text-gray-900">LKR {coach.hourlyRate || 0}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Specializations */}
+      <div className="mt-6">
+        <h4 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2 mb-4">
+          Specializations
+        </h4>
+        
+        {isEditing ? (
+          <div className="space-y-3">
+            {editData.specializations.map((spec, index) => (
+              <div key={index} className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  value={spec}
+                  onChange={(e) => updateSpecialization(index, e.target.value)}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter specialization"
+                />
+                <button
+                  onClick={() => removeSpecialization(index)}
+                  className="p-2 text-red-600 hover:text-red-800 transition-colors"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+            <button
+              onClick={addSpecialization}
+              className="flex items-center px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Specialization
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {coach.specializations?.length > 0 ? (
+              coach.specializations.map((spec, index) => (
+                <span
+                  key={index}
+                  className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium"
+                >
+                  {spec}
+                </span>
+              ))
+            ) : (
+              <p className="text-gray-500 italic">No specializations added</p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Bio */}
+      <div className="mt-6">
+        <h4 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2 mb-4">
+          Bio
+        </h4>
+        
+        {isEditing ? (
+          <textarea
+            value={editData.bio}
+            onChange={(e) => setEditData(prev => ({ ...prev, bio: e.target.value }))}
+            rows={4}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="Tell us about your coaching experience and philosophy..."
+          />
+        ) : (
+          <p className="text-gray-900 whitespace-pre-wrap">
+            {coach.bio || 'No bio available'}
+          </p>
+        )}
+      </div>
+
+      {/* Achievements */}
+      <div className="mt-6">
+        <h4 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2 mb-4">
+          Achievements
+        </h4>
+        
+        {isEditing ? (
+          <div className="space-y-3">
+            {editData.achievements.map((achievement, index) => (
+              <div key={index} className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  value={achievement}
+                  onChange={(e) => updateAchievement(index, e.target.value)}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter achievement"
+                />
+                <button
+                  onClick={() => removeAchievement(index)}
+                  className="p-2 text-red-600 hover:text-red-800 transition-colors"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+            <button
+              onClick={addAchievement}
+              className="flex items-center px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Achievement
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {coach.achievements?.length > 0 ? (
+              coach.achievements.map((achievement, index) => (
+                <div key={index} className="flex items-center space-x-2">
+                  <Star className="h-4 w-4 text-yellow-500" />
+                  <span className="text-gray-900">{achievement}</span>
+                </div>
+              ))
+            ) : (
+              <p className="text-gray-500 italic">No achievements added</p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Statistics */}
+      <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-blue-50 rounded-lg p-4">
+          <div className="flex items-center">
+            <BookOpen className="h-8 w-8 text-blue-600" />
+            <div className="ml-3">
+              <p className="text-sm font-medium text-gray-500">Assigned Programs</p>
+              <p className="text-2xl font-bold text-blue-600">{coach.assignedPrograms?.length || 0}</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-green-50 rounded-lg p-4">
+          <div className="flex items-center">
+            <Users className="h-8 w-8 text-green-600" />
+            <div className="ml-3">
+              <p className="text-sm font-medium text-gray-500">Total Students</p>
+              <p className="text-2xl font-bold text-green-600">{enrolledPrograms.length}</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-purple-50 rounded-lg p-4">
+          <div className="flex items-center">
+            <Calendar className="h-8 w-8 text-purple-600" />
+            <div className="ml-3">
+              <p className="text-sm font-medium text-gray-500">Total Sessions</p>
+              <p className="text-2xl font-bold text-purple-600">{sessions.length}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Enrolled Program Card Component
+const EnrolledProgramCard = ({ enrollment }) => {
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'active': return 'bg-green-100 text-green-800';
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'completed': return 'bg-blue-100 text-blue-800';
+      case 'cancelled': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getPaymentStatusColor = (status) => {
+    switch (status) {
+      case 'completed': return 'bg-green-100 text-green-800';
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'failed': return 'bg-red-100 text-red-800';
+      case 'refunded': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+      <div className="flex justify-between items-start mb-4">
+        <div className="flex-1">
+          <div className="flex items-center space-x-3 mb-2">
+            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+              <User className="h-5 w-5 text-blue-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">
+                {enrollment.user.firstName} {enrollment.user.lastName}
+              </h3>
+              <p className="text-sm text-gray-600">{enrollment.user.email}</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center space-x-2 mb-3">
+            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(enrollment.status)}`}>
+              {enrollment.status}
+            </span>
+            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPaymentStatusColor(enrollment.paymentStatus)}`}>
+              {enrollment.paymentStatus}
+            </span>
+          </div>
+        </div>
+      </div>
+      
+      <div className="space-y-3">
+        <div>
+          <h4 className="font-medium text-gray-900 mb-1">{enrollment.program.title}</h4>
+          <p className="text-sm text-gray-600 mb-2">{enrollment.program.description}</p>
+          <div className="flex items-center space-x-4 text-sm text-gray-500">
+            <span>{enrollment.program.category}</span>
+            <span>•</span>
+            <span>LKR {enrollment.program.fee}</span>
+            <span>•</span>
+            <span>{enrollment.program.duration} weeks</span>
+          </div>
+        </div>
+        
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-500">Progress</span>
+            <span className="text-gray-900 font-medium">
+              {enrollment.progress.completedSessions}/{enrollment.progress.totalSessions} sessions
+            </span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div 
+              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${enrollment.progress.progressPercentage}%` }}
+            ></div>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-500">Enrolled</span>
+            <span className="text-gray-500">{formatDate(enrollment.enrollmentDate)}</span>
+          </div>
+        </div>
+        
+        {enrollment.sessions && enrollment.sessions.length > 0 && (
+          <div className="pt-3 border-t border-gray-100">
+            <p className="text-sm font-medium text-gray-700 mb-2">Recent Sessions:</p>
+            <div className="space-y-1">
+              {enrollment.sessions.slice(0, 2).map((session) => (
+                <div key={session._id} className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600">{session.title}</span>
+                  <span className={`px-2 py-1 rounded-full text-xs ${
+                    session.status === 'completed' ? 'bg-green-100 text-green-800' :
+                    session.status === 'scheduled' ? 'bg-blue-100 text-blue-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {session.status}
+                  </span>
+                </div>
+              ))}
+              {enrollment.sessions.length > 2 && (
+                <p className="text-xs text-gray-500">+{enrollment.sessions.length - 2} more sessions</p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+      
+      <div className="flex items-center justify-end space-x-2 mt-4 pt-4 border-t border-gray-100">
+        <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+          <MessageSquare className="h-4 w-4" />
+        </button>
+        <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+          <User className="h-4 w-4" />
+        </button>
+        <button className="p-2 text-gray-400 hover:text-blue-600 transition-colors">
+          <Edit className="h-4 w-4" />
+        </button>
       </div>
     </div>
   );
