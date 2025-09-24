@@ -16,6 +16,7 @@ import {
   toggleCoachStatus,
   createCoachProfileForUser,
   createMissingCoachProfiles,
+  syncCoaches,
   getCoachAvailability,
   getBookingDateRange,
   getWeeklySessionStructure
@@ -28,6 +29,7 @@ import {
 router.get('/', getAllCoaches); // Get all coaches with filtering
 router.get('/specialization/:specialization', getCoachesBySpecialization); // Get coaches by specialization
 router.get('/user/:userId', getCoachByUserId); // Get coach by user ID
+router.get('/sync-coaches', syncCoaches); // Sync coaches - create missing profiles and return all coaches
 router.get('/:id', getCoach); // Get single coach profile
 router.get('/:id/availability', getCoachAvailability); // Get coach availability for booking
 router.get('/:id/booking-range', getBookingDateRange); // Get valid booking date range

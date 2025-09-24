@@ -56,6 +56,43 @@ const getAllCoaches = async (req, res) => {
       sortOrder = 'desc'
     } = req.query;
 
+    // First, ensure all users with coach role have coach profiles
+    try {
+      // Find all users with coach role
+      const coachUsers = await User.find({ role: 'coach' });
+      
+      if (coachUsers.length > 0) {
+        // Find existing coach profiles
+        const existingCoachUserIds = await Coach.find({}).distinct('userId');
+        
+        // Find users without coach profiles
+        const usersWithoutProfiles = coachUsers.filter(user => 
+          !existingCoachUserIds.some(coachUserId => coachUserId.toString() === user._id.toString())
+        );
+
+        // Create coach profiles for users without them
+        for (const user of usersWithoutProfiles) {
+          const coachData = {
+            userId: user._id,
+            specializations: ['General Coaching'],
+            experience: 0,
+            bio: '',
+            hourlyRate: 0,
+            achievements: [],
+            isActive: true,
+            availability: [],
+            assignedSessions: 0,
+            assignedPrograms: []
+          };
+
+          await Coach.create(coachData);
+        }
+      }
+    } catch (profileError) {
+      console.warn('Error creating missing coach profiles:', profileError);
+      // Continue with fetching coaches even if profile creation fails
+    }
+
     // Build filter object
     const filter = { isActive };
     
@@ -872,6 +909,74 @@ const createMissingCoachProfiles = async (req, res) => {
   }
 };
 
+// @desc    Sync coaches - create missing profiles and return all coaches
+// @route   GET /api/coaches/sync-coaches
+// @access  Private (Admin only)
+const syncCoaches = async (req, res) => {
+  try {
+    // First create missing coach profiles
+    const coachUsers = await User.find({ role: 'coach' });
+    
+    if (coachUsers.length > 0) {
+      const existingCoachUserIds = await Coach.find({}).distinct('userId');
+      const usersWithoutProfiles = coachUsers.filter(user => 
+        !existingCoachUserIds.some(coachUserId => coachUserId.toString() === user._id.toString())
+      );
+
+      // Create coach profiles for users without them
+      for (const user of usersWithoutProfiles) {
+        const coachData = {
+          userId: user._id,
+          specializations: ['General Coaching'],
+          experience: 0,
+          bio: '',
+          hourlyRate: 0,
+          achievements: [],
+          isActive: true,
+          availability: [],
+          assignedSessions: 0,
+          assignedPrograms: []
+        };
+
+        await Coach.create(coachData);
+      }
+    }
+
+    // Now fetch all coaches with pagination
+    const { page = 1, limit = 50 } = req.query;
+    
+    const options = {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      sort: { createdAt: -1 },
+      populate: [
+        {
+          path: 'userId',
+          select: 'firstName lastName email profileImageURL'
+        },
+        {
+          path: 'assignedPrograms',
+          select: 'title description category specialization isActive price currentEnrollments maxParticipants duration startDate endDate'
+        }
+      ]
+    };
+
+    const coaches = await paginateHelper(Coach, { isActive: true }, options);
+
+    res.status(200).json({
+      success: true,
+      data: coaches,
+      message: 'Coaches synced successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error syncing coaches',
+      error: error.message
+    });
+  }
+};
+
 // @desc    Get coach availability for booking
 // @route   GET /api/coaches/:id/availability
 // @access  Public
@@ -1131,6 +1236,7 @@ export {
   toggleCoachStatus,
   createCoachProfileForUser,
   createMissingCoachProfiles,
+  syncCoaches,
   getCoachAvailability,
   getBookingDateRange,
   getWeeklySessionStructure

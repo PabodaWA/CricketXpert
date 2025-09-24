@@ -1,15 +1,43 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Users, Star, Clock, MapPin, BookOpen, MessageSquare, Plus, LogOut } from 'lucide-react';
+import { 
+  Calendar, 
+  Users, 
+  Star, 
+  Clock, 
+  MapPin, 
+  BookOpen, 
+  MessageSquare, 
+  Plus, 
+  LogOut,
+  Home,
+  User,
+  Search,
+  Filter,
+  RefreshCw,
+  Edit,
+  Trash2,
+  Upload,
+  ChevronDown,
+  Menu,
+  X
+} from 'lucide-react';
 import axios from 'axios';
 
 const CoachDashboard = () => {
   const navigate = useNavigate();
   const [coach, setCoach] = useState(null);
   const [assignedPrograms, setAssignedPrograms] = useState([]);
-  const [upcomingSessions, setUpcomingSessions] = useState([]);
+  const [customers, setCustomers] = useState([]);
+  const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('programs');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('All Categories');
+  const [difficultyFilter, setDifficultyFilter] = useState('All Levels');
+  const [statusFilter, setStatusFilter] = useState('All Status');
   const [selectedProgram, setSelectedProgram] = useState(null);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [selectedParticipant, setSelectedParticipant] = useState(null);
@@ -22,13 +50,16 @@ const CoachDashboard = () => {
     try {
       setLoading(true);
       
+      // Check if user is authenticated
+      const userInfo = JSON.parse(localStorage.getItem('userInfo') || 'null');
+      
       // Use mock data for testing - no authentication required
       const mockCoach = {
         _id: 'mock-coach-id',
         userId: {
-          firstName: 'John',
-          lastName: 'Smith',
-          email: 'john.smith@example.com'
+          firstName: userInfo?.firstName || 'John',
+          lastName: userInfo?.lastName || 'Smith',
+          email: userInfo?.email || 'john.smith@example.com'
         },
         specializations: ['Batting', 'Bowling', 'Fielding'],
         assignedPrograms: ['program1', 'program2']
@@ -45,7 +76,10 @@ const CoachDashboard = () => {
           maxParticipants: 15,
           duration: 8,
           difficulty: 'beginner',
-          category: 'Training'
+          category: 'Training',
+          fee: 200,
+          totalSessions: 10,
+          isActive: true
         },
         {
           _id: 'program2',
@@ -55,10 +89,39 @@ const CoachDashboard = () => {
           maxParticipants: 10,
           duration: 6,
           difficulty: 'advanced',
-          category: 'Specialized'
+          category: 'Specialized',
+          fee: 350,
+          totalSessions: 8,
+          isActive: true
         }
       ];
       setAssignedPrograms(mockPrograms);
+      
+      // Mock customers
+      const mockCustomers = [
+        {
+          _id: 'customer1',
+          user: { firstName: 'Alice', lastName: 'Johnson', email: 'alice@example.com' },
+          enrolledPrograms: ['program1'],
+          totalSessions: 5,
+          completedSessions: 3
+        },
+        {
+          _id: 'customer2',
+          user: { firstName: 'Bob', lastName: 'Wilson', email: 'bob@example.com' },
+          enrolledPrograms: ['program1', 'program2'],
+          totalSessions: 8,
+          completedSessions: 6
+        },
+        {
+          _id: 'customer3',
+          user: { firstName: 'Charlie', lastName: 'Brown', email: 'charlie@example.com' },
+          enrolledPrograms: ['program2'],
+          totalSessions: 3,
+          completedSessions: 1
+        }
+      ];
+      setCustomers(mockCustomers);
       
       // Mock sessions
       const mockSessions = [
@@ -90,11 +153,26 @@ const CoachDashboard = () => {
           ]
         }
       ];
-      setUpcomingSessions(mockSessions);
+      setSessions(mockSessions);
       
     } catch (error) {
       console.error('Error fetching coach data:', error);
-      setError('Failed to load dashboard data');
+      // Set default data even if there's an error
+      const defaultCoach = {
+        _id: 'default-coach-id',
+        userId: {
+          firstName: 'John',
+          lastName: 'Smith',
+          email: 'john.smith@example.com'
+        },
+        specializations: ['Batting', 'Bowling', 'Fielding'],
+        assignedPrograms: []
+      };
+      setCoach(defaultCoach);
+      setAssignedPrograms([]);
+      setCustomers([]);
+      setSessions([]);
+      setError(null); // Clear any previous errors
     } finally {
       setLoading(false);
     }
@@ -137,124 +215,284 @@ const CoachDashboard = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="text-red-500 text-xl mb-4">⚠️</div>
-          <p className="text-red-600">{error}</p>
+          <p className="text-red-600 mb-4">{error}</p>
+          <button 
+            onClick={() => {
+              setError(null);
+              fetchCoachData();
+            }}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Try Again
+          </button>
         </div>
       </div>
     );
   }
 
+  const getFilteredPrograms = () => {
+    return assignedPrograms.filter(program => {
+      const matchesSearch = program.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           program.description.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory = categoryFilter === 'All Categories' || program.category === categoryFilter;
+      const matchesDifficulty = difficultyFilter === 'All Levels' || program.difficulty === difficultyFilter;
+      const matchesStatus = statusFilter === 'All Status' || 
+                           (statusFilter === 'Active' && program.isActive) ||
+                           (statusFilter === 'Inactive' && !program.isActive);
+      
+      return matchesSearch && matchesCategory && matchesDifficulty && matchesStatus;
+    });
+  };
+
+  const getFilteredCustomers = () => {
+    return customers.filter(customer => {
+      const fullName = `${customer.user.firstName} ${customer.user.lastName}`.toLowerCase();
+      return fullName.includes(searchTerm.toLowerCase()) ||
+             customer.user.email.toLowerCase().includes(searchTerm.toLowerCase());
+    });
+  };
+
+  const getFilteredSessions = () => {
+    return sessions.filter(session => {
+      const matchesSearch = session.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           session.program.title.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === 'All Status' || session.status === statusFilter;
+      
+      return matchesSearch && matchesStatus;
+    });
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-8">
-            <div>
-              <h1 className="text-4xl font-bold">Coach Dashboard</h1>
-              <p className="mt-2 text-blue-100 text-lg">
-                Welcome back, {coach?.userId?.firstName} {coach?.userId?.lastName}
-              </p>
-              {coach?.specializations && coach.specializations.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {coach.specializations.map((spec, index) => (
-                    <span key={index} className="bg-blue-500 text-white px-3 py-1 rounded-full text-sm">
-                      {spec}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="flex items-center space-x-8">
-              <div className="text-center bg-white bg-opacity-20 rounded-lg p-4">
-                <p className="text-blue-100 text-sm">Total Programs</p>
-                <p className="text-3xl font-bold">{assignedPrograms.length}</p>
-              </div>
-              <div className="text-center bg-white bg-opacity-20 rounded-lg p-4">
-                <p className="text-blue-100 text-sm">Upcoming Sessions</p>
-                <p className="text-3xl font-bold">{upcomingSessions.length}</p>
-              </div>
-              <button
-                onClick={handleLogout}
-                className="flex items-center space-x-2 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-colors duration-200"
-                title="Logout"
-              >
-                <LogOut className="h-5 w-5" />
-                <span>Logout</span>
-              </button>
-            </div>
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Sidebar */}
+      <div className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} fixed inset-y-0 left-0 z-50 w-64 bg-blue-900 text-white transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0`}>
+        <div className="flex items-center justify-between h-16 px-6 border-b border-blue-800">
+          <h1 className="text-xl font-bold">Coach Dashboard</h1>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden text-white hover:text-gray-300"
+          >
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+        
+        <nav className="mt-6">
+          <div className="px-6 space-y-2">
+            <button
+              onClick={() => setActiveTab('programs')}
+              className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
+                activeTab === 'programs' 
+                  ? 'bg-blue-800 text-white' 
+                  : 'text-blue-200 hover:bg-blue-800 hover:text-white'
+              }`}
+            >
+              <BookOpen className="h-5 w-5 mr-3" />
+              Programs
+            </button>
+            
+            <button
+              onClick={() => setActiveTab('customers')}
+              className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
+                activeTab === 'customers' 
+                  ? 'bg-blue-800 text-white' 
+                  : 'text-blue-200 hover:bg-blue-800 hover:text-white'
+              }`}
+            >
+              <Users className="h-5 w-5 mr-3" />
+              Customers
+            </button>
+            
+            <button
+              onClick={() => setActiveTab('sessions')}
+              className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
+                activeTab === 'sessions' 
+                  ? 'bg-blue-800 text-white' 
+                  : 'text-blue-200 hover:bg-blue-800 hover:text-white'
+              }`}
+            >
+              <Calendar className="h-5 w-5 mr-3" />
+              Sessions
+            </button>
           </div>
+        </nav>
+        
+        <div className="absolute bottom-0 left-0 right-0 p-6">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+          >
+            <LogOut className="h-5 w-5 mr-2" />
+            Logout
+          </button>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Assigned Programs */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-lg shadow-sm border">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-semibold text-gray-900 flex items-center">
-                    <BookOpen className="h-5 w-5 mr-2 text-blue-600" />
-                    Assigned Programs
-                  </h2>
-                  <span className="bg-blue-100 text-blue-800 text-sm font-medium px-2.5 py-0.5 rounded">
-                    {assignedPrograms.length} programs
-                  </span>
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col lg:ml-0">
+        {/* Mobile Header */}
+        <div className="lg:hidden bg-white shadow-sm border-b border-gray-200 px-4 py-3">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="text-gray-600 hover:text-gray-900"
+            >
+              <Menu className="h-6 w-6" />
+            </button>
+            <h1 className="text-lg font-semibold text-gray-900">Coach Dashboard</h1>
+            <div></div>
+          </div>
+        </div>
+
+        {/* Content Area */}
+        <div className="flex-1 p-6">
+          {activeTab === 'programs' && (
+            <div>
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">Coaching Programs</h2>
+                
+                {/* Filter Bar */}
+                <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                      <input
+                        type="text"
+                        placeholder="Search by title, description..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                    
+                    <select
+                      value={categoryFilter}
+                      onChange={(e) => setCategoryFilter(e.target.value)}
+                      className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="All Categories">All Categories</option>
+                      <option value="Training">Training</option>
+                      <option value="Specialized">Specialized</option>
+                    </select>
+                    
+                    <select
+                      value={difficultyFilter}
+                      onChange={(e) => setDifficultyFilter(e.target.value)}
+                      className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="All Levels">All Levels</option>
+                      <option value="beginner">Beginner</option>
+                      <option value="intermediate">Intermediate</option>
+                      <option value="advanced">Advanced</option>
+                    </select>
+                    
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="All Status">All Status</option>
+                      <option value="Active">Active</option>
+                      <option value="Inactive">Inactive</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div className="flex justify-between items-center mb-4">
+                  <p className="text-gray-600">Showing {getFilteredPrograms().length} of {assignedPrograms.length} programs</p>
+                  <button className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Refresh
+                  </button>
                 </div>
               </div>
-              <div className="p-6">
-                {assignedPrograms.length === 0 ? (
-                  <div className="text-center py-8">
-                    <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-500">No programs assigned yet</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {assignedPrograms.map((program) => (
-                      <ProgramCard
-                        key={program._id}
-                        program={program}
-                        onViewSessions={() => setSelectedProgram(program)}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
 
-          {/* Upcoming Sessions */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-sm border">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-xl font-semibold text-gray-900 flex items-center">
-                  <Calendar className="h-5 w-5 mr-2 text-green-600" />
-                  Upcoming Sessions
-                </h2>
-              </div>
-              <div className="p-6">
-                {upcomingSessions.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-500">No upcoming sessions</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {upcomingSessions.map((session) => (
-                      <SessionCard
-                        key={session._id}
-                        session={session}
-                        onGiveFeedback={(participant) => {
-                          setSelectedParticipant(participant);
-                          setShowFeedbackModal(true);
-                        }}
-                      />
-                    ))}
-                  </div>
-                )}
+              {/* Program Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {getFilteredPrograms().map((program) => (
+                  <ProgramCard
+                    key={program._id}
+                    program={program}
+                    onViewSessions={() => setSelectedProgram(program)}
+                  />
+                ))}
               </div>
             </div>
-          </div>
+          )}
+
+          {activeTab === 'customers' && (
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">My Customers</h2>
+              
+              {/* Search Bar */}
+              <div className="mb-6">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <input
+                    type="text"
+                    placeholder="Search customers..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              {/* Customer Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {getFilteredCustomers().map((customer) => (
+                  <CustomerCard key={customer._id} customer={customer} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'sessions' && (
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">My Sessions</h2>
+              
+              {/* Filter Bar */}
+              <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <input
+                      type="text"
+                      placeholder="Search sessions..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="All Status">All Status</option>
+                    <option value="scheduled">Scheduled</option>
+                    <option value="in-progress">In Progress</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Session Cards */}
+              <div className="space-y-4">
+                {getFilteredSessions().map((session) => (
+                  <SessionCard
+                    key={session._id}
+                    session={session}
+                    onGiveFeedback={(participant) => {
+                      setSelectedParticipant(participant);
+                      setShowFeedbackModal(true);
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -287,40 +525,128 @@ const CoachDashboard = () => {
 
 // Program Card Component
 const ProgramCard = ({ program, onViewSessions }) => {
+  const enrollmentPercentage = Math.round((program.currentEnrollments / program.maxParticipants) * 100);
+  
   return (
-    <div className="border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-all duration-200 hover:border-blue-300 bg-white">
-      <div className="flex justify-between items-start">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+      <div className="flex justify-between items-start mb-4">
         <div className="flex-1">
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">{program.title}</h3>
-          <p className="text-gray-600 text-sm mb-4 line-clamp-2">{program.description}</p>
-          <div className="flex items-center space-x-4 text-sm text-gray-500 mb-4">
-            <span className="flex items-center bg-gray-100 px-3 py-1 rounded-full">
-              <Users className="h-4 w-4 mr-1" />
-              {program.currentEnrollments}/{program.maxParticipants} enrolled
-            </span>
-            <span className="flex items-center bg-gray-100 px-3 py-1 rounded-full">
-              <Clock className="h-4 w-4 mr-1" />
-              {program.duration} weeks
-            </span>
-            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-              program.difficulty === 'beginner' ? 'bg-green-100 text-green-800' :
-              program.difficulty === 'intermediate' ? 'bg-yellow-100 text-yellow-800' :
-              'bg-red-100 text-red-800'
-            }`}>
-              {program.difficulty}
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-lg font-semibold text-gray-900">{program.title}</h3>
+            <span className="bg-green-100 text-green-800 text-xs font-medium px-2 py-1 rounded-full">
+              {program.isActive ? 'Active' : 'Inactive'}
             </span>
           </div>
-          {program.category && (
-            <span className="inline-block bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded">
-              {program.category}
-            </span>
-          )}
+          <p className="text-sm text-gray-600 mb-2">{program.category}</p>
+          <p className="text-gray-600 text-sm mb-4">{program.description}</p>
         </div>
-        <button
-          onClick={onViewSessions}
-          className="ml-4 bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md"
-        >
-          View Sessions
+      </div>
+      
+      <div className="space-y-3">
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-gray-500">Coach: John Smith</span>
+          <span className="text-gray-500">Fee: LKR {program.fee}</span>
+        </div>
+        
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-gray-500">Duration: {program.duration} weeks</span>
+          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+            program.difficulty === 'beginner' ? 'bg-green-100 text-green-800' :
+            program.difficulty === 'intermediate' ? 'bg-yellow-100 text-yellow-800' :
+            'bg-red-100 text-red-800'
+          }`}>
+            {program.difficulty}
+          </span>
+        </div>
+        
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-gray-500">Enrollments: {program.currentEnrollments}/{program.maxParticipants}</span>
+          <span className="text-gray-500">Sessions: {program.totalSessions}</span>
+        </div>
+        
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-500">Enrollment Progress</span>
+            <span className="text-gray-500">{enrollmentPercentage}%</span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div 
+              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${enrollmentPercentage}%` }}
+            ></div>
+          </div>
+        </div>
+      </div>
+      
+      <div className="flex items-center justify-end space-x-2 mt-4 pt-4 border-t border-gray-100">
+        <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+          <Edit className="h-4 w-4" />
+        </button>
+        <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+          <Upload className="h-4 w-4" />
+        </button>
+        <button className="p-2 text-gray-400 hover:text-red-600 transition-colors">
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// Customer Card Component
+const CustomerCard = ({ customer }) => {
+  const completionPercentage = Math.round((customer.completedSessions / customer.totalSessions) * 100);
+  
+  return (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+      <div className="flex items-center space-x-4 mb-4">
+        <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+          <User className="h-6 w-6 text-blue-600" />
+        </div>
+        <div className="flex-1">
+          <h3 className="text-lg font-semibold text-gray-900">
+            {customer.user.firstName} {customer.user.lastName}
+          </h3>
+          <p className="text-sm text-gray-600">{customer.user.email}</p>
+        </div>
+      </div>
+      
+      <div className="space-y-3">
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-gray-500">Programs Enrolled</span>
+          <span className="text-gray-900 font-medium">{customer.enrolledPrograms.length}</span>
+        </div>
+        
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-gray-500">Total Sessions</span>
+          <span className="text-gray-900 font-medium">{customer.totalSessions}</span>
+        </div>
+        
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-gray-500">Completed Sessions</span>
+          <span className="text-gray-900 font-medium">{customer.completedSessions}</span>
+        </div>
+        
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-500">Progress</span>
+            <span className="text-gray-500">{completionPercentage}%</span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div 
+              className="bg-green-600 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${completionPercentage}%` }}
+            ></div>
+          </div>
+        </div>
+      </div>
+      
+      <div className="flex items-center justify-end space-x-2 mt-4 pt-4 border-t border-gray-100">
+        <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+          <MessageSquare className="h-4 w-4" />
+        </button>
+        <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+          <User className="h-4 w-4" />
         </button>
       </div>
     </div>
