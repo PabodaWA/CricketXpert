@@ -198,7 +198,7 @@ const getAvailableGroundSlots = async (req, res) => {
     for (const ground of grounds) {
       const availableSlots = [];
       
-      // If specific time is provided, only show slots that match that time
+      // If specific time is provided, show ALL available slots for that time
       if (startTime && endTime) {
         // Check if this ground has any conflicts for the specific time
         const hasConflict = existingSessions.some(session => {
@@ -210,24 +210,25 @@ const getAvailableGroundSlots = async (req, res) => {
         });
         
         if (!hasConflict) {
-          // Find the next available slot number for this ground
+          // Get all used slots for this ground on this date
           const usedSlots = existingSessions
             .filter(session => session.ground.toString() === ground._id.toString())
             .map(session => session.groundSlot)
             .sort((a, b) => a - b);
           
-          let slotNumber = 1;
-          while (usedSlots.includes(slotNumber)) {
-            slotNumber++;
+          // Generate ALL available slots for this time period
+          // Show all slots from 1 to totalSlots that are not booked
+          for (let slotNum = 1; slotNum <= ground.totalSlots; slotNum++) {
+            if (!usedSlots.includes(slotNum)) {
+              availableSlots.push({
+                slotNumber: slotNum,
+                startTime: startTime,
+                endTime: endTime,
+                duration: duration,
+                available: true
+              });
+            }
           }
-          
-          availableSlots.push({
-            slotNumber: slotNumber,
-            startTime: startTime,
-            endTime: endTime,
-            duration: duration,
-            available: true
-          });
         }
       } else {
         // Generate all time slots for this ground (original behavior)

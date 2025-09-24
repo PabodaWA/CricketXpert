@@ -8,16 +8,7 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/cricket-c
 });
 
 const sampleGrounds = [
-  {
-    name: 'Main Cricket Ground',
-    location: 'Sports Complex, Downtown',
-    pricePerSlot: 50,
-    description: 'Professional cricket ground with excellent facilities',
-    totalSlots: 12,
-    facilities: ['parking', 'changing_room', 'equipment', 'refreshments'],
-    equipment: ['nets', 'balls', 'bats', 'stumps'],
-    isActive: true
-  },
+ 
   {
     name: 'Practice Ground A',
     location: 'Sports Complex, East Wing',
@@ -28,26 +19,7 @@ const sampleGrounds = [
     equipment: ['nets', 'balls'],
     isActive: true
   },
-  {
-    name: 'Practice Ground B',
-    location: 'Sports Complex, West Wing',
-    pricePerSlot: 30,
-    description: 'Another practice ground for training sessions',
-    totalSlots: 8,
-    facilities: ['parking', 'changing_room'],
-    equipment: ['nets', 'balls'],
-    isActive: true
-  },
-  {
-    name: 'Premium Ground',
-    location: 'Sports Complex, VIP Section',
-    pricePerSlot: 80,
-    description: 'Premium ground with top-notch facilities',
-    totalSlots: 6,
-    facilities: ['parking', 'changing_room', 'equipment', 'refreshments', 'air_conditioning'],
-    equipment: ['nets', 'balls', 'bats', 'stumps', 'helmets', 'pads'],
-    isActive: true
-  }
+  
 ];
 
 async function seedGrounds() {
