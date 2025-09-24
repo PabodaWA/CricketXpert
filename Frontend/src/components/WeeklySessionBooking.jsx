@@ -117,19 +117,33 @@ export default function WeeklySessionBooking({ coachId, onSessionSelect, enrollm
       
       const params = new URLSearchParams({
         date: date,
-        duration: 120
+        duration: 120,
+        startTime: startTime,
+        endTime: endTime
       });
-      
-      // Add time parameters if provided
-      if (startTime && endTime) {
-        params.append('startTime', startTime);
-        params.append('endTime', endTime);
-      }
       
       const response = await axios.get(`http://localhost:5000/api/grounds/availability?${params}`);
       
       if (response.data.success) {
-        setAvailableGrounds(response.data.data.availableGrounds);
+        // Filter to show only Practice Ground A
+        const filteredGrounds = response.data.data.availableGrounds.filter(ground => 
+          ground.name === 'Practice Ground A'
+        );
+        
+        // Transform the ground slots to show generic slot numbers for the selected time
+        const transformedGrounds = filteredGrounds.map(ground => ({
+          ...ground,
+          availableSlots: ground.availableSlots.map((slot, index) => ({
+            slotNumber: index + 1,
+            startTime: startTime,
+            endTime: endTime,
+            duration: 120,
+            available: true,
+            timeSlot: `${startTime} - ${endTime}` // Show the customer's selected time
+          }))
+        }));
+        
+        setAvailableGrounds(transformedGrounds);
       }
     } catch (err) {
       console.error('Error fetching available grounds:', err);
@@ -396,24 +410,31 @@ export default function WeeklySessionBooking({ coachId, onSessionSelect, enrollm
             {selectedGround && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Available Slots for {selectedGround.name}
+                  Available Slots for {selectedGround.name} - {selectedSlot ? `${selectedSlot.startTime} - ${selectedSlot.endTime}` : ''}
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                   {selectedGround.availableSlots.map((slot, index) => (
                     <button
                       key={index}
                       onClick={() => handleGroundSlotSelect(slot)}
-                      className={`p-3 rounded-lg border-2 text-left transition-all ${
+                      className={`p-4 rounded-lg border-2 text-center transition-all ${
                         selectedGroundSlot === slot
-                          ? 'border-blue-500 bg-blue-50 text-blue-800'
-                          : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
+                          ? 'border-green-500 bg-green-50 text-green-800'
+                          : 'border-gray-200 hover:border-green-300 hover:bg-green-50'
                       }`}
                     >
-                      <div className="font-medium">{slot.startTime} - {slot.endTime}</div>
-                      <div className="text-sm text-gray-600">Slot {slot.slotNumber}</div>
-                      <div className="text-xs text-gray-500">{slot.duration} minutes</div>
+                      <div className="font-bold text-lg">Slot {slot.slotNumber}</div>
+                      <div className="text-sm text-gray-600 mt-1">Available</div>
+                      <div className="text-xs text-gray-500 mt-1">{slot.timeSlot}</div>
                     </button>
                   ))}
+                </div>
+                <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    <strong>Selected Time:</strong> {selectedSlot ? `${selectedSlot.startTime} - ${selectedSlot.endTime}` : ''} 
+                    <br />
+                    <strong>Duration:</strong> 2 hours
+                  </p>
                 </div>
               </div>
             )}

@@ -1099,6 +1099,173 @@ const createDirectSession = async (req, res) => {
   }
 };
 
+// @desc    Customer reschedule session
+// @route   PUT /api/sessions/reschedule
+// @access  Private (Customer)
+const customerRescheduleSession = async (req, res) => {
+  try {
+    console.log('Customer reschedule request received:', req.body);
+    const { sessionId, newDate, newTime, newGroundSlot, duration } = req.body;
+
+    // Find the session
+    console.log('Looking for session with ID:', sessionId);
+    const session = await Session.findById(sessionId)
+      .populate('ground')
+      .populate('coach');
+
+    console.log('Session found:', session ? 'Yes' : 'No');
+    if (!session) {
+      console.log('Session not found');
+      return res.status(404).json({ success: false, message: 'Session not found' });
+    }
+
+    // Check if new session date is more than 24 hours away
+    const now = new Date();
+    const newSessionDate = new Date(newDate);
+    const hoursUntilNewSession = (newSessionDate - now) / (1000 * 60 * 60);
+    
+    console.log('New session date:', newSessionDate);
+    console.log('Current time:', now);
+    console.log('Hours until new session:', hoursUntilNewSession);
+    
+    if (hoursUntilNewSession <= 24) {
+      console.log('New session is too close to current time');
+      return res.status(400).json({ 
+        success: false, 
+        message: 'New session date must be more than 24 hours from now' 
+      });
+    }
+
+    // Check if session has already been rescheduled
+    if (session.rescheduled) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'This session has already been rescheduled once' 
+      });
+    }
+
+    // Validate new date is within 7 days
+    const daysDifference = (newSessionDate - now) / (1000 * 60 * 60 * 24);
+    
+    if (daysDifference > 7) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'New session date must be within 7 days from today' 
+      });
+    }
+
+    // Check coach availability for new time
+    const Coach = (await import('../models/Coach.js')).default;
+    const coach = await Coach.findById(session.coach._id);
+    
+    if (!coach) {
+      return res.status(400).json({ success: false, message: 'Coach not found' });
+    }
+
+    // Calculate end time for availability check
+    const [hours, minutes] = newTime.split(':');
+    const startDateTime = new Date(newDate);
+    startDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+    const endDateTime = new Date(startDateTime.getTime() + (duration || 120) * 60000);
+    const endTime = endDateTime.toTimeString().slice(0, 5);
+
+    // Check if coach is available (using existing availability logic)
+    const coachAvailability = coach.availability || [];
+    const dayOfWeek = newSessionDate.getDay();
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const currentDayName = dayNames[dayOfWeek].toLowerCase();
+
+    const isCoachAvailable = coachAvailability.some(availability => {
+      if (availability.day.toLowerCase() === currentDayName) {
+        const startHour = parseInt(availability.startTime.split(':')[0]);
+        const endHour = parseInt(availability.endTime.split(':')[0]);
+        const requestedStartHour = parseInt(newTime.split(':')[0]);
+        const requestedEndHour = parseInt(endTime.split(':')[0]);
+        
+        return requestedStartHour >= startHour && requestedEndHour <= endHour;
+      }
+      return false;
+    });
+
+    if (!isCoachAvailable) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Coach is not available at the requested time' 
+      });
+    }
+
+    // Check if ground slot is available
+    const ground = await Ground.findById(session.ground._id);
+    if (!ground) {
+      return res.status(400).json({ success: false, message: 'Ground not found' });
+    }
+
+    // Check for conflicts with other sessions
+    const existingSessions = await Session.find({
+      ground: session.ground._id,
+      scheduledDate: new Date(newDate),
+      status: { $nin: ['cancelled'] },
+      _id: { $ne: sessionId }
+    });
+
+    const hasConflict = existingSessions.some(existingSession => {
+      return existingSession.groundSlot === parseInt(newGroundSlot);
+    });
+
+    if (hasConflict) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Ground slot is already booked for the selected time' 
+      });
+    }
+
+    // Store original values before updating
+    const originalDate = session.scheduledDate;
+    const originalTime = session.scheduledTime;
+    const originalGroundSlot = session.groundSlot;
+
+    // Update the session
+    session.scheduledDate = new Date(newDate);
+    session.scheduledTime = newTime;
+    session.startTime = newTime;
+    session.endTime = endTime;
+    session.groundSlot = parseInt(newGroundSlot);
+    session.rescheduled = true;
+    session.rescheduledAt = new Date();
+    session.rescheduledFrom = {
+      date: originalDate,
+      time: originalTime,
+      groundSlot: originalGroundSlot
+    };
+
+    console.log('Saving session with new data:', {
+      scheduledDate: session.scheduledDate,
+      scheduledTime: session.scheduledTime,
+      groundSlot: session.groundSlot,
+      rescheduled: session.rescheduled
+    });
+
+    await session.save();
+
+    console.log('Session saved successfully');
+
+    res.status(200).json({ 
+      success: true, 
+      message: 'Session rescheduled successfully',
+      data: session 
+    });
+
+  } catch (error) {
+    console.error('Error rescheduling session:', error);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error rescheduling session', 
+      error: error.message 
+    });
+  }
+};
+
 export {
   getAllSessions,
   getSession,
@@ -1114,5 +1281,6 @@ export {
   getSessionsByEnrollment,
   getGroundAvailability,
   rescheduleSession,
+  customerRescheduleSession,
   debugSessionCreation
 };

@@ -83,6 +83,16 @@ const sessionSchema = new mongoose.Schema({
     enum: ['scheduled', 'in-progress', 'completed', 'cancelled', 'rescheduled'],
     default: 'scheduled'
   },
+  rescheduled: {
+    type: Boolean,
+    default: false
+  },
+  rescheduledAt: Date,
+  rescheduledFrom: {
+    date: Date,
+    time: String,
+    groundSlot: Number
+  },
   objectives: [String],
   materials: [{
     title: String,
