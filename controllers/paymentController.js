@@ -3,6 +3,7 @@ import Order from '../models/Order.js';
 import CartPending from '../models/cart_Pending.js';
 import Product from '../models/Product.js';
 import ProgramEnrollment from '../models/ProgramEnrollment.js';
+import { sendLowStockAlert } from '../utils/wemailService.js';
 
 // Create payment
 const createPayment = async (req, res) => {
@@ -427,6 +428,9 @@ export const paySelectedCartItems = async (req, res) => {
     order.paymentId = payment._id;
     await order.save();
 
+    // Reduce stock quantities for all products in the order
+    await reduceProductStock(orderItems);
+
     // Delete the purchased items from Cart_Pending
     await CartPending.deleteMany({ cartToken, productId: { $in: productIds } });
 
@@ -448,5 +452,40 @@ export const paySelectedCartItems = async (req, res) => {
   } catch (error) {
     console.error('paySelectedCartItems error:', error);
     return res.status(500).json({ message: error.message });
+  }
+};
+
+// Function to reduce product stock when order is completed
+const reduceProductStock = async (orderItems) => {
+  try {
+    for (const item of orderItems) {
+      const product = await Product.findById(item.productId);
+      if (product) {
+        // Reduce stock quantity
+        const newStock = Math.max(0, product.stock_quantity - item.quantity);
+        product.stock_quantity = newStock;
+        
+        // Log stock reduction
+        console.log(`📦 Stock reduced for ${product.name}: ${product.stock_quantity + item.quantity} → ${newStock} (reduced by ${item.quantity})`);
+        
+        // Log low stock warning if stock is low
+        if (newStock <= 10) {
+          console.log(`⚠️ LOW STOCK WARNING: ${product.name} (ID: ${product.productId}) - Current stock: ${newStock}`);
+          
+          // Send email alert to admin
+          try {
+            await sendLowStockAlert(product);
+            console.log(`📧 Low stock email alert sent for ${product.name}`);
+          } catch (emailError) {
+            console.error(`❌ Failed to send low stock email for ${product.name}:`, emailError);
+          }
+        }
+        
+        await product.save();
+      }
+    }
+  } catch (error) {
+    console.error('Error reducing product stock:', error);
+    throw error;
   }
 };

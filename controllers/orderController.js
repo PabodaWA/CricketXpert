@@ -10,6 +10,12 @@ const createOrder = async (req, res) => {
   try {
     const order = new Order(req.body);
     await order.save();
+    
+    // If order is created with completed status, reduce stock
+    if (order.status === 'completed') {
+      await reduceProductStock(order.items);
+    }
+    
     res.status(201).json(order);
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -288,7 +294,10 @@ const updateOrder = async (req, res) => {
 
     // Handle stock changes based on status transitions
     if (status !== undefined) {
-      if (status === 'cancelled' && previousStatus !== 'cancelled') {
+      if (status === 'completed' && previousStatus !== 'completed') {
+        // Order is being completed - reduce stock
+        await reduceProductStock(order.items);
+      } else if (status === 'cancelled' && previousStatus !== 'cancelled') {
         // Order is being cancelled - restore stock if it was previously paid/created
         if (previousStatus === 'created' || previousStatus === 'processing' || previousStatus === 'completed') {
           await restoreProductStock(order.items);
