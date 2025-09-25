@@ -22,7 +22,15 @@ const OrderSummary = () => {
               </div>
               <div>
                 <div className="font-medium">
-                  {order.items.map(item => item.productId + ' x ' + item.quantity).join(', ')}
+                  {order.items
+                    .map(item => (
+                      (item?.productId?.name) ||
+                      (item?.productId?.title) ||
+                      (item?.name) ||
+                      (item?.title) ||
+                      'Unknown Product'
+                    ))
+                    .join(', ')}
                 </div>
                 <div className="text-sm text-gray-500">Order ID: {order._id}</div>
               </div>
