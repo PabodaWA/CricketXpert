@@ -15,12 +15,24 @@ import {
   getSessionsByEnrollment,
   getGroundAvailability,
   rescheduleSession,
+  customerRescheduleSession,
   debugSessionCreation
 } from '../controllers/sessionController.js';
 import { protect, authorizeRoles } from '../middleware/authMiddleware.js';
 
-// All routes require authentication
+// Test route to verify sessions routes are working (public)
+router.get('/test', (req, res) => {
+  res.json({ success: true, message: 'Sessions routes are working' });
+});
+
+// All other routes require authentication
 router.use(protect);
+
+// Customer reschedule route (MUST come before all /:id routes)
+router.put('/reschedule', (req, res, next) => {
+  console.log('Customer reschedule route hit:', req.body);
+  next();
+}, customerRescheduleSession);
 
 // General session routes
 router.get('/', getAllSessions);

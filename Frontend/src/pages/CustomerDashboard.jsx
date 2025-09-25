@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getCustomerRequests, downloadRepairReport, updateRepairRequest, deleteRepairRequest, customerDecision } from '../api/repairRequestApi';
+import { getCurrentUser } from '../utils/getCurrentUser';
 import Brand from '../brand';
 import axios from 'axios';
 import Header from '../components/Header';
@@ -40,32 +41,49 @@ const CustomerDashboard = ({ customerId }) => {
   const [statusFilter, setStatusFilter] = useState('All Statuses');
   const [equipmentFilter, setEquipmentFilter] = useState('All Equipment Types');
   const [damageTypeFilter, setDamageTypeFilter] = useState('All Damage Types');
+  
+  // Get the actual logged-in user's ID instead of using URL parameter
+  const [actualCustomerId, setActualCustomerId] = useState(null);
 
 
   useEffect(() => {
-    loadCustomerRequests();
-    
-    // Expose loadCustomerRequests function globally for cross-dashboard updates
-    window.customerDashboard = {
-      loadCustomerRequests: loadCustomerRequests
-    };
-    
-    // Cleanup on unmount
-    return () => {
-      delete window.customerDashboard;
-    };
-  }, [customerId]);
+    // Get the logged-in user's ID
+    const currentUser = getCurrentUser();
+    if (currentUser && currentUser._id) {
+      setActualCustomerId(currentUser._id);
+    } else {
+      navigate('/login');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (actualCustomerId) {
+      loadCustomerRequests();
+      
+      // Expose loadCustomerRequests function globally for cross-dashboard updates
+      window.customerDashboard = {
+        loadCustomerRequests: loadCustomerRequests
+      };
+      
+      // Cleanup on unmount
+      return () => {
+        delete window.customerDashboard;
+      };
+    }
+  }, [actualCustomerId]);
 
   // Auto-refresh data when component becomes visible
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (!document.hidden) {
+      if (!document.hidden && actualCustomerId) {
         loadCustomerRequests();
       }
     };
 
     const handleFocus = () => {
-      loadCustomerRequests();
+      if (actualCustomerId) {
+        loadCustomerRequests();
+      }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -75,16 +93,26 @@ const CustomerDashboard = ({ customerId }) => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
     };
-  }, [customerId]);
+  }, [actualCustomerId]);
 
   const loadCustomerRequests = async () => {
       try {
-        const res = await getCustomerRequests(customerId);
+        // Use the actual logged-in user's ID instead of URL parameter
+        const userId = actualCustomerId || customerId;
+        
+        // Debug: Log the customer ID being used
+        console.log('🔍 LOADING REQUESTS FOR CUSTOMER ID:', userId);
+        console.log('🔍 CUSTOMER ID TYPE:', typeof userId);
+        console.log('🔍 URL PARAMETER CUSTOMER ID:', customerId);
+        console.log('🔍 ACTUAL LOGGED-IN USER ID:', actualCustomerId);
+        
+        const res = await getCustomerRequests(userId);
       const list = Array.isArray(res?.data) ? res.data : [];
       
       // Temporary debug to see what we're receiving
       console.log('🔍 FRONTEND RECEIVED:', list.map(req => ({
         id: req._id,
+        customerId: req.customerId,
         description: req.description,
         damageType: req.damageType
       })));

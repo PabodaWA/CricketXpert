@@ -49,6 +49,7 @@ const ManagerDashboard = () => {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showCoachDetailsModal, setShowCoachDetailsModal] = useState(false);
   const [showEditCoachModal, setShowEditCoachModal] = useState(false);
+  const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   
   // Form states
@@ -87,6 +88,12 @@ const ManagerDashboard = () => {
     specializations: [],
     isActive: true
   });
+  const [availabilityForm, setAvailabilityForm] = useState({
+    day: '',
+    startTime: '',
+    endTime: ''
+  });
+  const [editingAvailability, setEditingAvailability] = useState(null);
 
   useEffect(() => {
     fetchDashboardData();
@@ -631,6 +638,173 @@ const ManagerDashboard = () => {
     });
   };
 
+  // Availability Management Functions
+  const openAvailabilityModal = (coach) => {
+    setSelectedCoach(coach);
+    setShowAvailabilityModal(true);
+  };
+
+  const resetAvailabilityForm = () => {
+    setAvailabilityForm({
+      day: '',
+      startTime: '',
+      endTime: ''
+    });
+    setEditingAvailability(null);
+  };
+
+  const handleAddAvailability = async (e) => {
+    e.preventDefault();
+    
+    if (!availabilityForm.day || !availabilityForm.startTime || !availabilityForm.endTime) {
+      alert('Please fill in all fields');
+      return;
+    }
+
+    // Check for duplicate day
+    const currentAvailability = selectedCoach.availability || [];
+    const existingSlot = currentAvailability.find(slot => 
+      slot.day.toLowerCase() === availabilityForm.day.toLowerCase()
+    );
+    
+    if (existingSlot) {
+      alert('This coach already has availability set for this day. Please edit the existing slot instead.');
+      return;
+    }
+
+    // Validate time range
+    if (availabilityForm.startTime >= availabilityForm.endTime) {
+      alert('End time must be after start time');
+      return;
+    }
+
+    try {
+      const newAvailability = {
+        day: availabilityForm.day,
+        startTime: availabilityForm.startTime,
+        endTime: availabilityForm.endTime
+      };
+
+      const updatedAvailability = [...currentAvailability, newAvailability];
+
+      const response = await axios.put(`http://localhost:5000/api/coaches/${selectedCoach._id}/availability`, {
+        availability: updatedAvailability
+      });
+
+      if (response.data.success) {
+        // Update local state
+        const updatedCoach = { ...selectedCoach, availability: updatedAvailability };
+        setSelectedCoach(updatedCoach);
+        
+        // Update coaches array
+        const newCoaches = coaches.map(coach => 
+          coach._id === selectedCoach._id ? updatedCoach : coach
+        );
+        setCoaches(newCoaches);
+
+        resetAvailabilityForm();
+        alert('Availability added successfully!');
+      } else {
+        alert('Failed to add availability. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error adding availability:', error);
+      alert('Failed to add availability. Please try again.');
+    }
+  };
+
+  const handleEditAvailability = (availability, index) => {
+    setEditingAvailability(index);
+    setAvailabilityForm({
+      day: availability.day,
+      startTime: availability.startTime,
+      endTime: availability.endTime
+    });
+  };
+
+  const handleUpdateAvailability = async (e) => {
+    e.preventDefault();
+    
+    if (!availabilityForm.day || !availabilityForm.startTime || !availabilityForm.endTime) {
+      alert('Please fill in all fields');
+      return;
+    }
+
+    // Validate time range
+    if (availabilityForm.startTime >= availabilityForm.endTime) {
+      alert('End time must be after start time');
+      return;
+    }
+
+    try {
+      const currentAvailability = selectedCoach.availability || [];
+      const updatedAvailability = [...currentAvailability];
+      updatedAvailability[editingAvailability] = {
+        day: availabilityForm.day,
+        startTime: availabilityForm.startTime,
+        endTime: availabilityForm.endTime
+      };
+
+      const response = await axios.put(`http://localhost:5000/api/coaches/${selectedCoach._id}/availability`, {
+        availability: updatedAvailability
+      });
+
+      if (response.data.success) {
+        // Update local state
+        const updatedCoach = { ...selectedCoach, availability: updatedAvailability };
+        setSelectedCoach(updatedCoach);
+        
+        // Update coaches array
+        const newCoaches = coaches.map(coach => 
+          coach._id === selectedCoach._id ? updatedCoach : coach
+        );
+        setCoaches(newCoaches);
+
+        resetAvailabilityForm();
+        alert('Availability updated successfully!');
+      } else {
+        alert('Failed to update availability. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error updating availability:', error);
+      alert('Failed to update availability. Please try again.');
+    }
+  };
+
+  const handleDeleteAvailability = async (index) => {
+    if (!window.confirm('Are you sure you want to delete this availability slot?')) {
+      return;
+    }
+
+    try {
+      const currentAvailability = selectedCoach.availability || [];
+      const updatedAvailability = currentAvailability.filter((_, i) => i !== index);
+
+      const response = await axios.put(`http://localhost:5000/api/coaches/${selectedCoach._id}/availability`, {
+        availability: updatedAvailability
+      });
+
+      if (response.data.success) {
+        // Update local state
+        const updatedCoach = { ...selectedCoach, availability: updatedAvailability };
+        setSelectedCoach(updatedCoach);
+        
+        // Update coaches array
+        const newCoaches = coaches.map(coach => 
+          coach._id === selectedCoach._id ? updatedCoach : coach
+        );
+        setCoaches(newCoaches);
+
+        alert('Availability deleted successfully!');
+      } else {
+        alert('Failed to delete availability. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error deleting availability:', error);
+      alert('Failed to delete availability. Please try again.');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -821,6 +995,7 @@ const ManagerDashboard = () => {
           coach={selectedCoach}
           programs={programs}
           onEdit={openEditCoachModal}
+          onManageAvailability={openAvailabilityModal}
           onClose={() => {
             setShowCoachDetailsModal(false);
             setSelectedCoach(null);
@@ -840,6 +1015,25 @@ const ManagerDashboard = () => {
             setShowEditCoachModal(false);
             setSelectedCoach(null);
             resetCoachForm();
+          }}
+        />
+      )}
+
+      {showAvailabilityModal && selectedCoach && (
+        <AvailabilityModal
+          key={`availability-${selectedCoach._id}-${refreshKey}`}
+          coach={selectedCoach}
+          form={availabilityForm}
+          setForm={setAvailabilityForm}
+          editingAvailability={editingAvailability}
+          onAdd={handleAddAvailability}
+          onUpdate={handleUpdateAvailability}
+          onEdit={handleEditAvailability}
+          onDelete={handleDeleteAvailability}
+          onClose={() => {
+            setShowAvailabilityModal(false);
+            setSelectedCoach(null);
+            resetAvailabilityForm();
           }}
         />
       )}
@@ -1755,12 +1949,6 @@ const CoachesTab = ({ coaches, programs, onRefresh, onViewDetails }) => {
                   >
                     View Details
                   </button>
-                  <button
-                    className="text-green-600 hover:text-green-900 text-sm font-medium"
-                    title="Assign Program"
-                  >
-                    Assign Program
-                  </button>
                 </div>
             </div>
           </div>
@@ -1837,9 +2025,6 @@ const CoachesTab = ({ coaches, programs, onRefresh, onViewDetails }) => {
                           title="View Details"
                         >
                           <Users className="h-4 w-4" />
-                        </button>
-                        <button className="text-green-600 hover:text-green-900" title="Assign Program">
-                          <UserPlus className="h-4 w-4" />
                         </button>
                       </div>
                     </td>
@@ -2602,7 +2787,7 @@ const NotificationsTab = () => {
 };
 
 // Coach Details Modal Component
-const CoachDetailsModal = ({ coach, programs, onEdit, onClose }) => {
+const CoachDetailsModal = ({ coach, programs, onEdit, onManageAvailability, onClose }) => {
   // Get programs assigned to this coach
   const assignedPrograms = programs.filter(program => 
     program.coach && program.coach._id === coach._id
@@ -2737,10 +2922,23 @@ const CoachDetailsModal = ({ coach, programs, onEdit, onClose }) => {
             )}
           </div>
 
-          {/* Availability (if available) */}
-          {coach.availability && coach.availability.length > 0 && (
-            <div className="mb-8">
-              <h4 className="text-lg font-semibold text-gray-900 mb-4">Availability</h4>
+          {/* Availability Section */}
+          <div className="mb-8">
+            <div className="flex justify-between items-center mb-4">
+              <h4 className="text-lg font-semibold text-gray-900">Availability</h4>
+              <button
+                onClick={() => {
+                  onClose();
+                  onManageAvailability(coach);
+                }}
+                className="px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 flex items-center gap-1"
+              >
+                <Plus className="w-4 h-4" />
+                Manage
+              </button>
+            </div>
+            
+            {coach.availability && coach.availability.length > 0 ? (
               <div className="bg-gray-50 rounded-lg p-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {coach.availability.map((slot, index) => (
@@ -2753,8 +2951,12 @@ const CoachDetailsModal = ({ coach, programs, onEdit, onClose }) => {
                   ))}
                 </div>
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="bg-gray-50 rounded-lg p-4 text-center text-gray-500">
+                No availability set. Click "Manage" to add availability slots.
+              </div>
+            )}
+          </div>
 
           {/* Action Buttons */}
           <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
@@ -2972,6 +3174,178 @@ const EditCoachModal = ({ coach, form, setForm, onSubmit, onClose }) => {
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+};
+
+// Availability Modal Component
+const AvailabilityModal = ({ 
+  coach, 
+  form, 
+  setForm, 
+  editingAvailability, 
+  onAdd, 
+  onUpdate, 
+  onEdit, 
+  onDelete, 
+  onClose 
+}) => {
+  const daysOfWeek = [
+    'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
+  ];
+
+  const handleSubmit = (e) => {
+    if (editingAvailability !== null) {
+      onUpdate(e);
+    } else {
+      onAdd(e);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setForm({
+      day: '',
+      startTime: '',
+      endTime: ''
+    });
+    onEdit(null);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-gray-900">
+              Manage Availability - {coach.userId?.firstName} {coach.userId?.lastName}
+            </h2>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
+          {/* Current Availability */}
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Current Availability</h3>
+            {coach.availability && coach.availability.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {coach.availability.map((slot, index) => (
+                  <div key={index} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <div className="font-medium text-gray-900 capitalize">{slot.day}</div>
+                        <div className="text-sm text-gray-600">
+                          {slot.startTime} - {slot.endTime}
+                        </div>
+                      </div>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => onEdit(slot, index)}
+                          className="text-blue-600 hover:text-blue-800 text-sm"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => onDelete(index)}
+                          className="text-red-600 hover:text-red-800 text-sm"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="bg-gray-50 rounded-lg p-8 text-center text-gray-500">
+                No availability slots set. Add one below to get started.
+              </div>
+            )}
+          </div>
+
+          {/* Add/Edit Form */}
+          <div className="border-t pt-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              {editingAvailability !== null ? 'Edit Availability Slot' : 'Add New Availability Slot'}
+            </h3>
+            
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Day of Week
+                  </label>
+                  <select
+                    value={form.day}
+                    onChange={(e) => setForm({ ...form, day: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="">Select Day</option>
+                    {daysOfWeek.map(day => (
+                      <option key={day} value={day}>{day}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Start Time
+                  </label>
+                  <input
+                    type="time"
+                    value={form.startTime}
+                    onChange={(e) => setForm({ ...form, startTime: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    End Time
+                  </label>
+                  <input
+                    type="time"
+                    value={form.endTime}
+                    onChange={(e) => setForm({ ...form, endTime: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4">
+                {editingAvailability !== null && (
+                  <button
+                    type="button"
+                    onClick={handleCancelEdit}
+                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                  >
+                    Cancel Edit
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                >
+                  Close
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                >
+                  {editingAvailability !== null ? 'Update Availability' : 'Add Availability'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       </div>
     </div>
   );

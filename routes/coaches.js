@@ -13,7 +13,14 @@ import {
   assignProgramToCoach,
   removeProgramFromCoach,
   getCoachStats,
-  toggleCoachStatus
+  toggleCoachStatus,
+  createCoachProfileForUser,
+  createMissingCoachProfiles,
+  syncCoaches,
+  getCoachAvailability,
+  getBookingDateRange,
+  getWeeklySessionStructure,
+  getCoachEnrolledPrograms
 } from '../controllers/coachController.js';
 
 // Middleware (Note: You'll need to implement these middleware functions)
@@ -23,7 +30,12 @@ import {
 router.get('/', getAllCoaches); // Get all coaches with filtering
 router.get('/specialization/:specialization', getCoachesBySpecialization); // Get coaches by specialization
 router.get('/user/:userId', getCoachByUserId); // Get coach by user ID
+router.get('/sync-coaches', syncCoaches); // Sync coaches - create missing profiles and return all coaches
 router.get('/:id', getCoach); // Get single coach profile
+router.get('/:id/availability', getCoachAvailability); // Get coach availability for booking
+router.get('/:id/booking-range', getBookingDateRange); // Get valid booking date range
+router.get('/:id/weekly-sessions', getWeeklySessionStructure); // Get weekly session structure
+router.get('/:id/enrolled-programs', getCoachEnrolledPrograms); // Get enrolled programs for a coach
 
 // Protected routes (uncomment when auth middleware is available)
 // router.use(protect); // Require authentication for all routes below
@@ -42,6 +54,10 @@ router.put('/:id/remove-program', /* authorize('admin', 'coaching_manager'), */ 
 
 // System routes (for internal use)
 router.put('/:id/rating', /* authorize('admin', 'system'), */ updateCoachRating); // Update rating (called by feedback system)
+
+// Coach profile management routes
+router.post('/create-for-user/:userId', /* authorize('admin'), */ createCoachProfileForUser); // Create coach profile for specific user
+router.post('/create-missing-profiles', /* authorize('admin'), */ createMissingCoachProfiles); // Create missing coach profiles for all users with coach role
 
 export default router;
 

@@ -121,6 +121,9 @@ export default function App() {
         <Route element={<ProtectedRoute allowedRoles={['coach']} />}>
             <Route path="/coach-dashboard" element={<CoachDashboard />} />
         </Route>
+        
+        {/* --- 🏏 COACH ROUTES (TESTING - NO AUTH) --- */}
+        <Route path="/coach-dashboard-test" element={<CoachDashboard />} />
 
         {/* --- 📊 COACHING MANAGER ROUTES --- */}
         <Route element={<ProtectedRoute allowedRoles={['coaching_manager']} />}>

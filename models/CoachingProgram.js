@@ -17,10 +17,21 @@ const coachingProgramSchema = new mongoose.Schema({
   category: { type: String },
   specialization: { type: String },
   difficulty: { type: String, enum: ['beginner', 'intermediate', 'advanced'] },
-  totalSessions: { type: Number, default: 10 },
+  totalSessions: { type: Number, default: function() { return this.duration || 10; } },
   isActive: { type: Boolean, default: true },
   maxParticipants: { type: Number, default: 20 },
   currentEnrollments: { type: Number, default: 0 }
 }, { timestamps: true });
+
+// Pre-save middleware to set totalSessions equal to duration
+coachingProgramSchema.pre('save', function(next) {
+  if (this.duration && !this.totalSessions) {
+    this.totalSessions = this.duration;
+  } else if (this.duration && this.totalSessions !== this.duration) {
+    // If duration is updated, update totalSessions to match
+    this.totalSessions = this.duration;
+  }
+  next();
+});
 
 export default mongoose.model('CoachingProgram', coachingProgramSchema);

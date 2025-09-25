@@ -5,7 +5,8 @@ import {
   getGround,
   createGround,
   updateGround,
-  deleteGround
+  deleteGround,
+  getAvailableGroundSlots
 } from '../controllers/groundController.js';
 
 // Middleware (Note: You'll need to implement these middleware functions)
@@ -16,6 +17,7 @@ import {
 
 // Public routes
 router.get('/', getAllGrounds);
+router.get('/availability', getAvailableGroundSlots);
 router.get('/:id', getGround);
 
 // Admin only routes
