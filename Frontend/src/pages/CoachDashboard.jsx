@@ -107,33 +107,98 @@ const CoachDashboard = () => {
         setEnrolledPrograms([]);
       }
       
-      // Extract customers from enrolled programs
-      const customersData = enrolledProgramsData.map(enrollment => {
-        console.log('Processing enrollment:', {
-          userId: enrollment.user._id,
-          programTitle: enrollment.program.title,
-          programTotalSessions: enrollment.program.totalSessions,
-          programDuration: enrollment.program.duration,
-          progressTotalSessions: enrollment.progress.totalSessions,
-          completedSessions: enrollment.progress.completedSessions
+      // SIMPLE CUSTOMER DATA WITH PROGRESS CALCULATION
+      console.log('Setting up customer data with progress...');
+      
+      try {
+        // Get sessions for progress calculation
+        const coachSessionsResponse = await axios.get(`/api/coaches/${coachData._id}/sessions`);
+        const allSessions = coachSessionsResponse.data.data.docs || [];
+        
+        // Simple customer data with progress calculation
+        const customersData = enrolledProgramsData.map(enrollment => {
+          const customer = enrollment.user;
+          
+          // Find sessions for this customer
+          const customerSessions = allSessions.filter(session => 
+            session.participants?.some(participant => 
+              participant.user && participant.user._id === customer._id
+            )
+          );
+          
+          // Take only first 2 sessions (most recent)
+          const recentSessions = customerSessions
+            .sort((a, b) => new Date(b.scheduledDate) - new Date(a.scheduledDate))
+            .slice(0, 2);
+          
+          // Count completed sessions (any attendance marked)
+          const completedSessions = recentSessions.filter(session => {
+            const participant = session.participants?.find(p => p.user._id === customer._id);
+            return participant && (participant.attended === true || participant.attended === false);
+          }).length;
+          
+          // Count present sessions (only attended = true)
+          const presentSessions = recentSessions.filter(session => {
+            const participant = session.participants?.find(p => p.user._id === customer._id);
+            return participant && participant.attended === true;
+          }).length;
+          
+          return {
+            _id: customer._id,
+            user: customer,
+            enrolledPrograms: [enrollment.program._id],
+            totalSessions: recentSessions.length,
+            completedSessions,
+            presentSessions
+          };
         });
         
-        return {
+        console.log('Customers data with progress:', customersData);
+        setCustomers(customersData);
+        
+      } catch (error) {
+        console.error('Error setting up customers:', error);
+        // Fallback to simple data
+        const simpleCustomersData = enrolledProgramsData.map(enrollment => ({
           _id: enrollment.user._id,
           user: enrollment.user,
           enrolledPrograms: [enrollment.program._id],
-          totalSessions: enrollment.program.totalSessions || enrollment.program.duration || 2,
-          completedSessions: enrollment.progress.completedSessions
-        };
-      });
-      console.log('Customers data extracted:', customersData);
-      setCustomers(customersData);
+          totalSessions: 2,
+          completedSessions: 0,
+          presentSessions: 0
+        }));
+        setCustomers(simpleCustomersData);
+      }
       
       // Fetch coach's sessions with attendance data
       try {
         const coachSessionsResponse = await axios.get(`/api/coaches/${coachData._id}/sessions`);
         const coachSessionsData = coachSessionsResponse.data.data.docs || [];
-        console.log('Coach sessions data:', coachSessionsData);
+        console.log('Raw coach sessions data:', coachSessionsData);
+        console.log('Total sessions fetched:', coachSessionsData.length);
+        
+        // Log session details for debugging
+        coachSessionsData.forEach((session, index) => {
+          console.log(`Session ${index + 1}:`, {
+            id: session._id,
+            title: session.title,
+            description: session.description,
+            date: session.scheduledDate,
+            participants: session.participants?.length || 0
+          });
+        });
+        
+        // Check for duplicate titles
+        const titles = coachSessionsData.map(s => s.title);
+        const uniqueTitles = [...new Set(titles)];
+        console.log('Session titles found:', titles);
+        console.log('Unique titles:', uniqueTitles);
+        
+        if (titles.length !== uniqueTitles.length) {
+          console.warn('WARNING: Duplicate session titles found!');
+          console.warn('This might be why you see only Session 2 twice');
+        }
+        
         console.log('Session participants with attendance:', coachSessionsData.map(s => ({
           title: s.title,
           participants: s.participants?.map(p => ({
@@ -142,6 +207,20 @@ const CoachDashboard = () => {
             attendanceMarkedAt: p.attendanceMarkedAt
           }))
         })));
+        
+        // Verify attendance data persistence
+        console.log('=== ATTENDANCE PERSISTENCE CHECK ===');
+        coachSessionsData.forEach((session, index) => {
+          console.log(`Session ${index + 1} (${session.title}) attendance data:`, {
+            sessionId: session._id,
+            participants: session.participants?.map(p => ({
+              userId: p.user,
+              attended: p.attended,
+              attendanceMarkedAt: p.attendanceMarkedAt,
+              isMarked: p.attended !== undefined && p.attended !== null
+            }))
+          });
+        });
         setSessions(coachSessionsData);
         setCoachSessions(coachSessionsData);
       } catch (sessionsError) {
@@ -181,58 +260,106 @@ const CoachDashboard = () => {
     }
   };
 
+  // SIMPLE ATTENDANCE MARKING - STAY ON ATTENDANCE PAGE
   const handleMarkAttendance = async (attendanceData) => {
     try {
-      console.log('=== FRONTEND ATTENDANCE REQUEST ===');
-      console.log('Coach ID:', coach._id);
-      console.log('Session ID:', selectedSession._id);
-      console.log('Selected Customer:', selectedCustomer);
-      console.log('Session Participants:', selectedSession.participants);
+      console.log('=== SIMPLE ATTENDANCE MARKING ===');
+      console.log('Session:', selectedSession._id);
+      console.log('Customer:', selectedCustomer._id);
       console.log('Attendance Data:', attendanceData);
       
-      // Validate attendance data before sending
-      if (!Array.isArray(attendanceData)) {
-        console.error('Attendance data is not an array:', attendanceData);
-        alert('Invalid attendance data. Please try again.');
+      // Get the participant for this customer
+      const participant = selectedSession.participants?.find(p => p.user._id === selectedCustomer._id);
+      if (!participant) {
+        alert('Participant not found in this session');
         return;
       }
       
-      // Validate each attendance item
-      for (const item of attendanceData) {
-        if (!item.participantId || typeof item.attended !== 'boolean') {
-          console.error('Invalid attendance item:', item);
-          alert('Invalid attendance data. Please try again.');
-          return;
-        }
-      }
-      
-      console.log('Making API call to:', `/api/coaches/${coach._id}/sessions/${selectedSession._id}/attendance`);
-      console.log('Request payload:', { attendanceData });
-      
-      // Use the existing attendance marking system
+      // Simple API call
       const response = await axios.put(
         `/api/coaches/${coach._id}/sessions/${selectedSession._id}/attendance`,
-        { attendanceData }
+        { 
+          attendanceData: [{
+            participantId: participant._id,
+            attended: attendanceData[0]?.attended || false
+          }]
+        }
       );
       
       console.log('Attendance marked successfully:', response.data);
+      alert('Attendance marked successfully!');
+      
+      // Close modal
       setShowAttendanceModal(false);
       setSelectedSession(null);
       
-      // Refresh data after attendance marking
-      console.log('Refreshing coach data after attendance marking...');
-      await fetchCoachData();
-      
-      // If we're viewing customer sessions, refresh them too
-      if (showCustomerSessions && selectedCustomer) {
-        console.log('Refreshing customer sessions after attendance marking...');
+      // Refresh customer sessions to show updated attendance - NO PAGE RELOAD
+      if (selectedCustomer) {
+        console.log('Refreshing customer sessions...');
         await fetchCustomerSessions(selectedCustomer._id);
+        console.log('Customer sessions refreshed successfully');
+        
+        // SIMPLE PROGRESS CALCULATION
+        console.log('Calculating simple progress...');
+        try {
+          // Get fresh session data
+          const sessionsResponse = await axios.get(`/api/coaches/${coach._id}/sessions`);
+          const allSessions = sessionsResponse.data.data.docs || [];
+          
+          // Update customer progress based on actual attendance
+          const updatedCustomers = customers.map(customer => {
+            // Find sessions for this customer
+            const customerSessions = allSessions.filter(session => 
+              session.participants?.some(participant => 
+                participant.user && participant.user._id === customer._id
+              )
+            );
+            
+            // Take only first 2 sessions (most recent)
+            const recentSessions = customerSessions
+              .sort((a, b) => new Date(b.scheduledDate) - new Date(a.scheduledDate))
+              .slice(0, 2);
+            
+            // Count completed sessions (any attendance marked)
+            const completedSessions = recentSessions.filter(session => {
+              const participant = session.participants?.find(p => p.user._id === customer._id);
+              return participant && (participant.attended === true || participant.attended === false);
+            }).length;
+            
+            // Count present sessions (only attended = true)
+            const presentSessions = recentSessions.filter(session => {
+              const participant = session.participants?.find(p => p.user._id === customer._id);
+              return participant && participant.attended === true;
+            }).length;
+            
+            console.log(`Customer ${customer.firstName} progress:`, {
+              totalSessions: recentSessions.length,
+              completedSessions,
+              presentSessions
+            });
+            
+            return {
+              ...customer,
+              totalSessions: recentSessions.length,
+              completedSessions,
+              presentSessions
+            };
+          });
+          
+          setCustomers(updatedCustomers);
+          console.log('Customer progress updated successfully');
+          
+        } catch (refreshError) {
+          console.warn('Could not calculate progress:', refreshError);
+        }
+        
+        // Ensure we stay on the attendance page
+        setShowCustomerSessions(true);
       }
+      
     } catch (error) {
       console.error('Error marking attendance:', error);
-      console.error('Error response:', error.response?.data);
-      console.error('Error status:', error.response?.status);
-      alert('Failed to mark attendance. Please try again.');
+      alert('Error marking attendance: ' + (error.response?.data?.message || error.message));
     }
   };
 
@@ -243,33 +370,56 @@ const CoachDashboard = () => {
       const response = await axios.get(`/api/coaches/${coach._id}/enrolled-customers`);
       setEnrolledCustomers(response.data.data.customersByProgram || []);
     } catch (error) {
-      console.error('Error fetching enrolled customers:', error);
+      console.warn('Could not fetch enrolled customers (this is optional):', error.message);
+      // Don't set error state for this optional call
+      setEnrolledCustomers([]);
     }
   };
 
+  // SIMPLE CUSTOMER SESSIONS - NO COMPLEX LOGIC
   const fetchCustomerSessions = async (customerId, enrollmentId) => {
     try {
+      console.log('=== SIMPLE CUSTOMER SESSIONS ===');
+      console.log('Customer ID:', customerId);
+      
       if (!coach || !coach._id) return;
       
-      // First refresh the sessions data
-      await fetchCoachData();
+      // Get all sessions for this coach
+      const response = await axios.get(`/api/coaches/${coach._id}/sessions`);
+      const allSessions = response.data.data.docs || [];
       
-      // Use the updated sessions data and filter by customer
-      const customerSessions = sessions.filter(session => 
-        session.participants && 
-        session.participants.some(p => p.user && p.user._id === customerId)
-      );
+      // Filter sessions that include this customer
+      const customerSessions = allSessions.filter(session => {
+        return session.participants?.some(participant => 
+          participant.user && participant.user._id === customerId
+        );
+      });
       
-      console.log('Customer sessions after refresh:', customerSessions);
-      setCustomerSessions(customerSessions);
+      console.log('Found customer sessions:', customerSessions.length);
+      
+      // Sort by date (newest first) and take first 2
+      const sortedSessions = customerSessions
+        .sort((a, b) => new Date(b.scheduledDate) - new Date(a.scheduledDate))
+        .slice(0, 2);
+      
+      // Simple renaming to ensure Session 1 and Session 2
+      const renamedSessions = sortedSessions.map((session, index) => ({
+        ...session,
+        title: `Session ${index + 1} - Test`
+      }));
+      
+      console.log('Final sessions:', renamedSessions);
+      setCustomerSessions(renamedSessions);
       
       // Find the customer from the customers array
       const customer = customers.find(c => c._id === customerId);
       setSelectedCustomer(customer ? customer.user : null);
       
       setShowCustomerSessions(true);
+      
     } catch (error) {
       console.error('Error fetching customer sessions:', error);
+      alert('Error fetching customer sessions: ' + error.message);
     }
   };
 
@@ -278,9 +428,19 @@ const CoachDashboard = () => {
   };
 
   const handleBackToCustomers = () => {
-    setShowCustomerSessions(false);
-    setSelectedCustomer(null);
-    setCustomerSessions([]);
+    try {
+      console.log('Going back to customers...');
+      setShowCustomerSessions(false);
+      setSelectedCustomer(null);
+      setCustomerSessions([]);
+      console.log('Successfully went back to customers');
+    } catch (error) {
+      console.error('Error going back to customers:', error);
+      // Force reset all states
+      setShowCustomerSessions(false);
+      setSelectedCustomer(null);
+      setCustomerSessions([]);
+    }
   };
 
   const handleLogout = () => {
@@ -289,6 +449,55 @@ const CoachDashboard = () => {
       navigate('/login');
     }
   };
+
+  // SIMPLE DEBUG FUNCTION
+  const debugSessions = () => {
+    console.log('=== SIMPLE SESSION DEBUG ===');
+    console.log('Customer sessions:', customerSessions);
+    console.log('Selected customer:', selectedCustomer);
+    console.log('All customers:', customers);
+    alert('Check console for session debug info');
+  };
+  window.debugSessions = debugSessions;
+  
+  // Test attendance marking function
+  const testAttendanceMarking = async () => {
+    try {
+      console.log('=== TESTING ATTENDANCE MARKING ===');
+      if (!selectedCustomer || !selectedSession) {
+        alert('Please select a customer and session first');
+        return;
+      }
+      
+      const participant = selectedSession.participants?.find(p => p.user._id === selectedCustomer._id);
+      if (!participant) {
+        alert('Participant not found');
+        return;
+      }
+      
+      console.log('Testing with participant:', participant._id);
+      console.log('Customer:', selectedCustomer._id);
+      console.log('Session:', selectedSession._id);
+      
+      const response = await axios.put(
+        `/api/coaches/${coach._id}/sessions/${selectedSession._id}/attendance`,
+        { 
+          attendanceData: [{
+            participantId: participant._id,
+            attended: true
+          }]
+        }
+      );
+      
+      console.log('Test response:', response.data);
+      alert('Test attendance marked! Check console and refresh page to see changes.');
+      
+    } catch (error) {
+      console.error('Test attendance error:', error);
+      alert('Test failed: ' + error.message);
+    }
+  };
+  window.testAttendanceMarking = testAttendanceMarking;
 
   if (loading) {
     return (
@@ -759,12 +968,12 @@ const CoachDashboard = () => {
                             <div className="space-y-2">
                               <div className="flex items-center justify-between text-sm">
                                 <span className="text-gray-500">Progress</span>
-                                <span className="text-gray-500">{Math.round((customer.completedSessions / customer.totalSessions) * 100)}%</span>
+                                <span className="text-gray-500">{Math.round(((customer.presentSessions || 0) / customer.totalSessions) * 100)}%</span>
                               </div>
                               <div className="w-full bg-gray-200 rounded-full h-2">
                                 <div 
                                   className="bg-green-600 h-2 rounded-full transition-all duration-300"
-                                  style={{ width: `${Math.round((customer.completedSessions / customer.totalSessions) * 100)}%` }}
+                                  style={{ width: `${Math.round(((customer.presentSessions || 0) / customer.totalSessions) * 100)}%` }}
                                 ></div>
                               </div>
                             </div>
@@ -805,6 +1014,17 @@ const CoachDashboard = () => {
                         {selectedCustomer?.firstName} {selectedCustomer?.lastName}
                       </h3>
                       <p className="text-sm text-gray-600">{selectedCustomer?.email}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="mb-4 p-4 bg-blue-50 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-semibold text-blue-900">Session Attendance</h4>
+                        <p className="text-sm text-blue-700">
+                          Showing {customerSessions.length} sessions for {selectedCustomer?.firstName} {selectedCustomer?.lastName}
+                        </p>
+                      </div>
                     </div>
                   </div>
                   
@@ -1815,6 +2035,11 @@ const AttendanceModal = ({ session, coach, selectedCustomer, onSubmit, onClose }
     // Initialize attendance data - handle both multi-participant and single customer scenarios
     let initialData = [];
     
+    console.log('=== ATTENDANCE MODAL INITIALIZATION ===');
+    console.log('Session:', session);
+    console.log('Selected Customer:', selectedCustomer);
+    console.log('Session Participants:', session.participants);
+    
     if (session.participants && session.participants.length > 0) {
       // Find the participant for the selected customer
       const participant = session.participants.find(p => p.user && p.user._id === selectedCustomer?._id);
@@ -1845,6 +2070,19 @@ const AttendanceModal = ({ session, coach, selectedCustomer, onSubmit, onClose }
           }))
         });
         
+        // Try to find participant by user ID directly
+        const participantByUserId = session.participants.find(p => p.user?._id === selectedCustomer?._id);
+        if (participantByUserId) {
+          console.log('Found participant by user ID:', participantByUserId);
+          initialData = [{
+            participantId: participantByUserId._id,
+            attended: participantByUserId.attended || false,
+            performance: {
+              rating: participantByUserId.performance?.rating || 5,
+              notes: participantByUserId.performance?.notes || ''
+            }
+          }];
+        } else {
         // Fallback - create a default entry with user ID
         initialData = [{
           participantId: selectedCustomer?._id, // Use user ID as fallback
@@ -1854,6 +2092,7 @@ const AttendanceModal = ({ session, coach, selectedCustomer, onSubmit, onClose }
             notes: ''
           }
         }];
+        }
       }
     } else {
       console.error('No participants found in session:', session);
@@ -1868,6 +2107,7 @@ const AttendanceModal = ({ session, coach, selectedCustomer, onSubmit, onClose }
       }];
     }
     
+    console.log('Initial attendance data:', initialData);
     setAttendanceData(initialData);
   }, [session, selectedCustomer]);
 
@@ -1901,7 +2141,21 @@ const AttendanceModal = ({ session, coach, selectedCustomer, onSubmit, onClose }
     e.preventDefault();
     setSubmitting(true);
     try {
-      await onSubmit(attendanceData);
+      console.log('=== ATTENDANCE MODAL SUBMIT ===');
+      console.log('Submitting attendance data:', attendanceData);
+      
+      // Ensure we have valid data
+      const validAttendanceData = attendanceData.filter(item => 
+        item.participantId && typeof item.attended === 'boolean'
+      );
+      
+      if (validAttendanceData.length === 0) {
+        alert('No valid attendance data to submit');
+        return;
+      }
+      
+      console.log('Valid attendance data:', validAttendanceData);
+      await onSubmit(validAttendanceData);
     } finally {
       setSubmitting(false);
     }
@@ -2146,10 +2400,17 @@ const CustomerSessionCard = ({ session, customer, onMarkAttendance }) => {
   // Find the participant for this customer in the session
   const participant = session.participants?.find(p => p.user && p.user._id === customer._id);
   
+  console.log('CustomerSessionCard - Session:', session.title);
+  console.log('CustomerSessionCard - Customer:', customer);
+  console.log('CustomerSessionCard - Participant:', participant);
+  
   const getAttendanceStatus = () => {
     if (!participant) {
+      console.log('No participant found for customer');
       return { status: 'Not Enrolled', color: 'text-gray-600', bgColor: 'bg-gray-100' };
     }
+    
+    console.log('Participant attendance status:', participant.attended);
     
     if (participant.attended === true) {
       return { status: 'Present', color: 'text-green-600', bgColor: 'bg-green-100' };
@@ -2211,6 +2472,7 @@ const CustomerSessionCard = ({ session, customer, onMarkAttendance }) => {
           )}
         </div>
         
+        <div className="flex space-x-2">
         <button
           onClick={() => onMarkAttendance(session)}
           className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
@@ -2218,9 +2480,25 @@ const CustomerSessionCard = ({ session, customer, onMarkAttendance }) => {
           <UserCheck className="h-4 w-4 mr-1" />
           Mark Attendance
         </button>
+          
+          {/* Debug button - remove in production */}
+          <button
+            onClick={() => {
+              console.log('=== DEBUG ATTENDANCE ===');
+              console.log('Session:', session);
+              console.log('Customer:', customer);
+              console.log('Participant:', participant);
+              alert('Check console for debug info');
+            }}
+            className="flex items-center px-2 py-1 bg-gray-500 text-white rounded text-xs"
+          >
+            Debug
+        </button>
+        </div>
       </div>
     </div>
   );
 };
 
 export default CoachDashboard;
+

@@ -11,11 +11,6 @@ const attendanceSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
-  enrollment: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'ProgramEnrollment',
-    required: true
-  },
   coach: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Coach',
@@ -23,8 +18,13 @@ const attendanceSchema = new mongoose.Schema({
   },
   attended: {
     type: Boolean,
-    default: false,
-    required: true
+    required: true,
+    default: false
+  },
+  status: {
+    type: String,
+    enum: ['present', 'absent', 'late', 'excused'],
+    default: 'present'
   },
   attendanceMarkedAt: {
     type: Date,
@@ -34,16 +34,18 @@ const attendanceSchema = new mongoose.Schema({
     rating: {
       type: Number,
       min: 1,
-      max: 5
+      max: 5,
+      default: 5
     },
-    notes: String
+    notes: {
+      type: String,
+      default: ''
+    }
   },
-  status: {
+  remarks: {
     type: String,
-    enum: ['present', 'absent', 'late', 'excused'],
-    default: 'absent'
+    default: ''
   },
-  remarks: String,
   markedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -53,10 +55,11 @@ const attendanceSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Indexes for better performance
+// Index for efficient queries
 attendanceSchema.index({ session: 1, participant: 1 }, { unique: true });
-attendanceSchema.index({ coach: 1, attendanceMarkedAt: -1 });
-attendanceSchema.index({ participant: 1, session: 1 });
+attendanceSchema.index({ session: 1 });
+attendanceSchema.index({ participant: 1 });
+attendanceSchema.index({ coach: 1 });
 
 // Virtual for attendance status
 attendanceSchema.virtual('isPresent').get(function() {
@@ -110,10 +113,51 @@ attendanceSchema.statics.getSessionAttendance = async function(sessionId) {
     return await this.find({ session: sessionId })
       .populate('participant', 'firstName lastName email')
       .populate('coach', 'userId')
-      .populate('enrollment')
+      .populate('markedBy', 'firstName lastName')
       .sort({ attendanceMarkedAt: -1 });
   } catch (error) {
     throw new Error(`Error fetching session attendance: ${error.message}`);
+  }
+};
+
+// Static method to get attendance for a specific participant in a session
+attendanceSchema.statics.getParticipantAttendance = async function(sessionId, participantId) {
+  try {
+    return await this.findOne({ 
+      session: sessionId, 
+      participant: participantId 
+    })
+    .populate('participant', 'firstName lastName email')
+    .populate('coach', 'userId')
+    .populate('markedBy', 'firstName lastName');
+  } catch (error) {
+    throw new Error(`Error fetching participant attendance: ${error.message}`);
+  }
+};
+
+// Static method to update session participants attendance status
+attendanceSchema.statics.updateSessionParticipants = async function(sessionId, attendanceData) {
+  try {
+    const Session = mongoose.model('Session');
+    
+    for (const attendance of attendanceData) {
+      await Session.updateOne(
+        { 
+          _id: sessionId,
+          'participants.user': attendance.participantId
+        },
+        {
+          $set: {
+            'participants.$.attended': attendance.attended,
+            'participants.$.attendanceMarkedAt': new Date()
+          }
+        }
+      );
+    }
+    
+    return true;
+  } catch (error) {
+    throw new Error(`Error updating session participants: ${error.message}`);
   }
 };
 

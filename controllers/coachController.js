@@ -1473,9 +1473,45 @@ const markSessionAttendance = async (req, res) => {
     }
 
     console.log('Attendance marking completed successfully');
+    
+    // Keep the original simple attendance marking without database changes
+    console.log('Attendance marking completed successfully');
+    
+    // Fetch the updated session to verify the changes were saved
+    const updatedSession = await db.collection('sessions').findOne({ _id: new mongoose.Types.ObjectId(sessionId) });
+    
+    console.log('=== VERIFICATION: Updated session data ===');
+    console.log('Updated session participants:', updatedSession.participants.map(p => ({
+      _id: p._id,
+      user: p.user,
+      attended: p.attended,
+      attendanceMarkedAt: p.attendanceMarkedAt
+    })));
+    
+    // Verify that the attendance was actually saved
+    const verificationResults = attendanceData.map(attendance => {
+      const participant = updatedSession.participants.find(p => 
+        p._id.toString() === attendance.participantId || 
+        p.user.toString() === attendance.participantId
+      );
+      return {
+        participantId: attendance.participantId,
+        expectedAttended: attendance.attended,
+        actualAttended: participant?.attended,
+        verified: participant?.attended === attendance.attended
+      };
+    });
+    
+    console.log('Attendance verification results:', verificationResults);
+    
     res.status(200).json({
       success: true,
-      message: 'Attendance marked successfully'
+      message: 'Attendance marked successfully',
+      data: {
+        session: updatedSession,
+        attendanceData: attendanceData,
+        verification: verificationResults
+      }
     });
     
   } catch (error) {
