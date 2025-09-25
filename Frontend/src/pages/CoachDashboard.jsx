@@ -257,9 +257,22 @@ const CoachDashboard = () => {
             <X className="h-6 w-6" />
           </button>
         </div>
-        
-        <nav className="mt-6">
-          <div className="px-6 space-y-2">
+
+          <nav className="mt-6">
+            <div className="px-6 space-y-2">
+
+            <button
+              onClick={() => setActiveTab('profile')}
+              className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
+                activeTab === 'profile' 
+                  ? 'bg-blue-800 text-white' 
+                  : 'text-blue-200 hover:bg-blue-800 hover:text-white'
+              }`}
+            >
+              <User className="h-5 w-5 mr-3" />
+              Profile
+            </button>
+
             <button
               onClick={() => setActiveTab('programs')}
               className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
@@ -296,29 +309,9 @@ const CoachDashboard = () => {
               Sessions
             </button>
             
-            <button
-              onClick={() => setActiveTab('enrolled')}
-              className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
-                activeTab === 'enrolled' 
-                  ? 'bg-blue-800 text-white' 
-                  : 'text-blue-200 hover:bg-blue-800 hover:text-white'
-              }`}
-            >
-              <BookOpen className="h-5 w-5 mr-3" />
-              Enrolled Programs
-            </button>
             
-            <button
-              onClick={() => setActiveTab('profile')}
-              className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
-                activeTab === 'profile' 
-                  ? 'bg-blue-800 text-white' 
-                  : 'text-blue-200 hover:bg-blue-800 hover:text-white'
-              }`}
-            >
-              <User className="h-5 w-5 mr-3" />
-              Profile
-            </button>
+            
+            
           </div>
         </nav>
         
