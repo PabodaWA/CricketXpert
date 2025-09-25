@@ -362,44 +362,66 @@ const downloadOrder = async (req, res) => {
       res.send(pdfData);
     });
 
-    // PDF Content Generation
-    doc.fontSize(20).text('CricketExpert - Order Details', { align: 'center' });
-    doc.moveDown();
+    // PDF Content Generation with Proper Text Wrapping
+    
+    // Set page margins and width
+    const pageWidth = 612;
+    const margin = 50;
+    const contentWidth = pageWidth - (margin * 2);
+    
+    // Header
+    doc.fontSize(20).text('CricketExpert - Order Details', margin, 50, { width: contentWidth, align: 'center' });
+    doc.moveDown(1);
 
     // Order Information
-    doc.fontSize(16).text('Order Information', { underline: true });
+    doc.fontSize(16).text('Order Information', margin, doc.y, { width: contentWidth, underline: true });
+    doc.moveDown(0.5);
     doc.fontSize(12);
-    doc.text(`Order ID: ${order._id}`);
-    doc.text(`Date: ${new Date(order.date || order.createdAt).toLocaleDateString()}`);
-    doc.text(`Status: ${order.status}`);
-    doc.text(`Total Amount: LKR ${order.amount || 0}.00`);
-    doc.moveDown();
+    
+    // Order details with proper positioning
+    const orderY = doc.y;
+    doc.text(`Order ID: ${order._id}`, margin, orderY, { width: contentWidth });
+    doc.text(`Date: ${new Date(order.date || order.createdAt).toLocaleDateString()}`, margin, doc.y, { width: contentWidth });
+    doc.text(`Status: ${order.status}`, margin, doc.y, { width: contentWidth });
+    
+    // Total Amount with proper formatting
+    const totalAmountText = `Total Amount: LKR ${(order.amount || 0).toFixed(2)}`;
+    doc.text(totalAmountText, margin, doc.y, { width: contentWidth });
+    doc.moveDown(1);
 
     // Customer Information
     if (order.customerId) {
-      doc.fontSize(16).text('Customer Information', { underline: true });
+      doc.fontSize(16).text('Customer Information', margin, doc.y, { width: contentWidth, underline: true });
+      doc.moveDown(0.5);
       doc.fontSize(12);
-      doc.text(`Name: ${order.customerId.firstName || ''} ${order.customerId.lastName || ''}`);
-      doc.text(`Email: ${order.customerId.email || 'N/A'}`);
-      doc.text(`Address: ${order.address || 'N/A'}`);
-      doc.moveDown();
+      
+      const customerName = `Name: ${order.customerId.firstName || ''} ${order.customerId.lastName || ''}`;
+      doc.text(customerName, margin, doc.y, { width: contentWidth });
+      
+      const customerEmail = `Email: ${order.customerId.email || 'N/A'}`;
+      doc.text(customerEmail, margin, doc.y, { width: contentWidth });
+      
+      const customerAddress = `Address: ${order.address || 'N/A'}`;
+      doc.text(customerAddress, margin, doc.y, { width: contentWidth });
+      doc.moveDown(1);
     }
 
     // Order Items
-    doc.fontSize(16).text('Order Items', { underline: true });
-    doc.moveDown();
+    doc.fontSize(16).text('Order Items', margin, doc.y, { width: contentWidth, underline: true });
+    doc.moveDown(0.5);
 
     if (order.items && order.items.length > 0) {
       // Table header
       doc.fontSize(10);
-      doc.text('Product Name', 50, doc.y);
-      doc.text('Quantity', 300, doc.y);
-      doc.text('Price', 400, doc.y);
-      doc.text('Total', 500, doc.y);
+      const tableY = doc.y;
+      doc.text('Product Name', margin, tableY);
+      doc.text('Quantity', margin + 200, tableY);
+      doc.text('Price', margin + 300, tableY);
+      doc.text('Total', margin + 400, tableY);
       
       // Draw line under header
-      doc.moveTo(50, doc.y + 5).lineTo(550, doc.y + 5).stroke();
-      doc.moveDown();
+      doc.moveTo(margin, tableY + 15).lineTo(margin + contentWidth, tableY + 15).stroke();
+      doc.y = tableY + 20;
 
       let totalAmount = 0;
       order.items.forEach((item) => {
@@ -409,24 +431,31 @@ const downloadOrder = async (req, res) => {
         const itemTotal = price * quantity;
         totalAmount += itemTotal;
 
-        doc.text(productName, 50, doc.y);
-        doc.text(quantity.toString(), 300, doc.y);
-        doc.text(`LKR ${price.toFixed(2)}`, 400, doc.y);
-        doc.text(`LKR ${itemTotal.toFixed(2)}`, 500, doc.y);
-        doc.moveDown();
+        const currentY = doc.y;
+        doc.text(productName, margin, currentY, { width: 180 });
+        doc.text(quantity.toString(), margin + 200, currentY);
+        doc.text(`LKR ${price.toFixed(2)}`, margin + 300, currentY);
+        doc.text(`LKR ${itemTotal.toFixed(2)}`, margin + 400, currentY);
+        doc.moveDown(0.5);
       });
 
       // Total line
-      doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
-      doc.moveDown();
-      doc.fontSize(12).text(`Total Amount: LKR ${totalAmount.toFixed(2)}`, { align: 'right' });
+      doc.moveTo(margin, doc.y).lineTo(margin + contentWidth, doc.y).stroke();
+      doc.moveDown(0.5);
+      
+      // Grand Total with proper formatting
+      const grandTotalText = `Grand Total: LKR ${totalAmount.toFixed(2)}`;
+      doc.fontSize(12).text(grandTotalText, margin + 300, doc.y, { width: 200, align: 'right' });
     } else {
-      doc.text('No items in this order.');
+      doc.text('No items in this order.', margin, doc.y, { width: contentWidth });
     }
 
-    doc.moveDown();
-    doc.fontSize(10).text('Thank you for choosing CricketExpert!', { align: 'center' });
-    doc.text('For any queries, contact us at info@cricketxpert.com', { align: 'center' });
+    doc.moveDown(2);
+    
+    // Footer with proper text wrapping
+    const footerY = doc.y;
+    doc.fontSize(10).text('Thank you for choosing CricketExpert!', margin, footerY, { width: contentWidth, align: 'center' });
+    doc.text('For any queries, contact us at info@cricketxpert.com', margin, doc.y, { width: contentWidth, align: 'center' });
 
     doc.end();
 
