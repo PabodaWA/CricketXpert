@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Search, Filter, Edit, Trash2 } from 'lucide-react';
 
@@ -9,6 +9,11 @@ export default function ListProducts() {
     const [selectedCategory, setSelectedCategory] = useState('');
     const [loading, setLoading] = useState(true);
     const [editingProduct, setEditingProduct] = useState(null);
+    // Image editing state
+    const [imageEditingId, setImageEditingId] = useState(null);
+    const [imagePreviewById, setImagePreviewById] = useState({});
+    const [imageFileById, setImageFileById] = useState({});
+    const fileInputRef = useRef(null);
 
     const fetchProducts = async () => {
         try {
@@ -89,6 +94,81 @@ export default function ListProducts() {
         }));
     };
 
+    // --- Image Edit Handlers ---
+    const startImageEdit = (productId) => {
+        setImageEditingId(productId);
+        // Clear any previous selection for this product
+        setImagePreviewById(prev => ({ ...prev, [productId]: null }));
+        setImageFileById(prev => ({ ...prev, [productId]: null }));
+    };
+
+    const cancelImageEdit = (productId) => {
+        setImageEditingId(current => (current === productId ? null : current));
+        setImagePreviewById(prev => ({ ...prev, [productId]: null }));
+        setImageFileById(prev => ({ ...prev, [productId]: null }));
+    };
+
+    const onPickImage = (productId) => {
+        // Trigger hidden file input
+        if (fileInputRef.current) {
+            // Attach a temporary marker for which product to assign to
+            fileInputRef.current.dataset.productId = productId;
+            fileInputRef.current.click();
+        }
+    };
+
+    const onImageFileChange = (e) => {
+        const files = e.target.files || [];
+        if (!files.length) return;
+        const file = files[0];
+        const productId = e.target.dataset.productId;
+        if (!productId) return;
+
+        // Validate type
+        if (!['image/jpeg', 'image/png', 'image/jpg'].includes(file.type)) {
+            alert('Only JPG or PNG images are allowed.');
+            e.target.value = '';
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            setImagePreviewById(prev => ({ ...prev, [productId]: ev.target.result }));
+            setImageFileById(prev => ({ ...prev, [productId]: file }));
+        };
+        reader.readAsDataURL(file);
+        // Reset input so the same file can be re-selected if needed
+        e.target.value = '';
+    };
+
+    const saveImage = async (product) => {
+        const file = imageFileById[product._id];
+        if (!file) {
+            alert('Please select an image first.');
+            return;
+        }
+        try {
+            const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+            const formData = new FormData();
+            formData.append('image', file);
+            // Do not include other fields to avoid modifying them
+
+            const { data } = await axios.put(
+                `http://localhost:5000/api/products/${product._id}`,
+                formData,
+                {
+                    headers: { Authorization: `Bearer ${userInfo.token}` }
+                }
+            );
+
+            // Update local products list with new image_url immediately
+            setProducts(prev => prev.map(p => p._id === product._id ? { ...p, image_url: data.image_url } : p));
+            cancelImageEdit(product._id);
+        } catch (err) {
+            alert('Error updating product image: ' + (err.response?.data?.message || err.message));
+        }
+    };
+
     return (
         <div className="bg-white p-6 rounded-2xl shadow-lg">
             <h1 className="text-3xl font-bold text-[#072679] mb-6">Product List</h1>
@@ -127,20 +207,50 @@ export default function ListProducts() {
                             products.map((product) => (
                                 <tr key={product._id} className="border-b hover:bg-gray-50">
                                     <td className="p-4">
+                                        <div className="flex items-center gap-3">
                                         <img 
-                                            src={product.image_url || 'https://placehold.co/64'} 
+                                                src={(imageEditingId === product._id && imagePreviewById[product._id]) || product.image_url || 'https://placehold.co/64'} 
                                             alt={product.name} 
-                                            className="w-16 h-16 object-cover rounded-md" 
+                                                className="w-16 h-16 object-cover rounded-md border" 
                                             onError={(e) => {
                                                 console.error(`Image failed to load for product: ${product.name}`);
                                                 console.error(`Image URL: ${product.image_url}`);
                                                 e.target.src = 'https://placehold.co/64';
                                             }}
-                                            onLoad={() => {
-                                                console.log(`Image loaded successfully for: ${product.name}`);
-                                                console.log(`Image URL: ${product.image_url}`);
-                                            }}
-                                        />
+                                            />
+                                            {imageEditingId === product._id ? (
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        onClick={() => onPickImage(product._id)}
+                                                        className="px-2 py-1 text-sm border rounded hover:bg-gray-100"
+                                                    >Choose Image</button>
+                                                    <button
+                                                        onClick={() => saveImage(product)}
+                                                        className="px-2 py-1 text-sm border rounded text-green-700 hover:bg-green-50"
+                                                    >Save</button>
+                                                    <button
+                                                        onClick={() => cancelImageEdit(product._id)}
+                                                        className="px-2 py-1 text-sm border rounded text-gray-700 hover:bg-gray-100"
+                                                    >Cancel</button>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={() => startImageEdit(product._id)}
+                                                    className="px-2 py-1 text-sm border rounded text-blue-700 hover:bg-blue-50"
+                                                    title="Edit Image"
+                                                >Edit Image</button>
+                                            )}
+                                        </div>
+                                        {/* Hidden file input for selecting image */}
+                                        {imageEditingId === product._id && (
+                                            <input
+                                                ref={fileInputRef}
+                                                type="file"
+                                                accept="image/png, image/jpeg"
+                                                className="hidden"
+                                                onChange={onImageFileChange}
+                                            />
+                                        )}
                                     </td>
                                     <td className="p-4 font-medium text-gray-800">
                                         {editingProduct && editingProduct._id === product._id ? (
