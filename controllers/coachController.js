@@ -1308,6 +1308,633 @@ const getCoachEnrolledPrograms = async (req, res) => {
   }
 };
 
+// @desc    Test endpoint to verify API is working
+// @route   GET /api/coaches/test
+// @access  Public
+const testCoachEndpoint = async (req, res) => {
+  try {
+    res.status(200).json({
+      success: true,
+      message: 'Coach API endpoint is working!',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Test endpoint error',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Test attendance endpoint
+// @route   PUT /api/coaches/test-attendance
+// @access  Public
+const testAttendanceEndpoint = async (req, res) => {
+  try {
+    console.log('=== TEST ATTENDANCE ENDPOINT ===');
+    console.log('Request body:', req.body);
+    res.status(200).json({
+      success: true,
+      message: 'Attendance endpoint is working!',
+      receivedData: req.body,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Test attendance endpoint error',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Mark attendance for session participants
+// @route   PUT /api/coaches/:id/sessions/:sessionId/attendance
+// @access  Private (Coach only)
+const markSessionAttendance = async (req, res) => {
+  try {
+    console.log('=== ATTENDANCE MARKING REQUEST ===');
+    console.log('Request params:', req.params);
+    console.log('Request body:', req.body);
+    
+    const { id: coachId } = req.params;
+    const { sessionId } = req.params;
+    const { attendanceData } = req.body;
+
+    console.log('Extracted values:');
+    console.log('- Coach ID:', coachId);
+    console.log('- Session ID:', sessionId);
+    console.log('- Attendance Data:', attendanceData);
+
+    // Validate attendance data
+    if (!attendanceData || !Array.isArray(attendanceData)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Attendance data is required and must be an array'
+      });
+    }
+
+    // Use direct MongoDB operations to avoid model conflicts
+    const db = mongoose.connection.db;
+    
+    console.log('Using direct MongoDB operations to avoid model conflicts');
+
+    // Find the session using direct MongoDB query
+    const session = await db.collection('sessions').findOne({ _id: new mongoose.Types.ObjectId(sessionId) });
+    
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session not found'
+      });
+    }
+
+    console.log('Session found:', session.title);
+    console.log('Session coach:', session.coach);
+    console.log('Session participants:', session.participants.length);
+
+    // Verify this coach is assigned to this session
+    if (session.coach.toString() !== coachId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to mark attendance for this session'
+      });
+    }
+
+    // Update attendance for each participant using direct MongoDB update
+    console.log('Processing attendance data:', attendanceData);
+    console.log('Session participants before update:', session.participants);
+    
+    for (const attendance of attendanceData) {
+      console.log('Processing attendance item:', attendance);
+      
+      if (!attendance.participantId || typeof attendance.attended !== 'boolean') {
+        console.warn('Invalid attendance item:', attendance);
+        continue;
+      }
+      
+      console.log(`Updating participant ${attendance.participantId}: attended=${attendance.attended}`);
+      
+      // First, let's check if the participant exists in the session
+      // Try to find by participant._id first, then by user._id as fallback
+      let participantExists = session.participants.find(p => p._id.toString() === attendance.participantId);
+      
+      if (!participantExists) {
+        // Fallback: try to find by user._id (in case frontend sends user ID instead of participant ID)
+        participantExists = session.participants.find(p => p.user.toString() === attendance.participantId);
+      }
+      
+      console.log('Participant exists in session:', participantExists);
+      
+      if (!participantExists) {
+        console.error('Participant not found in session:', attendance.participantId);
+        console.log('Available participants:', session.participants.map(p => ({
+          _id: p._id,
+          user: p.user,
+          attended: p.attended
+        })));
+        continue;
+      }
+      
+      // Update the specific participant in the session
+      // Try participant._id first, then user._id as fallback
+      let updateResult = await db.collection('sessions').updateOne(
+        { 
+          _id: new mongoose.Types.ObjectId(sessionId),
+          'participants._id': new mongoose.Types.ObjectId(attendance.participantId)
+        },
+        {
+          $set: {
+            'participants.$.attended': attendance.attended,
+            'participants.$.attendanceMarkedAt': new Date()
+          }
+        }
+      );
+      
+      // If update by participant._id failed, try by user._id
+      if (updateResult.matchedCount === 0) {
+        updateResult = await db.collection('sessions').updateOne(
+          { 
+            _id: new mongoose.Types.ObjectId(sessionId),
+            'participants.user': new mongoose.Types.ObjectId(attendance.participantId)
+          },
+          {
+            $set: {
+              'participants.$.attended': attendance.attended,
+              'participants.$.attendanceMarkedAt': new Date()
+            }
+          }
+        );
+      }
+      
+      console.log('Update result:', updateResult);
+      console.log(`Updated participant ${attendance.participantId} successfully`);
+    }
+
+    console.log('Attendance marking completed successfully');
+    res.status(200).json({
+      success: true,
+      message: 'Attendance marked successfully'
+    });
+    
+  } catch (error) {
+    console.error('=== ATTENDANCE MARKING ERROR ===');
+    console.error('Error type:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    
+    res.status(500).json({
+      success: false,
+      message: 'Error marking session attendance',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get session attendance details
+// @route   GET /api/coaches/:id/sessions/:sessionId/attendance
+// @access  Private (Coach only)
+const getSessionAttendance = async (req, res) => {
+  try {
+    const { id: coachId } = req.params;
+    const { sessionId } = req.params;
+
+    // Import Session model
+    const Session = (await import('../models/Session.js')).default;
+
+    const session = await Session.findById(sessionId)
+      .populate('participants.user', 'firstName lastName email contactNumber')
+      .populate('participants.enrollment')
+      .populate('program', 'title description category')
+      .populate('coach', 'userId')
+      .populate('ground', 'name location');
+
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session not found'
+      });
+    }
+
+    // Verify this coach is assigned to this session
+    if (session.coach.toString() !== coachId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to view attendance for this session'
+      });
+    }
+
+    // Calculate attendance statistics
+    const totalParticipants = session.participants.length;
+    const attendedCount = session.participants.filter(p => p.attended).length;
+    const attendancePercentage = totalParticipants > 0 ? Math.round((attendedCount / totalParticipants) * 100) : 0;
+
+    res.status(200).json({
+      success: true,
+      data: {
+        session: {
+          _id: session._id,
+          title: session.title,
+          description: session.description,
+          scheduledDate: session.scheduledDate,
+          startTime: session.startTime,
+          endTime: session.endTime,
+          status: session.status,
+          program: session.program,
+          ground: session.ground
+        },
+        participants: session.participants,
+        attendanceStats: {
+          totalParticipants,
+          attendedCount,
+          absentCount: totalParticipants - attendedCount,
+          attendancePercentage
+        }
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching session attendance',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get coach's sessions with attendance data
+// @route   GET /api/coaches/:id/sessions
+// @access  Private (Coach only)
+const getCoachSessions = async (req, res) => {
+  try {
+    const { id: coachId } = req.params;
+    const { page = 1, limit = 10, status, date } = req.query;
+
+    // Import Session model
+    const Session = (await import('../models/Session.js')).default;
+
+    // Build filter
+    const filter = { coach: coachId };
+    
+    if (status && status !== 'All Status') {
+      filter.status = status;
+    }
+    
+    if (date) {
+      const searchDate = new Date(date);
+      const startOfDay = new Date(searchDate.setHours(0, 0, 0, 0));
+      const endOfDay = new Date(searchDate.setHours(23, 59, 59, 999));
+      filter.scheduledDate = {
+        $gte: startOfDay,
+        $lt: endOfDay
+      };
+    }
+
+    const options = {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      sort: { scheduledDate: -1 },
+      populate: [
+        { 
+          path: 'participants.user', 
+          select: 'firstName lastName email' 
+        },
+        { 
+          path: 'program', 
+          select: 'title description category' 
+        },
+        { 
+          path: 'ground', 
+          select: 'name location' 
+        }
+      ]
+    };
+
+    const sessions = await Session.find(filter)
+      .populate(options.populate)
+      .sort(options.sort)
+      .skip((options.page - 1) * options.limit)
+      .limit(options.limit);
+
+    const totalDocs = await Session.countDocuments(filter);
+    const totalPages = Math.ceil(totalDocs / options.limit);
+
+    // Add attendance statistics to each session
+    const sessionsWithStats = sessions.map(session => {
+      const totalParticipants = session.participants.length;
+      const attendedCount = session.participants.filter(p => p.attended).length;
+      const attendancePercentage = totalParticipants > 0 ? Math.round((attendedCount / totalParticipants) * 100) : 0;
+
+      return {
+        ...session.toObject(),
+        attendanceStats: {
+          totalParticipants,
+          attendedCount,
+          absentCount: totalParticipants - attendedCount,
+          attendancePercentage
+        }
+      };
+    });
+
+    const result = {
+      docs: sessionsWithStats,
+      totalDocs,
+      limit: options.limit,
+      page: options.page,
+      totalPages,
+      hasNextPage: options.page < totalPages,
+      hasPrevPage: options.page > 1
+    };
+
+    res.status(200).json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching coach sessions',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Create sessions for enrolled programs
+// @route   POST /api/coaches/:id/create-sessions
+// @access  Private (Coach only)
+const createSessionsForEnrollments = async (req, res) => {
+  try {
+    const { id: coachId } = req.params;
+    const { programId } = req.body;
+
+    // Import required models
+    const Session = (await import('../models/Session.js')).default;
+    const ProgramEnrollment = (await import('../models/ProgramEnrollment.js')).default;
+    const CoachingProgram = (await import('../models/CoachingProgram.js')).default;
+    const Ground = (await import('../models/Ground.js')).default;
+
+    // Get the program
+    const program = await CoachingProgram.findById(programId);
+    if (!program) {
+      return res.status(404).json({
+        success: false,
+        message: 'Program not found'
+      });
+    }
+
+    // Verify coach has access to this program
+    if (program.coach.toString() !== coachId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to create sessions for this program'
+      });
+    }
+
+    // Get all active enrollments for this program
+    const enrollments = await ProgramEnrollment.find({
+      program: programId,
+      status: 'active'
+    }).populate('user', 'firstName lastName email');
+
+    if (enrollments.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No active enrollments found for this program'
+      });
+    }
+
+    // Get or create a default ground
+    let ground = await Ground.findOne();
+    if (!ground) {
+      ground = await Ground.create({
+        name: 'Main Cricket Ground',
+        location: 'Default Location',
+        capacity: 20,
+        facilities: ['Cricket Pitch', 'Changing Rooms'],
+        isActive: true
+      });
+    }
+
+    const createdSessions = [];
+
+    // Create sessions for each week of the program
+    for (let week = 1; week <= program.duration; week++) {
+      // Calculate session date (start from today + (week-1) * 7 days)
+      const sessionDate = new Date();
+      sessionDate.setDate(sessionDate.getDate() + ((week - 1) * 7));
+
+      // Create session data
+      const sessionData = {
+        program: programId,
+        coach: coachId,
+        title: `Session ${week} - ${program.title}`,
+        description: `Week ${week} session for ${program.title}`,
+        sessionNumber: week,
+        week: week,
+        scheduledDate: sessionDate,
+        startTime: '10:00',
+        endTime: '12:00',
+        duration: 120, // 2 hours
+        ground: ground._id,
+        groundSlot: 1,
+        status: 'scheduled',
+        bookingDeadline: new Date(sessionDate.getTime() - (24 * 60 * 60 * 1000)), // 24 hours before session
+        participants: enrollments.map(enrollment => ({
+          user: enrollment.user._id,
+          enrollment: enrollment._id,
+          attended: false
+        }))
+      };
+
+      // Create the session
+      const session = await Session.create(sessionData);
+      
+      // Update enrollment with session reference
+      for (const enrollment of enrollments) {
+        enrollment.sessions.push(session._id);
+        await enrollment.save();
+      }
+
+      createdSessions.push(session);
+    }
+
+    // Populate the created sessions
+    const populatedSessions = await Session.find({
+      _id: { $in: createdSessions.map(s => s._id) }
+    }).populate([
+      { path: 'participants.user', select: 'firstName lastName email' },
+      { path: 'program', select: 'title description' },
+      { path: 'ground', select: 'name location' }
+    ]);
+
+    res.status(201).json({
+      success: true,
+      message: `Created ${createdSessions.length} sessions for ${enrollments.length} participants`,
+      data: populatedSessions
+    });
+
+  } catch (error) {
+    console.error('Error creating sessions:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error creating sessions',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get enrolled customers for coach's programs
+// @route   GET /api/coaches/:coachId/enrolled-customers
+// @access  Private (Coach only)
+const getEnrolledCustomers = async (req, res) => {
+  try {
+    const { coachId } = req.params;
+    const { programId } = req.query;
+
+    // Get coach's programs
+    const coach = await Coach.findById(coachId).populate('assignedPrograms');
+    if (!coach) {
+      return res.status(404).json({
+        success: false,
+        message: 'Coach not found'
+      });
+    }
+
+    let programIds = coach.assignedPrograms.map(p => p._id);
+    
+    // Filter by specific program if provided
+    if (programId) {
+      programIds = [programId];
+    }
+
+    // Get enrollments for coach's programs
+    const ProgramEnrollment = (await import('../models/ProgramEnrollment.js')).default;
+    const enrollments = await ProgramEnrollment.find({
+      program: { $in: programIds },
+      status: { $in: ['active', 'pending'] }
+    })
+    .populate('user', 'firstName lastName email phone')
+    .populate('program', 'name description')
+    .sort({ enrollmentDate: -1 });
+
+    // Group by program
+    const customersByProgram = {};
+    enrollments.forEach(enrollment => {
+      const programId = enrollment.program._id.toString();
+      if (!customersByProgram[programId]) {
+        customersByProgram[programId] = {
+          program: enrollment.program,
+          customers: []
+        };
+      }
+      customersByProgram[programId].customers.push({
+        enrollmentId: enrollment._id,
+        user: enrollment.user,
+        enrollmentDate: enrollment.enrollmentDate,
+        status: enrollment.status,
+        progress: enrollment.progress
+      });
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        customersByProgram: Object.values(customersByProgram),
+        totalCustomers: enrollments.length
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching enrolled customers:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching enrolled customers',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get individual player sessions
+// @route   GET /api/coaches/:coachId/customers/:customerId/sessions
+// @access  Private (Coach only)
+const getCustomerSessions = async (req, res) => {
+  try {
+    const { coachId, customerId } = req.params;
+    const { enrollmentId } = req.query;
+
+    if (!enrollmentId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Enrollment ID is required'
+      });
+    }
+
+    // Get enrollment details
+    const ProgramEnrollment = (await import('../models/ProgramEnrollment.js')).default;
+    const Session = (await import('../models/Session.js')).default;
+    const Attendance = (await import('../models/Attendance.js')).default;
+
+    const enrollment = await ProgramEnrollment.findById(enrollmentId)
+      .populate('user', 'firstName lastName email')
+      .populate('program', 'name description');
+
+    if (!enrollment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Enrollment not found'
+      });
+    }
+
+    // Get sessions for this enrollment
+    const sessions = await Session.find({
+      program: enrollment.program._id,
+      coach: coachId
+    })
+    .populate('ground', 'name location')
+    .sort({ scheduledDate: -1 });
+
+    // Get attendance records for these sessions
+    const sessionIds = sessions.map(s => s._id);
+    const attendanceRecords = await Attendance.find({
+      session: { $in: sessionIds },
+      participant: customerId
+    }).populate('session');
+
+    // Combine session data with attendance
+    const sessionsWithAttendance = sessions.map(session => {
+      const attendance = attendanceRecords.find(ar => ar.session._id.toString() === session._id.toString());
+      return {
+        ...session.toObject(),
+        attendance: attendance ? {
+          attended: attendance.attended,
+          status: attendance.status,
+          attendanceMarkedAt: attendance.attendanceMarkedAt,
+          performance: attendance.performance,
+          remarks: attendance.remarks
+        } : null
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        customer: enrollment.user,
+        program: enrollment.program,
+        enrollment: enrollment,
+        sessions: sessionsWithAttendance
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching customer sessions:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching customer sessions',
+      error: error.message
+    });
+  }
+};
+
 export {
   getAllCoaches,
   getCoach,
@@ -1328,6 +1955,85 @@ export {
   getCoachAvailability,
   getBookingDateRange,
   getWeeklySessionStructure,
-  getCoachEnrolledPrograms
+  getCoachEnrolledPrograms,
+  markSessionAttendance,
+  getSessionAttendance,
+  getCoachSessions,
+  createSessionsForEnrollments,
+  testCoachEndpoint,
+  testAttendanceEndpoint,
+  simpleAttendanceMarking,
+  getEnrolledCustomers,
+  getCustomerSessions
+};
+
+// @desc    Simple attendance marking without models
+// @route   PUT /api/coaches/simple-attendance
+// @access  Public
+const simpleAttendanceMarking = async (req, res) => {
+  try {
+    console.log('=== SIMPLE ATTENDANCE MARKING ===');
+    console.log('Request body:', req.body);
+    
+    const { sessionId, attendanceData } = req.body;
+    
+    if (!sessionId || !attendanceData) {
+      return res.status(400).json({
+        success: false,
+        message: 'Session ID and attendance data are required'
+      });
+    }
+    
+    // Use direct MongoDB operations
+    const db = mongoose.connection.db;
+    
+    // Find the session
+    const session = await db.collection('sessions').findOne({ _id: new mongoose.Types.ObjectId(sessionId) });
+    
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session not found'
+      });
+    }
+    
+    console.log('Session found:', session.title);
+    
+    // Update attendance for each participant
+    for (const attendance of attendanceData) {
+      if (!attendance.participantId || typeof attendance.attended !== 'boolean') {
+        continue;
+      }
+      
+      console.log(`Updating participant ${attendance.participantId}: attended=${attendance.attended}`);
+      
+      await db.collection('sessions').updateOne(
+        { 
+          _id: new mongoose.Types.ObjectId(sessionId),
+          'participants._id': new mongoose.Types.ObjectId(attendance.participantId)
+        },
+        {
+          $set: {
+            'participants.$.attended': attendance.attended,
+            'participants.$.attendanceMarkedAt': new Date()
+          }
+        }
+      );
+    }
+    
+    console.log('Simple attendance marking completed successfully');
+    res.status(200).json({
+      success: true,
+      message: 'Attendance marked successfully'
+    });
+    
+  } catch (error) {
+    console.error('Simple attendance marking error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error marking attendance',
+      error: error.message
+    });
+  }
 };
 

@@ -19,7 +19,7 @@ const sessionSchema = new mongoose.Schema({
     },
     enrollment: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Enrollment',
+      ref: 'ProgramEnrollment',
       required: true
     },
     attended: {

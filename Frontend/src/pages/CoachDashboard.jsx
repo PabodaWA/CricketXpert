@@ -20,7 +20,12 @@ import {
   Upload,
   ChevronDown,
   Menu,
-  X
+  X,
+  CheckCircle,
+  XCircle,
+  UserCheck,
+  UserX,
+  BarChart3
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -42,6 +47,13 @@ const CoachDashboard = () => {
   const [selectedProgram, setSelectedProgram] = useState(null);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [selectedParticipant, setSelectedParticipant] = useState(null);
+  const [coachSessions, setCoachSessions] = useState([]);
+  const [selectedSession, setSelectedSession] = useState(null);
+  const [showAttendanceModal, setShowAttendanceModal] = useState(false);
+  const [enrolledCustomers, setEnrolledCustomers] = useState([]);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [customerSessions, setCustomerSessions] = useState([]);
+  const [showCustomerSessions, setShowCustomerSessions] = useState(false);
 
   useEffect(() => {
     fetchCoachData();
@@ -117,20 +129,29 @@ const CoachDashboard = () => {
       console.log('Customers data extracted:', customersData);
       setCustomers(customersData);
       
-      // Extract sessions from enrolled programs
-      const sessionsData = [];
-      enrolledProgramsData.forEach(enrollment => {
-        if (enrollment.sessions && enrollment.sessions.length > 0) {
-          enrollment.sessions.forEach(session => {
-            sessionsData.push({
-              ...session,
-              program: { title: enrollment.program.title },
-              participants: [{ _id: enrollment.user._id, user: enrollment.user }]
-            });
-          });
-        }
-      });
-      setSessions(sessionsData);
+      // Fetch coach's sessions with attendance data
+      try {
+        const coachSessionsResponse = await axios.get(`/api/coaches/${coachData._id}/sessions`);
+        const coachSessionsData = coachSessionsResponse.data.data.docs || [];
+        console.log('Coach sessions data:', coachSessionsData);
+        console.log('Session participants with attendance:', coachSessionsData.map(s => ({
+          title: s.title,
+          participants: s.participants?.map(p => ({
+            user: p.user,
+            attended: p.attended,
+            attendanceMarkedAt: p.attendanceMarkedAt
+          }))
+        })));
+        setSessions(coachSessionsData);
+        setCoachSessions(coachSessionsData);
+      } catch (sessionsError) {
+        console.warn('Could not fetch coach sessions:', sessionsError);
+        setSessions([]);
+        setCoachSessions([]);
+      }
+
+      // Fetch enrolled customers
+      await fetchEnrolledCustomers();
       
     } catch (error) {
       console.error('Error fetching coach data:', error);
@@ -158,6 +179,108 @@ const CoachDashboard = () => {
       console.error('Error submitting feedback:', error);
       alert('Failed to submit feedback. Please try again.');
     }
+  };
+
+  const handleMarkAttendance = async (attendanceData) => {
+    try {
+      console.log('=== FRONTEND ATTENDANCE REQUEST ===');
+      console.log('Coach ID:', coach._id);
+      console.log('Session ID:', selectedSession._id);
+      console.log('Selected Customer:', selectedCustomer);
+      console.log('Session Participants:', selectedSession.participants);
+      console.log('Attendance Data:', attendanceData);
+      
+      // Validate attendance data before sending
+      if (!Array.isArray(attendanceData)) {
+        console.error('Attendance data is not an array:', attendanceData);
+        alert('Invalid attendance data. Please try again.');
+        return;
+      }
+      
+      // Validate each attendance item
+      for (const item of attendanceData) {
+        if (!item.participantId || typeof item.attended !== 'boolean') {
+          console.error('Invalid attendance item:', item);
+          alert('Invalid attendance data. Please try again.');
+          return;
+        }
+      }
+      
+      console.log('Making API call to:', `/api/coaches/${coach._id}/sessions/${selectedSession._id}/attendance`);
+      console.log('Request payload:', { attendanceData });
+      
+      // Use the existing attendance marking system
+      const response = await axios.put(
+        `/api/coaches/${coach._id}/sessions/${selectedSession._id}/attendance`,
+        { attendanceData }
+      );
+      
+      console.log('Attendance marked successfully:', response.data);
+      setShowAttendanceModal(false);
+      setSelectedSession(null);
+      
+      // Refresh data after attendance marking
+      console.log('Refreshing coach data after attendance marking...');
+      await fetchCoachData();
+      
+      // If we're viewing customer sessions, refresh them too
+      if (showCustomerSessions && selectedCustomer) {
+        console.log('Refreshing customer sessions after attendance marking...');
+        await fetchCustomerSessions(selectedCustomer._id);
+      }
+    } catch (error) {
+      console.error('Error marking attendance:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      alert('Failed to mark attendance. Please try again.');
+    }
+  };
+
+  const fetchEnrolledCustomers = async () => {
+    try {
+      if (!coach || !coach._id) return;
+      
+      const response = await axios.get(`/api/coaches/${coach._id}/enrolled-customers`);
+      setEnrolledCustomers(response.data.data.customersByProgram || []);
+    } catch (error) {
+      console.error('Error fetching enrolled customers:', error);
+    }
+  };
+
+  const fetchCustomerSessions = async (customerId, enrollmentId) => {
+    try {
+      if (!coach || !coach._id) return;
+      
+      // First refresh the sessions data
+      await fetchCoachData();
+      
+      // Use the updated sessions data and filter by customer
+      const customerSessions = sessions.filter(session => 
+        session.participants && 
+        session.participants.some(p => p.user && p.user._id === customerId)
+      );
+      
+      console.log('Customer sessions after refresh:', customerSessions);
+      setCustomerSessions(customerSessions);
+      
+      // Find the customer from the customers array
+      const customer = customers.find(c => c._id === customerId);
+      setSelectedCustomer(customer ? customer.user : null);
+      
+      setShowCustomerSessions(true);
+    } catch (error) {
+      console.error('Error fetching customer sessions:', error);
+    }
+  };
+
+  const handleCustomerClick = async (customer) => {
+    await fetchCustomerSessions(customer._id);
+  };
+
+  const handleBackToCustomers = () => {
+    setShowCustomerSessions(false);
+    setSelectedCustomer(null);
+    setCustomerSessions([]);
   };
 
   const handleLogout = () => {
@@ -244,6 +367,16 @@ const CoachDashboard = () => {
     });
   };
 
+  const getFilteredCoachSessions = () => {
+    return coachSessions.filter(session => {
+      const matchesSearch = session.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           session.program?.title.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === 'All Status' || session.status === statusFilter;
+      
+      return matchesSearch && matchesStatus;
+    });
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
@@ -307,6 +440,18 @@ const CoachDashboard = () => {
             >
               <Calendar className="h-5 w-5 mr-3" />
               Sessions
+            </button>
+            
+            <button
+              onClick={() => setActiveTab('attendance')}
+              className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
+                activeTab === 'attendance' 
+                  ? 'bg-blue-800 text-white' 
+                  : 'text-blue-200 hover:bg-blue-800 hover:text-white'
+              }`}
+            >
+              <UserCheck className="h-5 w-5 mr-3" />
+              Attendance
             </button>
             
             
@@ -566,6 +711,121 @@ const CoachDashboard = () => {
             </div>
           )}
 
+          {activeTab === 'attendance' && (
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">Session Attendance</h2>
+              
+              {!showCustomerSessions ? (
+                // Customer List View - Show customers directly like before
+                <div>
+                  <div className="mb-6">
+                    <p className="text-gray-600 mb-4">Select a customer to view their sessions and mark attendance:</p>
+                  </div>
+                  
+                  {customers.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {customers.map((customer) => (
+                        <div 
+                          key={customer._id} 
+                          onClick={() => handleCustomerClick(customer.user)}
+                          className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow cursor-pointer"
+                        >
+                          <div className="flex items-center space-x-4 mb-4">
+                            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                              <User className="h-6 w-6 text-blue-600" />
+                            </div>
+                            <div className="flex-1">
+                              <h3 className="text-lg font-semibold text-gray-900">
+                                {customer.user.firstName} {customer.user.lastName}
+                              </h3>
+                              <p className="text-sm text-gray-600">{customer.user.email}</p>
+                              {customer.user.contactNumber && (
+                                <p className="text-sm text-gray-500">{customer.user.contactNumber}</p>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-gray-500">Total Sessions</span>
+                              <span className="text-gray-900 font-medium">{customer.totalSessions}</span>
+                            </div>
+                            
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-gray-500">Completed Sessions</span>
+                              <span className="text-gray-900 font-medium">{customer.completedSessions}</span>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-gray-500">Progress</span>
+                                <span className="text-gray-500">{Math.round((customer.completedSessions / customer.totalSessions) * 100)}%</span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div 
+                                  className="bg-green-600 h-2 rounded-full transition-all duration-300"
+                                  style={{ width: `${Math.round((customer.completedSessions / customer.totalSessions) * 100)}%` }}
+                                ></div>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center justify-end space-x-2 mt-4 pt-4 border-t border-gray-100">
+                            <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+                              <MessageSquare className="h-4 w-4" />
+                            </button>
+                            <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+                              <User className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
+                      <div className="text-gray-400 text-6xl mb-4">👥</div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">No Enrolled Customers</h3>
+                      <p className="text-gray-600">No customers are currently enrolled in your programs.</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                // Customer Sessions View
+                <div>
+                  <div className="flex items-center mb-6">
+                    <button
+                      onClick={handleBackToCustomers}
+                      className="flex items-center text-blue-600 hover:text-blue-700 mr-4"
+                    >
+                      <ChevronDown className="h-4 w-4 mr-1 rotate-90" />
+                      Back to Customers
+                    </button>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        {selectedCustomer?.firstName} {selectedCustomer?.lastName}
+                      </h3>
+                      <p className="text-sm text-gray-600">{selectedCustomer?.email}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    {customerSessions.map((session) => (
+                      <CustomerSessionCard
+                        key={session._id}
+                        session={session}
+                        customer={selectedCustomer}
+                        onMarkAttendance={(session) => {
+                          setSelectedSession(session);
+                          setShowAttendanceModal(true);
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {activeTab === 'profile' && (
             <div>
               <h2 className="text-2xl font-bold text-gray-900 mb-6">My Profile</h2>
@@ -607,6 +867,20 @@ const CoachDashboard = () => {
           onClose={() => {
             setShowFeedbackModal(false);
             setSelectedParticipant(null);
+          }}
+        />
+      )}
+
+      {/* Attendance Modal */}
+      {showAttendanceModal && selectedSession && (
+        <AttendanceModal
+          session={selectedSession}
+          coach={coach}
+          selectedCustomer={selectedCustomer}
+          onSubmit={handleMarkAttendance}
+          onClose={() => {
+            setShowAttendanceModal(false);
+            setSelectedSession(null);
           }}
         />
       )}
@@ -684,113 +958,6 @@ const ProgramCard = ({ program, coach, onViewSessions }) => {
   );
 };
 
-// Customer Card Component
-const CustomerCard = ({ customer, enrollment }) => {
-  const completionPercentage = Math.round((customer.completedSessions / customer.totalSessions) * 100);
-  
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'active': return 'bg-green-100 text-green-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'completed': return 'bg-blue-100 text-blue-800';
-      case 'cancelled': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-  
-  return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
-      <div className="flex items-center space-x-4 mb-4">
-        <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-          <User className="h-6 w-6 text-blue-600" />
-        </div>
-        <div className="flex-1">
-          <h3 className="text-lg font-semibold text-gray-900">
-            {customer.user.firstName} {customer.user.lastName}
-          </h3>
-          <p className="text-sm text-gray-600">{customer.user.email}</p>
-          {customer.user.contactNumber && (
-            <p className="text-sm text-gray-500">{customer.user.contactNumber}</p>
-          )}
-        </div>
-      </div>
-      
-      {/* Program Enrollment Details */}
-      {enrollment && (
-        <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-          <div className="flex items-center justify-between mb-2">
-            <h4 className="font-medium text-gray-900">{enrollment.program.title}</h4>
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(enrollment.status)}`}>
-              {enrollment.status}
-            </span>
-          </div>
-          <p className="text-sm text-gray-600 mb-3">{enrollment.program.description}</p>
-          
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="text-gray-500">Category:</span>
-              <span className="ml-2 text-gray-900">{enrollment.program.category}</span>
-            </div>
-            <div>
-              <span className="text-gray-500">Fee:</span>
-              <span className="ml-2 text-gray-900">LKR {enrollment.program.fee}</span>
-            </div>
-            <div>
-              <span className="text-gray-500">Duration:</span>
-              <span className="ml-2 text-gray-900">{enrollment.program.duration} weeks</span>
-            </div>
-            <div>
-              <span className="text-gray-500">Enrolled:</span>
-              <span className="ml-2 text-gray-900">{formatDate(enrollment.enrollmentDate)}</span>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      <div className="space-y-3">
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-500">Total Sessions</span>
-          <span className="text-gray-900 font-medium">{customer.totalSessions}</span>
-        </div>
-        
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-500">Completed Sessions</span>
-          <span className="text-gray-900 font-medium">{customer.completedSessions}</span>
-        </div>
-        
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-500">Progress</span>
-            <span className="text-gray-500">{completionPercentage}%</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div 
-              className="bg-green-600 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${completionPercentage}%` }}
-            ></div>
-          </div>
-        </div>
-      </div>
-      
-      <div className="flex items-center justify-end space-x-2 mt-4 pt-4 border-t border-gray-100">
-        <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
-          <MessageSquare className="h-4 w-4" />
-        </button>
-        <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
-          <User className="h-4 w-4" />
-        </button>
-      </div>
-    </div>
-  );
-};
 
 // Session Card Component
 const SessionCard = ({ session, onGiveFeedback }) => {
@@ -1519,6 +1686,537 @@ const EnrolledProgramCard = ({ enrollment }) => {
         </button>
         <button className="p-2 text-gray-400 hover:text-blue-600 transition-colors">
           <Edit className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// Session Attendance Card Component
+const SessionAttendanceCard = ({ session, onMarkAttendance }) => {
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  const formatTime = (timeString) => {
+    return new Date(`2000-01-01T${timeString}`).toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'scheduled': return 'bg-blue-100 text-blue-800';
+      case 'in-progress': return 'bg-yellow-100 text-yellow-800';
+      case 'completed': return 'bg-green-100 text-green-800';
+      case 'cancelled': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getAttendanceColor = (percentage) => {
+    if (percentage >= 80) return 'text-green-600';
+    if (percentage >= 60) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+
+  return (
+    <div className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-md transition-shadow">
+      <div className="flex justify-between items-start">
+        <div className="flex-1">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="font-semibold text-gray-900">{session.title}</h4>
+            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(session.status)}`}>
+              {session.status}
+            </span>
+          </div>
+          <p className="text-sm text-gray-600 mb-3">{session.program?.title}</p>
+          <div className="flex items-center space-x-4 text-sm text-gray-500 mb-2">
+            <span className="flex items-center bg-gray-100 px-2 py-1 rounded">
+              <Calendar className="h-4 w-4 mr-1" />
+              {formatDate(session.scheduledDate)}
+            </span>
+            <span className="flex items-center bg-gray-100 px-2 py-1 rounded">
+              <Clock className="h-4 w-4 mr-1" />
+              {formatTime(session.startTime)} - {formatTime(session.endTime)}
+            </span>
+          </div>
+          {session.ground && (
+            <div className="flex items-center text-sm text-gray-500 mb-3">
+              <MapPin className="h-4 w-4 mr-1" />
+              {session.ground.name}
+            </div>
+          )}
+        </div>
+        
+        {/* Attendance Stats */}
+        <div className="ml-4 text-center">
+          <div className="bg-blue-50 rounded-lg p-3 mb-2">
+            <p className="text-sm text-gray-500">Attendance</p>
+            <p className={`text-2xl font-bold ${getAttendanceColor(session.attendanceStats?.attendancePercentage || 0)}`}>
+              {session.attendanceStats?.attendancePercentage || 0}%
+            </p>
+            <p className="text-xs text-gray-500">
+              {session.attendanceStats?.attendedCount || 0}/{session.attendanceStats?.totalParticipants || 0}
+            </p>
+          </div>
+          
+          <button
+            onClick={() => onMarkAttendance(session)}
+            className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+          >
+            <UserCheck className="h-4 w-4 mr-1" />
+            Mark Attendance
+          </button>
+        </div>
+      </div>
+      
+      {/* Participants List */}
+      {session.participants && session.participants.length > 0 && (
+        <div className="mt-4 pt-4 border-t border-gray-100">
+          <p className="text-sm font-medium text-gray-700 mb-2">Participants:</p>
+          <div className="flex flex-wrap gap-2">
+            {session.participants.map((participant) => (
+              <div
+                key={participant._id}
+                className={`flex items-center px-3 py-1 rounded-full text-sm ${
+                  participant.attended 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                {participant.attended ? (
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                ) : (
+                  <XCircle className="h-4 w-4 mr-1" />
+                )}
+                {participant.user?.firstName} {participant.user?.lastName}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Attendance Modal Component
+const AttendanceModal = ({ session, coach, selectedCustomer, onSubmit, onClose }) => {
+  const [attendanceData, setAttendanceData] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    // Initialize attendance data - handle both multi-participant and single customer scenarios
+    let initialData = [];
+    
+    if (session.participants && session.participants.length > 0) {
+      // Find the participant for the selected customer
+      const participant = session.participants.find(p => p.user && p.user._id === selectedCustomer?._id);
+      
+      if (participant) {
+        console.log('Found participant for customer:', {
+          participantId: participant._id,
+          userId: participant.user._id,
+          customerId: selectedCustomer?._id,
+          attended: participant.attended
+        });
+        
+        initialData = [{
+          participantId: participant._id,
+          attended: participant.attended || false,
+          performance: {
+            rating: participant.performance?.rating || 5,
+            notes: participant.performance?.notes || ''
+          }
+        }];
+      } else {
+        console.error('Participant not found for customer:', {
+          customerId: selectedCustomer?._id,
+          availableParticipants: session.participants.map(p => ({
+            _id: p._id,
+            user: p.user,
+            attended: p.attended
+          }))
+        });
+        
+        // Fallback - create a default entry with user ID
+        initialData = [{
+          participantId: selectedCustomer?._id, // Use user ID as fallback
+          attended: false,
+          performance: {
+            rating: 5,
+            notes: ''
+          }
+        }];
+      }
+    } else {
+      console.error('No participants found in session:', session);
+      // Fallback - create a default entry
+      initialData = [{
+        participantId: selectedCustomer?._id, // Use user ID as fallback
+        attended: false,
+        performance: {
+          rating: 5,
+          notes: ''
+        }
+      }];
+    }
+    
+    setAttendanceData(initialData);
+  }, [session, selectedCustomer]);
+
+  const handleAttendanceChange = (participantId, attended) => {
+    setAttendanceData(prev => 
+      prev.map(item => 
+        item.participantId === participantId 
+          ? { ...item, attended }
+          : item
+      )
+    );
+  };
+
+  const handlePerformanceChange = (participantId, field, value) => {
+    setAttendanceData(prev => 
+      prev.map(item => 
+        item.participantId === participantId 
+          ? { 
+              ...item, 
+              performance: { 
+                ...item.performance, 
+                [field]: value 
+              } 
+            }
+          : item
+      )
+    );
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      await onSubmit(attendanceData);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  const formatTime = (timeString) => {
+    return new Date(`2000-01-01T${timeString}`).toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Mark Attendance</h2>
+            <p className="text-sm text-gray-600">
+              {session.title} - {formatDate(session.scheduledDate)} at {formatTime(session.startTime)}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+          <div className="space-y-4">
+            {attendanceData.map((item) => {
+              const participant = session.participants.find(p => p._id === item.participantId);
+              return (
+                <div key={item.participantId} className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                        <User className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-gray-900">
+                          {participant?.user?.firstName} {participant?.user?.lastName}
+                        </h4>
+                        <p className="text-sm text-gray-600">{participant?.user?.email}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      <button
+                        type="button"
+                        onClick={() => handleAttendanceChange(item.participantId, false)}
+                        className={`flex items-center px-3 py-2 rounded-lg text-sm transition-colors ${
+                          !item.attended 
+                            ? 'bg-red-100 text-red-800 border-2 border-red-300' 
+                            : 'bg-gray-100 text-gray-600 border border-gray-300'
+                        }`}
+                      >
+                        <XCircle className="h-4 w-4 mr-1" />
+                        Absent
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleAttendanceChange(item.participantId, true)}
+                        className={`flex items-center px-3 py-2 rounded-lg text-sm transition-colors ${
+                          item.attended 
+                            ? 'bg-green-100 text-green-800 border-2 border-green-300' 
+                            : 'bg-gray-100 text-gray-600 border border-gray-300'
+                        }`}
+                      >
+                        <CheckCircle className="h-4 w-4 mr-1" />
+                        Present
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {item.attended && (
+                    <div className="mt-3 pt-3 border-t border-gray-100">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Performance Rating (1-5)
+                          </label>
+                          <select
+                            value={item.performance.rating}
+                            onChange={(e) => handlePerformanceChange(item.participantId, 'rating', parseInt(e.target.value))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          >
+                            <option value={1}>1 - Poor</option>
+                            <option value={2}>2 - Below Average</option>
+                            <option value={3}>3 - Average</option>
+                            <option value={4}>4 - Good</option>
+                            <option value={5}>5 - Excellent</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Notes
+                          </label>
+                          <input
+                            type="text"
+                            value={item.performance.notes}
+                            onChange={(e) => handlePerformanceChange(item.participantId, 'notes', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="Performance notes..."
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          
+          <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {submitting ? 'Saving...' : 'Save Attendance'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// Customer Card Component
+const CustomerCard = ({ customer, onCustomerClick }) => {
+  const getProgressColor = (percentage) => {
+    if (percentage >= 80) return 'text-green-600';
+    if (percentage >= 50) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'active': return 'bg-green-100 text-green-800';
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'completed': return 'bg-blue-100 text-blue-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  return (
+    <div 
+      onClick={onCustomerClick}
+      className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+    >
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center">
+          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+            <User className="h-5 w-5 text-blue-600" />
+          </div>
+          <div>
+            <h4 className="font-semibold text-gray-900">
+              {customer.user.firstName} {customer.user.lastName}
+            </h4>
+            <p className="text-sm text-gray-600">{customer.user.email}</p>
+          </div>
+        </div>
+        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(customer.status)}`}>
+          {customer.status}
+        </span>
+      </div>
+      
+      <div className="space-y-2">
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-600">Progress:</span>
+          <span className={`font-medium ${getProgressColor(customer.progress.progressPercentage || 0)}`}>
+            {customer.progress.progressPercentage || 0}%
+          </span>
+        </div>
+        
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-600">Sessions:</span>
+          <span className="font-medium">
+            {customer.progress.completedSessions || 0} / {customer.progress.totalSessions || 0}
+          </span>
+        </div>
+        
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-600">Enrolled:</span>
+          <span className="font-medium">
+            {new Date(customer.enrollmentDate).toLocaleDateString()}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Customer Session Card Component
+const CustomerSessionCard = ({ session, customer, onMarkAttendance }) => {
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  const formatTime = (timeString) => {
+    return new Date(`2000-01-01T${timeString}`).toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'scheduled': return 'bg-blue-100 text-blue-800';
+      case 'in-progress': return 'bg-yellow-100 text-yellow-800';
+      case 'completed': return 'bg-green-100 text-green-800';
+      case 'cancelled': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  // Find the participant for this customer in the session
+  const participant = session.participants?.find(p => p.user && p.user._id === customer._id);
+  
+  const getAttendanceStatus = () => {
+    if (!participant) {
+      return { status: 'Not Enrolled', color: 'text-gray-600', bgColor: 'bg-gray-100' };
+    }
+    
+    if (participant.attended === true) {
+      return { status: 'Present', color: 'text-green-600', bgColor: 'bg-green-100' };
+    } else if (participant.attended === false) {
+      return { status: 'Absent', color: 'text-red-600', bgColor: 'bg-red-100' };
+    } else {
+      return { status: 'Not Marked', color: 'text-gray-600', bgColor: 'bg-gray-100' };
+    }
+  };
+
+  const attendanceStatus = getAttendanceStatus();
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex-1">
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            {session.title}
+          </h3>
+          <p className="text-gray-600 mb-3">{session.description}</p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div className="flex items-center text-sm text-gray-600">
+              <Calendar className="h-4 w-4 mr-2" />
+              {formatDate(session.scheduledDate)}
+            </div>
+            
+            <div className="flex items-center text-sm text-gray-600">
+              <Clock className="h-4 w-4 mr-2" />
+              {formatTime(session.startTime)} - {formatTime(session.endTime)}
+            </div>
+            
+            {session.ground && (
+              <div className="flex items-center text-sm text-gray-600">
+                <MapPin className="h-4 w-4 mr-2" />
+                {session.ground.name}
+              </div>
+            )}
+          </div>
+        </div>
+        
+        <div className="flex items-center space-x-3">
+          <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(session.status)}`}>
+            {session.status}
+          </span>
+        </div>
+      </div>
+      
+      <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+        <div className="flex items-center space-x-4">
+          <div className={`px-3 py-1 rounded-full text-sm font-medium ${attendanceStatus.bgColor} ${attendanceStatus.color}`}>
+            {attendanceStatus.status}
+          </div>
+          
+          {participant?.attendanceMarkedAt && (
+            <div className="text-sm text-gray-500">
+              Marked: {new Date(participant.attendanceMarkedAt).toLocaleDateString()}
+            </div>
+          )}
+        </div>
+        
+        <button
+          onClick={() => onMarkAttendance(session)}
+          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+        >
+          <UserCheck className="h-4 w-4 mr-1" />
+          Mark Attendance
         </button>
       </div>
     </div>
