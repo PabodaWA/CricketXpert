@@ -46,7 +46,8 @@ export const getAllRepairRequests = (params = {}) => {
 // Get customer-specific requests
 export const getCustomerRequests = (customerId) => {
   // Backend route: /api/repairs/dashboard/customer/:customerId
-  return axios.get(`${BASE_URL}/dashboard/customer/${customerId}`);
+  // Add cache-busting parameter to ensure fresh data
+  return axios.get(`${BASE_URL}/dashboard/customer/${customerId}?t=${Date.now()}`);
 };
 
 // Get technician tasks

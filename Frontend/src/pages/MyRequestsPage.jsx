@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getCustomerRequests } from '../api/repairRequestApi';
+import { getCurrentUser } from '../utils/getCurrentUser';
 import Brand from '../brand';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -12,14 +13,29 @@ const MyRequestsPage = () => {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    loadMyRequests();
-  }, []);
+    // Redirect to customer dashboard for logged-in user
+    const currentUser = getCurrentUser();
+    if (currentUser && currentUser._id) {
+      navigate(`/dashboard/${currentUser._id}`);
+    } else {
+      setError('Please log in to view your requests');
+      navigate('/login');
+    }
+  }, [navigate]);
 
   const loadMyRequests = async () => {
     try {
       setLoading(true);
-      // Using customer ID 1 as default - you can make this dynamic based on logged-in user
-      const response = await getCustomerRequests(1);
+      
+      // Get current logged-in user ID
+      const currentUser = getCurrentUser();
+      if (!currentUser || !currentUser._id) {
+        setError('Please log in to view your requests');
+        navigate('/login');
+        return;
+      }
+      
+      const response = await getCustomerRequests(currentUser._id);
       const requests = Array.isArray(response?.data) ? response.data : [];
       setRepairRequests(requests);
     } catch (err) {

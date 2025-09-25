@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { submitRepairRequest, fetchUserByUsername } from '../api/repairRequestApi';
+import { getCurrentUser } from '../utils/getCurrentUser';
+import axios from 'axios';
 import Brand from '../brand';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -32,6 +34,59 @@ const RepairRequestForm = () => {
     'Other'
   ];
 
+  // Pre-fill current user from login info (if available)
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        const logged = getCurrentUser();
+        if (!logged || !logged.token) return;
+
+        // Fetch complete user profile to get contactNumber and other fields
+        const config = {
+          headers: {
+            Authorization: `Bearer ${logged.token}`,
+          },
+        };
+        
+        const { data } = await axios.get('http://localhost:5000/api/users/profile', config);
+        
+        const id = data._id || data.id || logged._id || null;
+        const name = `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.username || '';
+        const email = data.email || logged.email || '';
+        const phone = data.contactNumber || '';
+        const address = data.address || '';
+        const username = data.username || logged.username || '';
+
+        if (!id) return;
+
+        const normalized = { id, name, email, phone, address, username };
+        setCurrentUser(normalized);
+      } catch (e) {
+        // Fallback to basic login data if profile fetch fails
+        try {
+          const logged = getCurrentUser();
+          if (!logged) return;
+
+          const id = logged._id || logged.id || null;
+          const name = logged.username || '';
+          const email = logged.email || '';
+          const phone = '';
+          const address = '';
+          const username = logged.username || '';
+
+          if (!id) return;
+
+          const normalized = { id, name, email, phone, address, username };
+          setCurrentUser(normalized);
+        } catch (fallbackError) {
+          // noop
+        }
+      }
+    };
+
+    fetchUserProfile();
+  }, []);
+
   const handleUsernameCheck = async () => {
     setLookupError('');
     setApiError('');
@@ -47,7 +102,7 @@ const RepairRequestForm = () => {
       const id = user.id || user._id || user.userId || user.customerId || null;
       const name = user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username || '';
       const email = user.email || user.mail || '';
-      const phone = user.phone || user.contactNumber || user.mobile || '';
+      const phone = user.contactNumber || user.phone || user.mobile || '';
       const address = user.address || user.location || '';
 
       if (!id || !email) throw new Error('notfound');

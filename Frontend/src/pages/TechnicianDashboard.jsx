@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getAllTechnicians, getAllRepairRequests, updateTaskProgress } from '../api/repairRequestApi';
+import axios from 'axios';
+import { getAllTechnicians, getAllRepairRequests, updateTaskProgress, getTechnicianTasks } from '../api/repairRequestApi';
 import { updateTechnician } from '../api/technicianApi';
+import { getCurrentUser } from '../utils/getCurrentUser';
 import Brand from '../brand';
 
 const TechnicianDashboard = () => {
   const navigate = useNavigate();
-  const [technicians, setTechnicians] = useState([]);
+  const [currentTechnician, setCurrentTechnician] = useState(null);
   const [repairRequests, setRepairRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [availabilityFilter, setAvailabilityFilter] = useState('all');
@@ -41,40 +43,101 @@ const TechnicianDashboard = () => {
   ];
 
   useEffect(() => {
-    loadTechnicians();
-    loadRepairRequests();
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+      navigate('/login');
+      return;
+    }
     
-    // Expose loadTechnicians function globally for cross-dashboard updates
-    window.technicianDashboard = {
-      loadTechnicians: loadTechnicians
-    };
+    loadCurrentTechnician();
     
     // Cleanup on unmount
     return () => {
-      delete window.technicianDashboard;
+      if (window.technicianDashboard) {
+        delete window.technicianDashboard;
+      }
     };
   }, []);
 
-  const loadTechnicians = async () => {
+  // Load repairs after technician is loaded
+  useEffect(() => {
+    if (currentTechnician) {
+      loadTechnicianRepairs();
+    }
+  }, [currentTechnician]);
+
+  const loadCurrentTechnician = async () => {
     try {
       setLoading(true);
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        navigate('/login');
+        return;
+      }
+
+      // Get all technicians and find the current user's technician profile
       const response = await getAllTechnicians();
-      setTechnicians(response.data);
+      const technician = response.data.find(t => 
+        t.technicianId?._id === currentUser._id || 
+        t.technicianId?.username === currentUser.username
+      );
+      
+      if (technician) {
+        setCurrentTechnician(technician);
+      } else {
+        console.error('Technician profile not found for current user');
+        alert('Technician profile not found. Please contact administrator.');
+        setTimeout(() => {
+          try {
+            // Clear any auth/session info so guards don't bounce us back
+            localStorage.removeItem('cx_current_user');
+            localStorage.removeItem('userInfo');
+            navigate('/login', { replace: true });
+          } catch (e) {
+            localStorage.removeItem('cx_current_user');
+            localStorage.removeItem('userInfo');
+            window.location.replace('/login');
+          }
+        }, 0);
+      }
     } catch (error) {
-      console.error('Error loading technicians:', error);
+      console.error('Error loading current technician:', error);
+      alert('Error loading technician profile. Please try again.');
+      setTimeout(() => {
+        try {
+          localStorage.removeItem('cx_current_user');
+          localStorage.removeItem('userInfo');
+          navigate('/login', { replace: true });
+        } catch (e) {
+          localStorage.removeItem('cx_current_user');
+          localStorage.removeItem('userInfo');
+          window.location.replace('/login');
+        }
+      }, 0);
     } finally {
       setLoading(false);
     }
   };
 
-  const loadRepairRequests = async () => {
+  const loadTechnicianRepairs = async () => {
     try {
-      const response = await getAllRepairRequests();
-      console.log('Repair requests data:', response.data);
-      console.log('Sample repair request with assigned technician:', response.data.find(r => r.assignedTechnician));
-      setRepairRequests(response.data);
+      const currentUser = getCurrentUser();
+      if (!currentUser) return;
+
+      // First, we need to get the technician profile to get the technician ID
+      // The assignedTechnician field in RepairRequest references the Technician collection, not User
+      if (!currentTechnician) {
+        console.log('Current technician not loaded yet, skipping repair requests load');
+        return;
+      }
+
+      // Use the technician's _id (from Technician collection) to get repairs
+      const response = await axios.get(`http://localhost:5000/api/repairs/dashboard/technician/${currentTechnician._id}`);
+      console.log('Technician repair requests data:', response.data);
+      setRepairRequests(response.data || []);
     } catch (error) {
-      console.error('Error loading repair requests:', error);
+      console.error('Error loading technician repair requests:', error);
+      setRepairRequests([]);
     }
   };
 
@@ -82,7 +145,7 @@ const TechnicianDashboard = () => {
     try {
       const newAvailability = !currentAvailability;
       await updateTechnician(technicianId, { available: newAvailability });
-      await loadTechnicians(); // Reload to get updated data
+      await loadCurrentTechnician(); // Reload to get updated data
       
       // Update Service Manager Dashboard if it's open
       if (window.serviceManagerDashboard && window.serviceManagerDashboard.loadData) {
@@ -96,37 +159,7 @@ const TechnicianDashboard = () => {
     }
   };
 
-  const handleDeleteTechnician = async (technicianId) => {
-    if (!window.confirm('Are you sure you want to delete this technician? This action cannot be undone.')) {
-      return;
-    }
-    
-    setDeletingTechnician(technicianId);
-    try {
-      const response = await fetch(`http://localhost:5000/api/technicians/${technicianId}`, {
-        method: 'DELETE',
-      });
-      
-      if (response.ok) {
-        await loadTechnicians();
-        
-        // Update Service Manager Dashboard if it's open
-        if (window.serviceManagerDashboard && window.serviceManagerDashboard.loadData) {
-          window.serviceManagerDashboard.loadData();
-        }
-        
-        alert('Technician deleted successfully!');
-      } else {
-        const errorData = await response.json();
-        alert(`Failed to delete technician: ${errorData.error || 'Unknown error'}`);
-      }
-    } catch (error) {
-      console.error('Error deleting technician:', error);
-      alert('Failed to delete technician. Please try again.');
-    } finally {
-      setDeletingTechnician(null);
-    }
-  };
+  // Remove delete functionality for technician dashboard - technicians shouldn't delete themselves
 
   const handleEditTechnician = (technician) => {
     setEditingTechnician(technician);
@@ -149,7 +182,7 @@ const TechnicianDashboard = () => {
   const handleSaveEdit = async () => {
     try {
       await updateTechnician(editingTechnician._id, editFormData);
-      await loadTechnicians();
+      await loadCurrentTechnician();
       
       // Update Service Manager Dashboard if it's open
       if (window.serviceManagerDashboard && window.serviceManagerDashboard.loadData) {
@@ -165,65 +198,26 @@ const TechnicianDashboard = () => {
     }
   };
 
-  const filteredTechnicians = technicians.filter(technician => {
-    if (availabilityFilter === 'available') {
-      return technician.available === true;
-    } else if (availabilityFilter === 'unavailable') {
-      return technician.available === false;
-    }
-    return true; // 'all' filter
-  });
+  // Since we only show current technician, no need for filtering
 
-  // Get all repair requests that are in repair status or completed
-  const assignedRepairRequests = repairRequests.filter(request => 
-    request.status === 'In Repair' || 
-    request.status === 'Halfway Completed' || 
-    request.status === 'Ready for Pickup'
-  );
-
-  // Filter assigned repair requests by technician and status
-  const filteredAssignedRepairRequests = assignedRepairRequests.filter(request => {
-    // First filter by technician
-    let technicianMatch = true;
-    if (technicianFilter !== 'all') {
-      if (technicianFilter === 'unassigned') {
-        technicianMatch = !request.assignedTechnician;
-      } else if (request.assignedTechnician) {
-        const technicianUsername = request.assignedTechnician?.technicianId?.username || request.assignedTechnician?.username || 'Technician';
-        technicianMatch = technicianUsername.toLowerCase().includes(technicianFilter.toLowerCase());
-      } else {
-        technicianMatch = false;
-      }
-    }
-    
-    // Then filter by status
-    let statusMatch = true;
+  // Since we're only loading current technician's repairs, no need for complex filtering
+  const filteredAssignedRepairRequests = repairRequests.filter(request => {
+    // Filter by status if needed
     if (statusFilter !== 'all') {
-      statusMatch = request.status === statusFilter;
+      return request.status === statusFilter;
     }
-    
-    return technicianMatch && statusMatch;
+    return true;
   });
 
-  // Get unique technician usernames for the filter dropdown
-  const getTechnicianUsernames = () => {
-    const technicianUsernames = new Set();
-    assignedRepairRequests.forEach(request => {
-      if (request.assignedTechnician) {
-        const technicianUsername = request.assignedTechnician?.technicianId?.username || request.assignedTechnician?.username || 'Technician';
-        technicianUsernames.add(technicianUsername);
-      }
-    });
-    return Array.from(technicianUsernames).sort();
-  };
+  // No need for technician filtering since we only show current technician's repairs
 
-  // Debug: Log assigned repair requests when they change
+  // Debug: Log repair requests when they change
   useEffect(() => {
-    console.log('Assigned repair requests updated:', assignedRepairRequests);
-    assignedRepairRequests.forEach(request => {
+    console.log('Repair requests updated:', repairRequests);
+    repairRequests.forEach(request => {
       console.log(`Request ${request._id}: Status=${request.status}, Progress=${request.repairProgress}%`);
     });
-  }, [assignedRepairRequests]);
+  }, [repairRequests]);
 
   // Handle progress update
   // Validate progress notes for repeated characters
@@ -289,7 +283,7 @@ const TechnicianDashboard = () => {
       });
       
       // Also reload from server to ensure consistency
-      await loadRepairRequests();
+      await loadTechnicianRepairs();
       
       // Update Service Manager Dashboard if it's open
       if (window.serviceManagerDashboard && window.serviceManagerDashboard.loadData) {
@@ -507,7 +501,9 @@ const TechnicianDashboard = () => {
                   <option value="repair_requests">Assigned Repair Requests Only</option>
                 </select>
               </div>
-
+              <div className="text-sm" style={{ color: Brand.body }}>
+                Welcome back, {currentTechnician?.technicianId?.firstName || 'Technician'}!
+              </div>
             </div>
           </div>
         </div>
@@ -515,10 +511,10 @@ const TechnicianDashboard = () => {
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           {[
-            { label: 'Total Technicians', value: technicians.length, color: Brand.primary, show: globalFilter === 'all' || globalFilter === 'technicians' },
-            { label: 'Available Technicians', value: technicians.filter(t => t.available === true).length, color: '#10B981', show: globalFilter === 'all' || globalFilter === 'technicians' },
-            { label: 'Unavailable Technicians', value: technicians.filter(t => t.available === false).length, color: '#EF4444', show: globalFilter === 'all' || globalFilter === 'technicians' },
-                         { label: 'Active Repairs', value: filteredAssignedRepairRequests.length, color: '#3B82F6', show: globalFilter === 'all' || globalFilter === 'repair_requests' }
+            { label: 'Total Technicians', value: currentTechnician ? 1 : 0, color: Brand.primary, show: globalFilter === 'all' || globalFilter === 'technicians' },
+            { label: 'Available Technicians', value: currentTechnician && currentTechnician.available ? 1 : 0, color: '#10B981', show: globalFilter === 'all' || globalFilter === 'technicians' },
+            { label: 'Unavailable Technicians', value: currentTechnician && !currentTechnician.available ? 1 : 0, color: '#EF4444', show: globalFilter === 'all' || globalFilter === 'technicians' },
+            { label: 'Active Repairs', value: filteredAssignedRepairRequests.length, color: '#3B82F6', show: globalFilter === 'all' || globalFilter === 'repair_requests' }
           ].filter(stat => stat.show).map((stat, index) => (
             <div key={index} className="bg-white rounded-xl shadow-md p-6">
               <div className="text-3xl font-bold" style={{ color: stat.color }}>{stat.value}</div>
@@ -527,258 +523,192 @@ const TechnicianDashboard = () => {
           ))}
         </div>
 
-        {/* Technicians Table */}
-        {(globalFilter === 'all' || globalFilter === 'technicians') && (
+        {/* Current Technician Profile */}
+        {currentTechnician && (globalFilter === 'all' || globalFilter === 'technicians') && (
           <div className="bg-white rounded-xl shadow-md overflow-hidden mb-6">
             <div className="px-6 py-4 border-b" style={{ borderColor: Brand.light }}>
               <div className="flex justify-between items-center mb-4">
                 <div>
                   <h2 className="text-xl font-semibold" style={{ color: Brand.primary }}>
-                    Technicians ({filteredTechnicians.length})
+                    My Profile
                   </h2>
                   <p className="text-sm" style={{ color: Brand.body }}>
-                    View and manage all technician profiles
+                    Manage your technician profile and availability
                   </p>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <select
-                    value={availabilityFilter}
-                    onChange={(e) => setAvailabilityFilter(e.target.value)}
-                    className="px-3 py-2 border rounded-lg text-sm"
-                    style={{ borderColor: Brand.secondary, color: Brand.body }}
-                  >
-                    <option value="all">All Technicians</option>
-                    <option value="available">Available Only</option>
-                    <option value="unavailable">Unavailable Only</option>
-                  </select>
-                </div>
+                <button
+                  onClick={() => handleEditTechnician(currentTechnician)}
+                  className="px-4 py-2 rounded-lg text-white text-sm"
+                  style={{ backgroundColor: Brand.secondary }}
+                >
+                  Edit Profile
+                </button>
               </div>
             </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full">
-                <thead>
-                  <tr className="text-left text-sm" style={{ backgroundColor: Brand.light }}>
-                    <th className="px-6 py-3" style={{ color: Brand.body }}>Technician</th>
-                    <th className="px-6 py-3" style={{ color: Brand.body }}>Contact</th>
-                    <th className="px-6 py-3" style={{ color: Brand.body }}>Skills</th>
-                    <th className="px-6 py-3" style={{ color: Brand.body }}>Status</th>
-                    <th className="px-6 py-3" style={{ color: Brand.body }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredTechnicians.map((technician) => (
-                    <tr key={technician._id} className="border-t" style={{ borderColor: Brand.light }}>
-                      <td className="px-6 py-4">
-                        <div>
-                          <div className="font-medium" style={{ color: Brand.body }}>
-                            {technician.technicianId?.firstName} {technician.technicianId?.lastName}
-                          </div>
-                          <div className="text-sm" style={{ color: Brand.secondary }}>
-                            @{technician.technicianId?.username}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div>
-                          <div className="text-sm" style={{ color: Brand.body }}>
-                            {technician.technicianId?.email}
-                          </div>
-                          <div className="text-sm" style={{ color: Brand.secondary }}>
-                            {technician.technicianId?.contactNumber || 'No phone'}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-wrap gap-1">
-                          {technician.skills && technician.skills.length > 0 ? (
-                            technician.skills.map((skill, index) => (
-                              <span
-                                key={index}
-                                className="px-3 py-1 rounded-full text-xs font-medium border"
-                                style={{ 
-                                  backgroundColor: Brand.secondary + '20', 
-                                  color: Brand.primary,
-                                  borderColor: Brand.secondary
-                                }}
-                              >
-                                {skill}
-                              </span>
-                            ))
-                          ) : (
-                            <span className="text-sm text-gray-500 italic">No skills listed</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <button
-                          onClick={() => handleAvailabilityToggle(technician._id, technician.available)}
-                          className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-                            technician.available 
-                              ? 'bg-green-100 text-green-800 hover:bg-green-200' 
-                              : 'bg-red-100 text-red-800 hover:bg-red-200'
-                          }`}
-                        >
-                          {technician.available ? 'Available' : 'Unavailable'}
-                        </button>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => handleEditTechnician(technician)}
-                            className="px-3 py-1 rounded text-white text-sm"
-                            style={{ backgroundColor: Brand.secondary }}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDeleteTechnician(technician._id)}
-                            disabled={deletingTechnician === technician._id}
-                            className={`px-3 py-1 rounded text-white text-sm transition-colors ${
-                              deletingTechnician === technician._id ? 'opacity-50 cursor-not-allowed' : ''
-                            }`}
-                            style={{ backgroundColor: Brand.accent }}
-                          >
-                            {deletingTechnician === technician._id ? 'Deleting...' : 'Delete'}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {filteredTechnicians.length === 0 && !loading && (
-                    <tr>
-                      <td colSpan="5" className="px-6 py-8 text-center">
-                        <div className="text-gray-500">
-                          <div className="text-lg mb-2">No technicians found</div>
-                          <div className="text-sm">No technicians match the current filter</div>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="text-lg font-semibold mb-3" style={{ color: Brand.primary }}>Personal Information</h3>
+                  <div className="space-y-2">
+                    <div>
+                      <span className="font-medium" style={{ color: Brand.body }}>Name: </span>
+                      <span style={{ color: Brand.secondary }}>
+                        {currentTechnician.technicianId?.firstName} {currentTechnician.technicianId?.lastName}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="font-medium" style={{ color: Brand.body }}>Username: </span>
+                      <span style={{ color: Brand.secondary }}>@{currentTechnician.technicianId?.username}</span>
+                    </div>
+                    <div>
+                      <span className="font-medium" style={{ color: Brand.body }}>Email: </span>
+                      <span style={{ color: Brand.secondary }}>{currentTechnician.technicianId?.email}</span>
+                    </div>
+                    <div>
+                      <span className="font-medium" style={{ color: Brand.body }}>Phone: </span>
+                      <span style={{ color: Brand.secondary }}>
+                        {currentTechnician.technicianId?.contactNumber || 'Not provided'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold mb-3" style={{ color: Brand.primary }}>Professional Information</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <span className="font-medium" style={{ color: Brand.body }}>Status: </span>
+                      <button
+                        onClick={() => handleAvailabilityToggle(currentTechnician._id, currentTechnician.available)}
+                        className={`ml-2 px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                          currentTechnician.available 
+                            ? 'bg-green-100 text-green-800 hover:bg-green-200' 
+                            : 'bg-red-100 text-red-800 hover:bg-red-200'
+                        }`}
+                      >
+                        {currentTechnician.available ? 'Available' : 'Unavailable'}
+                      </button>
+                    </div>
+                    <div>
+                      <span className="font-medium" style={{ color: Brand.body }}>Skills:</span>
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {currentTechnician.skills && currentTechnician.skills.length > 0 ? (
+                          currentTechnician.skills.map((skill, index) => (
+                            <span
+                              key={index}
+                              className="px-3 py-1 rounded-full text-xs font-medium border"
+                              style={{ 
+                                backgroundColor: Brand.secondary + '20', 
+                                color: Brand.primary,
+                                borderColor: Brand.secondary
+                              }}
+                            >
+                              {skill}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-sm text-gray-500 italic">No skills listed</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}
 
-        {/* Assigned Repair Requests Cards */}
+        {/* My Repair Requests */}
         {(globalFilter === 'all' || globalFilter === 'repair_requests') && (
           <div className="bg-white rounded-xl shadow-md p-6 mb-6">
-                         <div className="flex justify-between items-center mb-6">
-               <div>
-                 <h2 className="text-xl font-semibold" style={{ color: Brand.primary }}>
-                   Assigned Repair Requests ({filteredAssignedRepairRequests.length})
-                 </h2>
-                 <p className="text-sm" style={{ color: Brand.body }}>
-                   All repair requests in progress or ready for pickup
-                 </p>
-               </div>
-                               <div className="flex items-center space-x-4">
-                  {/* Status Filter Buttons */}
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm font-medium" style={{ color: Brand.body }}>Status:</span>
-                    <button
-                      onClick={() => setStatusFilter('all')}
-                      className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-                        statusFilter === 'all'
-                          ? 'text-white'
-                          : 'text-gray-600 hover:text-gray-800'
-                      }`}
-                      style={{
-                        backgroundColor: statusFilter === 'all' ? Brand.primary : 'transparent',
-                        border: statusFilter === 'all' ? 'none' : `1px solid ${Brand.secondary}`
-                      }}
-                    >
-                      All
-                    </button>
-                    <button
-                      onClick={() => setStatusFilter('In Repair')}
-                      className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-                        statusFilter === 'In Repair'
-                          ? 'text-white'
-                          : 'text-blue-600 hover:text-blue-800'
-                      }`}
-                      style={{
-                        backgroundColor: statusFilter === 'In Repair' ? '#3B82F6' : 'transparent',
-                        border: statusFilter === 'In Repair' ? 'none' : '1px solid #3B82F6'
-                      }}
-                    >
-                      In Repair
-                    </button>
-                    <button
-                      onClick={() => setStatusFilter('Halfway Completed')}
-                      className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-                        statusFilter === 'Halfway Completed'
-                          ? 'text-white'
-                          : 'text-yellow-600 hover:text-yellow-800'
-                      }`}
-                      style={{
-                        backgroundColor: statusFilter === 'Halfway Completed' ? '#F59E0B' : 'transparent',
-                        border: statusFilter === 'Halfway Completed' ? 'none' : '1px solid #F59E0B'
-                      }}
-                    >
-                      Halfway Completed
-                    </button>
-                    <button
-                      onClick={() => setStatusFilter('Ready for Pickup')}
-                      className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-                        statusFilter === 'Ready for Pickup'
-                          ? 'text-white'
-                          : 'text-green-600 hover:text-green-800'
-                      }`}
-                      style={{
-                        backgroundColor: statusFilter === 'Ready for Pickup' ? '#10B981' : 'transparent',
-                        border: statusFilter === 'Ready for Pickup' ? 'none' : '1px solid #10B981'
-                      }}
-                    >
-                      Completed
-                    </button>
-                  </div>
-                  
-                  {/* Technician Filter Dropdown */}
-                  <div className="flex items-center space-x-2">
-                    <select
-                      value={technicianFilter}
-                      onChange={(e) => setTechnicianFilter(e.target.value)}
-                      className="px-3 py-2 border rounded-lg text-sm"
-                      style={{ borderColor: Brand.secondary, color: Brand.body }}
-                    >
-                      <option value="all">All Technicians</option>
-                      <option value="unassigned">Unassigned Requests</option>
-                      {getTechnicianUsernames().map((username) => (
-                        <option key={username} value={username}>
-                          @{username}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-             </div>
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h2 className="text-xl font-semibold" style={{ color: Brand.primary }}>
+                My Repair Requests ({filteredAssignedRepairRequests.length})
+              </h2>
+              <p className="text-sm" style={{ color: Brand.body }}>
+                Repair requests assigned to you
+              </p>
+            </div>
+            <div className="flex items-center space-x-4">
+              {/* Status Filter Buttons */}
+              <div className="flex items-center space-x-2">
+                <span className="text-sm font-medium" style={{ color: Brand.body }}>Status:</span>
+                <button
+                  onClick={() => setStatusFilter('all')}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                    statusFilter === 'all'
+                      ? 'text-white'
+                      : 'text-gray-600 hover:text-gray-800'
+                  }`}
+                  style={{
+                    backgroundColor: statusFilter === 'all' ? Brand.primary : 'transparent',
+                    border: statusFilter === 'all' ? 'none' : `1px solid ${Brand.secondary}`
+                  }}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => setStatusFilter('In Repair')}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                    statusFilter === 'In Repair'
+                      ? 'text-white'
+                      : 'text-blue-600 hover:text-blue-800'
+                  }`}
+                  style={{
+                    backgroundColor: statusFilter === 'In Repair' ? '#3B82F6' : 'transparent',
+                    border: statusFilter === 'In Repair' ? 'none' : '1px solid #3B82F6'
+                  }}
+                >
+                  In Repair
+                </button>
+                <button
+                  onClick={() => setStatusFilter('Halfway Completed')}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                    statusFilter === 'Halfway Completed'
+                      ? 'text-white'
+                      : 'text-yellow-600 hover:text-yellow-800'
+                  }`}
+                  style={{
+                    backgroundColor: statusFilter === 'Halfway Completed' ? '#F59E0B' : 'transparent',
+                    border: statusFilter === 'Halfway Completed' ? 'none' : '1px solid #F59E0B'
+                  }}
+                >
+                  Halfway Completed
+                </button>
+                <button
+                  onClick={() => setStatusFilter('Ready for Pickup')}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                    statusFilter === 'Ready for Pickup'
+                      ? 'text-white'
+                      : 'text-green-600 hover:text-green-800'
+                  }`}
+                  style={{
+                    backgroundColor: statusFilter === 'Ready for Pickup' ? '#10B981' : 'transparent',
+                    border: statusFilter === 'Ready for Pickup' ? 'none' : '1px solid #10B981'
+                  }}
+                >
+                  Completed
+                </button>
+              </div>
+            </div>
+          </div>
             
             {loading ? (
               <div className="text-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: Brand.secondary }}></div>
                 <p className="text-sm" style={{ color: Brand.body }}>Loading repair requests...</p>
               </div>
-                         ) : filteredAssignedRepairRequests.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="text-6xl mb-4">🔧</div>
-                                 <h3 className="text-xl font-semibold mb-2" style={{ color: Brand.primary }}>No Repairs Found</h3>
-                                      <p style={{ color: Brand.body }}>
-                       {(() => {
-                         if (technicianFilter !== 'all' && statusFilter !== 'all') {
-                           return `No ${statusFilter.toLowerCase()} repair requests assigned to @${technicianFilter} found.`;
-                         } else if (technicianFilter !== 'all') {
-                           return technicianFilter === 'unassigned'
-                             ? 'No unassigned repair requests found.'
-                             : `No repair requests assigned to @${technicianFilter} found.`;
-                         } else if (statusFilter !== 'all') {
-                           return `No ${statusFilter.toLowerCase()} repair requests found.`;
-                         } else {
-                           return 'No repair requests are currently in progress or ready for pickup.';
-                         }
-                       })()}
-                     </p>
-              </div>
+          ) : filteredAssignedRepairRequests.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-6xl mb-4">🔧</div>
+              <h3 className="text-xl font-semibold mb-2" style={{ color: Brand.primary }}>No Repairs Found</h3>
+              <p style={{ color: Brand.body }}>
+                {statusFilter !== 'all' 
+                  ? `No ${statusFilter.toLowerCase()} repair requests found.`
+                  : 'No repair requests are currently assigned to you.'
+                }
+              </p>
+            </div>
             ) : (
                              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                  {filteredAssignedRepairRequests.map((request) => (
@@ -847,35 +777,24 @@ const TechnicianDashboard = () => {
                         </p>
                       </div>
 
-                      {/* Assigned Technician */}
+                      {/* Customer Information */}
                       <div className="mb-4 p-3 rounded-lg" style={{ backgroundColor: Brand.light }}>
                         <p className="text-xs font-medium mb-1" style={{ color: Brand.secondary }}>
-                          Assigned Technician
+                          Customer Information
                         </p>
-                        {request.assignedTechnician ? (
-                          <div className="flex items-center space-x-2">
-                            <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: Brand.primary }}>
-                              {(request.assignedTechnician?.technicianId?.firstName || request.assignedTechnician?.firstName || 'T').charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium" style={{ color: Brand.body }}>
-                                {request.assignedTechnician?.technicianId?.firstName || request.assignedTechnician?.firstName} {request.assignedTechnician?.technicianId?.lastName || request.assignedTechnician?.lastName}
-                              </p>
-                              <p className="text-xs" style={{ color: Brand.secondary }}>
-                                @{request.assignedTechnician?.technicianId?.username || request.assignedTechnician?.username || 'Technician'}
-                              </p>
-                            </div>
+                        <div className="flex items-center space-x-2">
+                          <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: Brand.primary }}>
+                            {(request.customerId?.username || 'C').charAt(0).toUpperCase()}
                           </div>
-                        ) : (
-                          <div className="flex items-center space-x-2">
-                            <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs" style={{ backgroundColor: '#9CA3AF', color: 'white' }}>
-                              ?
-                            </div>
-                            <span className="text-sm italic" style={{ color: Brand.secondary }}>
-                              No technician assigned
-                            </span>
+                          <div>
+                            <p className="text-sm font-medium" style={{ color: Brand.body }}>
+                              {request.customerId?.username || 'Unknown Customer'}
+                            </p>
+                            <p className="text-xs" style={{ color: Brand.secondary }}>
+                              {request.customerId?.email || 'No email'}
+                            </p>
                           </div>
-                        )}
+                        </div>
                       </div>
 
                       {/* Action Button */}
