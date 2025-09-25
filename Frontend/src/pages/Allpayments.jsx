@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { paymentApi } from '../api/paymentApi';
 import axios from 'axios';
 
@@ -9,14 +9,31 @@ const AllPayments = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalPayments, setTotalPayments] = useState(0);
+  const [searchInput, setSearchInput] = useState(''); // Input field value
   const [filters, setFilters] = useState({
     status: '',
     paymentType: '',
     startDate: '',
-    endDate: ''
+    endDate: '',
+    searchQuery: '' // Server-side search query
   });
 
   const limit = 10;
+
+  // Debounced search function
+  const debouncedSearch = useCallback(
+    (() => {
+      let timeoutId;
+      return (searchValue) => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          setFilters(prev => ({ ...prev, searchQuery: searchValue }));
+          setCurrentPage(1); // Reset to first page when searching
+        }, 500); // 500ms delay
+      };
+    })(),
+    []
+  );
 
   // Fetch payments data
   const fetchPayments = async () => {
@@ -85,12 +102,24 @@ const AllPayments = () => {
 
   useEffect(() => {
     fetchPayments();
-  }, [currentPage, filters]);
+  }, [currentPage, filters.status, filters.paymentType, filters.startDate, filters.endDate, filters.searchQuery]);
+
+  // Handle search input changes with debouncing
+  useEffect(() => {
+    debouncedSearch(searchInput);
+  }, [searchInput, debouncedSearch]);
 
   // Handle filter changes
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));
-    setCurrentPage(1); // Reset to first page when filters change
+    if (key !== 'searchQuery') {
+      setCurrentPage(1); // Reset to first page when filters change (except search)
+    }
+  };
+
+  // Handle search input changes
+  const handleSearchChange = (value) => {
+    setSearchInput(value);
   };
 
   // Clear all filters
@@ -99,8 +128,10 @@ const AllPayments = () => {
       status: '',
       paymentType: '',
       startDate: '',
-      endDate: ''
+      endDate: '',
+      searchQuery: ''
     });
+    setSearchInput(''); // Clear search input as well
     setCurrentPage(1);
   };
 
@@ -185,7 +216,7 @@ const AllPayments = () => {
       {/* Filters */}
       <div className="mb-6 bg-gray-50 p-4 rounded-lg">
         <h3 className="text-lg font-semibold mb-4">Filters</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
             <select
@@ -234,6 +265,17 @@ const AllPayments = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Search User</label>
+            <input
+              type="text"
+              placeholder="Search by user name..."
+              value={searchInput}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
         </div>
 
         <div className="mt-4">
@@ -253,18 +295,6 @@ const AllPayments = () => {
         </div>
       )}
 
-      {/* Debug Info */}
-      {(() => {
-        const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
-        return (
-          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded text-sm">
-            <strong>Debug Info:</strong> 
-            <br />• User Role: {userInfo.role || 'Not logged in'}
-            <br />• Token Present: {userInfo.token ? 'Yes' : 'No'}
-            <br />• User ID: {userInfo._id || 'N/A'}
-          </div>
-        );
-      })()}
 
       {/* Summary */}
       <div className="mb-4 text-sm text-gray-600">
@@ -295,7 +325,7 @@ const AllPayments = () => {
                 Payment Date
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Order ID
+                Related ID
               </th>
             </tr>
           </thead>
@@ -339,13 +369,30 @@ const AllPayments = () => {
                     {formatDate(payment.paymentDate)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
-                    {payment.orderId ? (
-                      <span className="text-blue-600 hover:text-blue-800 cursor-pointer">
-                        {payment.orderId._id ? payment.orderId._id.slice(-8) : payment.orderId.slice(-8)}
-                      </span>
-                    ) : (
-                      <span className="text-gray-500">N/A</span>
-                    )}
+                    {(() => {
+                      // Show appropriate related ID based on payment type
+                      if (payment.paymentType === 'order_payment' && payment.orderId) {
+                        return (
+                          <span className="text-blue-600 hover:text-blue-800 cursor-pointer">
+                            {payment.orderId._id ? payment.orderId._id.slice(-8) : payment.orderId.slice(-8)}
+                          </span>
+                        );
+                      } else if (payment.paymentType === 'enrollment_payment' && payment.enrollmentId) {
+                        return (
+                          <span className="text-green-600 hover:text-green-800 cursor-pointer">
+                            {payment.enrollmentId.slice(-8)}
+                          </span>
+                        );
+                      } else if (payment.paymentType === 'booking_payment' && payment.bookingId) {
+                        return (
+                          <span className="text-purple-600 hover:text-purple-800 cursor-pointer">
+                            {payment.bookingId.slice(-8)}
+                          </span>
+                        );
+                      } else {
+                        return <span className="text-gray-500">N/A</span>;
+                      }
+                    })()}
                   </td>
                 </tr>
               ))

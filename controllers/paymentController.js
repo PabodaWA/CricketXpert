@@ -2,6 +2,7 @@ import Payment from '../models/Payments.js';
 import Order from '../models/Order.js';
 import CartPending from '../models/cart_Pending.js';
 import Product from '../models/Product.js';
+import ProgramEnrollment from '../models/ProgramEnrollment.js';
 
 // Create payment
 const createPayment = async (req, res) => {
@@ -27,7 +28,7 @@ const createPayment = async (req, res) => {
 // Get all payments
 const getPayments = async (req, res) => {
   try {
-    const { status, paymentType, userId, startDate, endDate, page = 1, limit = 10 } = req.query;
+    const { status, paymentType, userId, startDate, endDate, searchQuery, page = 1, limit = 10 } = req.query;
     let query = {};
     
     if (status) query.status = status;
@@ -40,17 +41,57 @@ const getPayments = async (req, res) => {
       };
     }
     
+    // Handle search query for user names
+    if (searchQuery) {
+      // First find users that match the search query
+      const User = (await import('../models/User.js')).default;
+      const matchingUsers = await User.find({
+        $or: [
+          { firstName: { $regex: searchQuery, $options: 'i' } },
+          { lastName: { $regex: searchQuery, $options: 'i' } },
+          { email: { $regex: searchQuery, $options: 'i' } }
+        ]
+      }).select('_id');
+      
+      const userIds = matchingUsers.map(user => user._id);
+      if (userIds.length > 0) {
+        query.userId = { $in: userIds };
+      } else {
+        // If no users found, return empty result
+        return res.json({
+          payments: [],
+          totalPages: 0,
+          currentPage: page,
+          total: 0
+        });
+      }
+    }
+    
     const payments = await Payment.find(query)
       .populate('userId')
       .populate('orderId')
       .sort({ paymentDate: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
+
+    // For enrollment payments, find the related enrollment
+    const paymentsWithEnrollment = await Promise.all(
+      payments.map(async (payment) => {
+        if (payment.paymentType === 'enrollment_payment') {
+          const enrollment = await ProgramEnrollment.findOne({ paymentId: payment._id });
+          return {
+            ...payment.toObject(),
+            enrollmentId: enrollment ? enrollment._id : null
+          };
+        }
+        return payment.toObject();
+      })
+    );
     
     const total = await Payment.countDocuments(query);
     
     res.json({
-      payments,
+      payments: paymentsWithEnrollment,
       totalPages: Math.ceil(total / limit),
       currentPage: page,
       total
