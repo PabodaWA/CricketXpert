@@ -20,22 +20,38 @@ import {
   getCoachAvailability,
   getBookingDateRange,
   getWeeklySessionStructure,
-  getCoachEnrolledPrograms
+  getCoachEnrolledPrograms,
+  markSessionAttendance,
+  getSessionAttendance,
+  getCoachSessions,
+  createSessionsForEnrollments,
+  testCoachEndpoint,
+  getEnrolledCustomers,
+  getCustomerSessions
 } from '../controllers/coachController.js';
 
 // Middleware (Note: You'll need to implement these middleware functions)
 // const { protect, authorize } = require('../middleware/auth');
 
-// Public routes
+// Specific routes (must come before general /:id route)
+router.get('/test', testCoachEndpoint); // Test endpoint to verify API is working
 router.get('/', getAllCoaches); // Get all coaches with filtering
 router.get('/specialization/:specialization', getCoachesBySpecialization); // Get coaches by specialization
 router.get('/user/:userId', getCoachByUserId); // Get coach by user ID
 router.get('/sync-coaches', syncCoaches); // Sync coaches - create missing profiles and return all coaches
-router.get('/:id', getCoach); // Get single coach profile
+
+// Specific routes (must come before general /:id route)
 router.get('/:id/availability', getCoachAvailability); // Get coach availability for booking
 router.get('/:id/booking-range', getBookingDateRange); // Get valid booking date range
 router.get('/:id/weekly-sessions', getWeeklySessionStructure); // Get weekly session structure
 router.get('/:id/enrolled-programs', getCoachEnrolledPrograms); // Get enrolled programs for a coach
+router.get('/:id/sessions', getCoachSessions); // Get coach's sessions with attendance data
+router.get('/:id/sessions/:sessionId/attendance', getSessionAttendance); // Get session attendance details
+router.get('/:id/enrolled-customers', getEnrolledCustomers); // Get enrolled customers for coach's programs
+router.get('/:id/customers/:customerId/sessions', getCustomerSessions); // Get individual customer sessions
+
+// General routes (must come after specific routes)
+router.get('/:id', getCoach); // Get single coach profile
 
 // Protected routes (uncomment when auth middleware is available)
 // router.use(protect); // Require authentication for all routes below
@@ -44,6 +60,8 @@ router.get('/:id/enrolled-programs', getCoachEnrolledPrograms); // Get enrolled 
 router.post('/', /* authorize('admin', 'coaching_manager'), */ createCoach); // Create coach profile
 router.put('/:id', /* authorize('admin', 'coach'), */ updateCoach); // Update coach profile
 router.put('/:id/availability', /* authorize('admin', 'coach'), */ updateCoachAvailability); // Update availability
+router.put('/:id/sessions/:sessionId/attendance', /* authorize('coach'), */ markSessionAttendance); // Mark session attendance
+router.post('/:id/create-sessions', /* authorize('coach'), */ createSessionsForEnrollments); // Create sessions for enrolled programs
 
 // Admin and Coaching Manager routes
 router.delete('/:id', /* authorize('admin'), */ deleteCoach); // Delete/deactivate coach

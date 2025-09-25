@@ -30,6 +30,7 @@ import feedbackRoutes from './routes/feedbackRoutes.js';
 import technicianRoutes from './routes/technicianRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import playerRoutes from './routes/players.js';
+import attendanceRoutes from './routes/attendanceRoutes.js';
 
 // --- Initial Configuration ---
 // Load environment variables from .env file
@@ -74,6 +75,7 @@ app.use('/api/feedbacks', feedbackRoutes);
 app.use('/api/technicians', technicianRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/players', playerRoutes);
+app.use('/api/attendance', attendanceRoutes);
 
 // A simple test route to check if the server is working
 app.get('/api/test', (req, res) => {
