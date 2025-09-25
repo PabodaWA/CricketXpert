@@ -147,7 +147,15 @@ const MyOrders = () => {
     <div className="bg-[#F1F2F7] min-h-screen p-8">
       <div className="max-w-4xl mx-auto">
         <div className="bg-white rounded-lg shadow-sm p-8">
-          <h2 className="text-3xl font-bold text-[#072679] mb-6">My Orders</h2>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-3xl font-bold text-[#072679]">My Orders</h2>
+            <button 
+              onClick={() => navigate('/products')}
+              className="bg-[#42ADF5] text-white px-6 py-3 rounded-lg hover:bg-[#2C8ED1] transition-colors font-medium shadow-sm"
+            >
+              Browse More Products
+            </button>
+          </div>
           
           {orders.length === 0 ? (
             <div className="text-center py-12">
