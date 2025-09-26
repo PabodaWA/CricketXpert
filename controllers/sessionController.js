@@ -560,7 +560,41 @@ const getSessionsByProgram = async (req, res) => {
       ]
     };
 
-    const sessions = await paginateHelper(Session, filter, options);
+    const allSessions = await Session.find(filter)
+      .populate(options.populate)
+      .sort(options.sort);
+
+    // Deduplicate sessions by session ID
+    const seenSessionIds = new Set();
+    const uniqueSessions = allSessions.filter(session => {
+      if (seenSessionIds.has(session._id.toString())) {
+        console.log('Removing duplicate session by ID:', session._id, session.title);
+        return false;
+      }
+      seenSessionIds.add(session._id.toString());
+      return true;
+    });
+
+    // Apply pagination to deduplicated sessions
+    const startIndex = (options.page - 1) * options.limit;
+    const endIndex = startIndex + options.limit;
+    const paginatedSessions = uniqueSessions.slice(startIndex, endIndex);
+
+    const totalDocs = uniqueSessions.length;
+    const totalPages = Math.ceil(totalDocs / options.limit);
+
+    const sessions = {
+      docs: paginatedSessions,
+      totalDocs,
+      limit: options.limit,
+      page: options.page,
+      totalPages,
+      hasNextPage: options.page < totalPages,
+      hasPrevPage: options.page > 1
+    };
+
+    console.log('Sessions by program - Total found:', allSessions.length);
+    console.log('Sessions by program - After deduplication:', uniqueSessions.length);
 
     res.status(200).json({
       success: true,
@@ -602,7 +636,41 @@ const getSessionsByCoach = async (req, res) => {
       ]
     };
 
-    const sessions = await paginateHelper(Session, filter, options);
+    const allSessions = await Session.find(filter)
+      .populate(options.populate)
+      .sort(options.sort);
+
+    // Deduplicate sessions by session ID
+    const seenSessionIds = new Set();
+    const uniqueSessions = allSessions.filter(session => {
+      if (seenSessionIds.has(session._id.toString())) {
+        console.log('Removing duplicate session by ID:', session._id, session.title);
+        return false;
+      }
+      seenSessionIds.add(session._id.toString());
+      return true;
+    });
+
+    // Apply pagination to deduplicated sessions
+    const startIndex = (options.page - 1) * options.limit;
+    const endIndex = startIndex + options.limit;
+    const paginatedSessions = uniqueSessions.slice(startIndex, endIndex);
+
+    const totalDocs = uniqueSessions.length;
+    const totalPages = Math.ceil(totalDocs / options.limit);
+
+    const sessions = {
+      docs: paginatedSessions,
+      totalDocs,
+      limit: options.limit,
+      page: options.page,
+      totalPages,
+      hasNextPage: options.page < totalPages,
+      hasPrevPage: options.page > 1
+    };
+
+    console.log('Sessions by coach - Total found:', allSessions.length);
+    console.log('Sessions by coach - After deduplication:', uniqueSessions.length);
 
     res.status(200).json({
       success: true,
@@ -822,7 +890,7 @@ const getSessionsByEnrollment = async (req, res) => {
     console.log('Fetching sessions for enrollment ID:', enrollmentId);
     
     // Find sessions where participants have this enrollment
-    const sessions = await Session.find({
+    const enrollmentQuery = await Session.find({
       'participants.enrollment': enrollmentId
     })
     .populate('program', 'title description')
@@ -835,13 +903,45 @@ const getSessionsByEnrollment = async (req, res) => {
       select: 'status progress'
     })
     .sort({ scheduledDate: 1 });
+    
+    // Alternative query: find sessions by enrollment ID directly in the session
+    const directQuery = await Session.find({
+      enrollment: enrollmentId
+    })
+    .populate('program', 'title description')
+    .populate('coach', 'userId')
+    .populate('coach.userId', 'firstName lastName')
+    .populate('ground', 'name location')
+    .populate({
+      path: 'participants.enrollment',
+      model: 'ProgramEnrollment',
+      select: 'status progress'
+    })
+    .sort({ scheduledDate: 1 });
+    
+    // Combine both results and remove duplicates
+    const allSessions = [...enrollmentQuery, ...directQuery];
 
-    console.log('Found sessions:', sessions.length);
-    console.log('Sessions data:', sessions);
+    console.log('Found sessions before deduplication:', allSessions.length);
+    console.log('Sessions data before deduplication:', allSessions);
+
+    // Only deduplicate by session ID (most reliable method)
+    const seenSessionIds = new Set();
+    const finalSessions = allSessions.filter(session => {
+      if (seenSessionIds.has(session._id.toString())) {
+        console.log('Removing duplicate session by ID:', session._id, session.title);
+        return false;
+      }
+      seenSessionIds.add(session._id.toString());
+      return true;
+    });
+
+    console.log('Found sessions after deduplication:', finalSessions.length);
+    console.log('Sessions data after deduplication:', finalSessions);
 
     res.status(200).json({
       success: true,
-      data: sessions
+      data: finalSessions
     });
   } catch (error) {
     console.error('Error fetching sessions by enrollment:', error);
@@ -908,6 +1008,9 @@ const createDirectSession = async (req, res) => {
         message: 'Cannot create session for inactive enrollment'
       });
     }
+    
+    // Allow manual booking even if automatic sessions exist
+    // This gives customers the flexibility to book their own sessions
     
     // Check program total sessions limit
     const programTotalSessions = enrollment.program.totalSessions || 10;
@@ -1099,6 +1202,250 @@ const createDirectSession = async (req, res) => {
   }
 };
 
+// @desc    Remove extra sessions for 2-week program
+// @route   POST /api/sessions/remove-extra/:enrollmentId
+// @access  Public (for debugging)
+const removeExtraSessions = async (req, res) => {
+  try {
+    const { enrollmentId } = req.params;
+    console.log('=== REMOVING EXTRA SESSIONS ===');
+    console.log('Enrollment ID:', enrollmentId);
+    
+    // Find all sessions for this enrollment
+    const sessions = await Session.find({
+      'participants.enrollment': enrollmentId
+    }).sort({ sessionNumber: 1, week: 1 });
+    
+    console.log('Found sessions:', sessions.length);
+    
+    // For a 2-week program, we should only have 2 sessions
+    if (sessions.length > 2) {
+      // Remove sessions beyond the first 2
+      const sessionsToRemove = sessions.slice(2);
+      console.log('Sessions to remove:', sessionsToRemove.length);
+      
+      for (const session of sessionsToRemove) {
+        console.log(`Removing session: ${session._id} (${session.title})`);
+        
+        // Remove from enrollments
+        await ProgramEnrollment.updateMany(
+          { sessions: session._id },
+          { $pull: { sessions: session._id } }
+        );
+        
+        // Delete the session
+        await Session.findByIdAndDelete(session._id);
+      }
+      
+      console.log(`Removed ${sessionsToRemove.length} extra sessions`);
+      
+      res.status(200).json({
+        success: true,
+        message: `Removed ${sessionsToRemove.length} extra sessions`,
+        data: { removedCount: sessionsToRemove.length }
+      });
+    } else {
+      res.status(200).json({
+        success: true,
+        message: 'No extra sessions to remove',
+        data: { removedCount: 0 }
+      });
+    }
+    
+  } catch (error) {
+    console.error('Remove error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Remove error',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Fix session week numbers
+// @route   POST /api/sessions/fix-weeks/:enrollmentId
+// @access  Public (for debugging)
+const fixSessionWeeks = async (req, res) => {
+  try {
+    const { enrollmentId } = req.params;
+    console.log('=== FIXING SESSION WEEKS ===');
+    console.log('Enrollment ID:', enrollmentId);
+    
+    // Find all sessions for this enrollment
+    const sessions = await Session.find({
+      'participants.enrollment': enrollmentId
+    }).sort({ sessionNumber: 1 });
+    
+    console.log('Found sessions:', sessions.length);
+    
+    let fixedCount = 0;
+    
+    for (let i = 0; i < sessions.length; i++) {
+      const session = sessions[i];
+      const correctWeek = i + 1; // Week should match session number
+      
+      if (session.week !== correctWeek) {
+        console.log(`Fixing session ${session.sessionNumber}: week ${session.week} -> ${correctWeek}`);
+        session.week = correctWeek;
+        await session.save();
+        fixedCount++;
+      }
+    }
+    
+    console.log(`Fixed ${fixedCount} sessions`);
+    
+    res.status(200).json({
+      success: true,
+      message: `Fixed ${fixedCount} sessions`,
+      data: { fixedCount }
+    });
+    
+  } catch (error) {
+    console.error('Fix error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Fix error',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Debug sessions for specific enrollment
+// @route   GET /api/sessions/debug/:enrollmentId
+// @access  Public (for debugging)
+const debugSessionsForEnrollment = async (req, res) => {
+  try {
+    const { enrollmentId } = req.params;
+    console.log('=== DEBUG SESSIONS FOR ENROLLMENT ===');
+    console.log('Enrollment ID:', enrollmentId);
+    
+    // Find all sessions for this enrollment
+    const allSessions = await Session.find({
+      'participants.enrollment': enrollmentId
+    }).populate('program', 'title duration');
+    
+    console.log('Total sessions found:', allSessions.length);
+    
+    const debugInfo = {
+      enrollmentId: enrollmentId,
+      totalSessions: allSessions.length,
+      sessions: allSessions.map(session => ({
+        id: session._id,
+        title: session.title,
+        sessionNumber: session.sessionNumber,
+        week: session.week,
+        program: session.program?.title,
+        participants: session.participants?.length || 0
+      }))
+    };
+    
+    console.log('Debug info:', JSON.stringify(debugInfo, null, 2));
+    
+    res.status(200).json({
+      success: true,
+      data: debugInfo
+    });
+    
+  } catch (error) {
+    console.error('Debug error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Debug error',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Clean up duplicate sessions
+// @route   POST /api/sessions/cleanup-duplicates
+// @access  Private (Admin/Coach)
+const cleanupDuplicateSessions = async (req, res) => {
+  try {
+    console.log('Starting cleanup of duplicate sessions...');
+    
+    // Find all sessions
+    const allSessions = await Session.find({}).populate('program');
+    
+    console.log(`Found ${allSessions.length} total sessions`);
+    
+    // Group sessions by program and session number
+    const sessionGroups = {};
+    
+    allSessions.forEach(session => {
+      if (session.program && session.program._id) {
+        const key = `${session.program._id}-${session.sessionNumber}-${session.week}`;
+        if (!sessionGroups[key]) {
+          sessionGroups[key] = [];
+        }
+        sessionGroups[key].push(session);
+      } else {
+        console.log('Skipping session without program data:', session._id);
+      }
+    });
+    
+    // Find duplicates
+    const duplicates = Object.entries(sessionGroups).filter(([key, sessions]) => sessions.length > 1);
+    
+    console.log(`Found ${duplicates.length} groups with duplicate sessions`);
+    
+    let removedCount = 0;
+    const removedSessions = [];
+    
+    for (const [key, sessions] of duplicates) {
+      console.log(`\nProcessing duplicate group: ${key}`);
+      console.log(`Found ${sessions.length} duplicate sessions`);
+      
+      // Keep the first session, remove the rest
+      const sessionToKeep = sessions[0];
+      const sessionsToRemove = sessions.slice(1);
+      
+      console.log(`Keeping session: ${sessionToKeep._id} (${sessionToKeep.title})`);
+      
+      for (const sessionToRemove of sessionsToRemove) {
+        console.log(`Removing session: ${sessionToRemove._id} (${sessionToRemove.title})`);
+        
+        // Remove session from enrollments
+        await ProgramEnrollment.updateMany(
+          { sessions: sessionToRemove._id },
+          { $pull: { sessions: sessionToRemove._id } }
+        );
+        
+        removedSessions.push({
+          id: sessionToRemove._id,
+          title: sessionToRemove.title,
+          sessionNumber: sessionToRemove.sessionNumber,
+          week: sessionToRemove.week
+        });
+        
+        // Delete the session
+        await Session.findByIdAndDelete(sessionToRemove._id);
+        removedCount++;
+      }
+    }
+    
+    console.log(`\nCleanup completed! Removed ${removedCount} duplicate sessions.`);
+    
+    res.status(200).json({
+      success: true,
+      message: `Cleanup completed! Removed ${removedCount} duplicate sessions.`,
+      data: {
+        totalSessionsFound: allSessions.length,
+        duplicateGroups: duplicates.length,
+        removedCount: removedCount,
+        removedSessions: removedSessions
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error during cleanup:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error during cleanup',
+      error: error.message
+    });
+  }
+};
+
 // @desc    Customer reschedule session
 // @route   PUT /api/sessions/reschedule
 // @access  Private (Customer)
@@ -1282,5 +1629,9 @@ export {
   getGroundAvailability,
   rescheduleSession,
   customerRescheduleSession,
+  cleanupDuplicateSessions,
+  removeExtraSessions,
+  fixSessionWeeks,
+  debugSessionsForEnrollment,
   debugSessionCreation
 };

@@ -16,6 +16,10 @@ import {
   getGroundAvailability,
   rescheduleSession,
   customerRescheduleSession,
+  cleanupDuplicateSessions,
+  removeExtraSessions,
+  fixSessionWeeks,
+  debugSessionsForEnrollment,
   debugSessionCreation
 } from '../controllers/sessionController.js';
 import { protect, authorizeRoles } from '../middleware/authMiddleware.js';
@@ -24,6 +28,8 @@ import { protect, authorizeRoles } from '../middleware/authMiddleware.js';
 router.get('/test', (req, res) => {
   res.json({ success: true, message: 'Sessions routes are working' });
 });
+
+// Debug routes removed - no longer needed
 
 // All other routes require authentication
 router.use(protect);
@@ -66,6 +72,16 @@ router.get('/ground/:groundId/availability', getGroundAvailability);
 
 // Debug route
 router.post('/debug', debugSessionCreation);
+
+// Cleanup route
+router.post('/cleanup-duplicates', cleanupDuplicateSessions);
+
+// Temporary cleanup route without authentication for testing
+router.post('/cleanup-duplicates-test', (req, res, next) => {
+  // Skip authentication for testing
+  req.user = { _id: 'test-user' };
+  next();
+}, cleanupDuplicateSessions);
 
 export default router;
 

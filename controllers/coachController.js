@@ -1646,14 +1646,32 @@ const getCoachSessions = async (req, res) => {
       ]
     };
 
-    const sessions = await Session.find(filter)
+    const allSessions = await Session.find(filter)
       .populate(options.populate)
-      .sort(options.sort)
-      .skip((options.page - 1) * options.limit)
-      .limit(options.limit);
+      .sort(options.sort);
 
-    const totalDocs = await Session.countDocuments(filter);
+    // Deduplicate sessions by session ID
+    const seenSessionIds = new Set();
+    const uniqueSessions = allSessions.filter(session => {
+      if (seenSessionIds.has(session._id.toString())) {
+        console.log('Removing duplicate session by ID:', session._id, session.title);
+        return false;
+      }
+      seenSessionIds.add(session._id.toString());
+      return true;
+    });
+
+    // Apply pagination to deduplicated sessions
+    const startIndex = (options.page - 1) * options.limit;
+    const endIndex = startIndex + options.limit;
+    const sessions = uniqueSessions.slice(startIndex, endIndex);
+
+    const totalDocs = uniqueSessions.length;
     const totalPages = Math.ceil(totalDocs / options.limit);
+
+    console.log('Coach sessions - Total found:', allSessions.length);
+    console.log('Coach sessions - After deduplication:', uniqueSessions.length);
+    console.log('Coach sessions - Paginated:', sessions.length);
 
     // Add attendance statistics to each session
     const sessionsWithStats = sessions.map(session => {
@@ -1752,6 +1770,20 @@ const createSessionsForEnrollments = async (req, res) => {
     }
 
     const createdSessions = [];
+
+    // Check if sessions already exist for this program to prevent duplicates
+    const existingSessions = await Session.find({
+      program: programId,
+      coach: coachId
+    });
+
+    if (existingSessions.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Sessions already exist for this program. Found ${existingSessions.length} existing sessions.`,
+        data: existingSessions
+      });
+    }
 
     // Create sessions for each week of the program
     for (let week = 1; week <= program.duration; week++) {

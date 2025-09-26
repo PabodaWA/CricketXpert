@@ -6,6 +6,11 @@ const coachSchema = new mongoose.Schema({
   experience: { type: Number, default: 0 },
   profileImage: { type: String },
   isActive: { type: Boolean, default: true }, // 👈 ADDED MISSING FIELD
+  
+  // Professional Information
+  hourlyRate: { type: Number, default: 0 },
+  bio: { type: String, default: '' },
+  achievements: [{ type: String }],
 
   availability: [{
     day: { type: String, required: true },

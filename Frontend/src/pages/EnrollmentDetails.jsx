@@ -39,6 +39,8 @@ export default function EnrollmentDetails() {
 
   useEffect(() => {
     if (enrollmentId) {
+      // Force refresh by clearing sessions first
+      setSessions([]);
       fetchEnrollmentDetails();
     }
   }, [enrollmentId]);
@@ -575,9 +577,26 @@ export default function EnrollmentDetails() {
   }
 
   const completedSessions = sessions.filter(session => session.status === 'completed').length;
-  const totalSessions = enrollment.program?.totalSessions || 10; // Use program's total sessions, not dynamic count
+  const totalSessions = enrollment.program?.totalSessions || enrollment.program?.duration || 10; // Use program duration as total sessions
   const progressPercentage = totalSessions > 0 ? (completedSessions / totalSessions) * 100 : 0;
-  const bookedSessions = sessions.length;
+  
+  // Remove duplicate sessions based on session ID (most reliable)
+  const uniqueSessions = sessions.filter((session, index, self) => 
+    index === self.findIndex(s => s._id === session._id)
+  );
+  
+  // Use the deduplicated sessions
+  const finalUniqueSessions = uniqueSessions;
+  
+  // Debug logging
+  console.log('=== SESSION DEBUG ===');
+  console.log('Raw sessions count:', sessions.length);
+  console.log('Raw sessions:', sessions);
+  console.log('Unique sessions count:', uniqueSessions.length);
+  console.log('Final unique sessions:', finalUniqueSessions);
+  console.log('Total sessions (program limit):', totalSessions);
+  
+  const bookedSessions = finalUniqueSessions.length;
   const canBookMore = bookedSessions < totalSessions;
 
   return (
@@ -594,6 +613,15 @@ export default function EnrollmentDetails() {
             >
               <span className="mr-2">←</span>
               Back to Profile
+            </button>
+            <button
+              onClick={() => {
+                setSessions([]);
+                fetchEnrollmentDetails();
+              }}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              🔄 Refresh Data
             </button>
           </div>
         </div>
@@ -707,10 +735,10 @@ export default function EnrollmentDetails() {
                 )}
               </div>
 
-              {sessions.length > 0 ? (
+              {finalUniqueSessions.length > 0 ? (
                 <div className="space-y-4">
-                  {console.log('Rendering sessions:', sessions)}
-                  {sessions.map((session) => (
+                  {console.log('Rendering FORCE unique sessions:', finalUniqueSessions)}
+                  {finalUniqueSessions.map((session) => (
                     <div 
                       key={session._id} 
                       className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors cursor-pointer"
@@ -957,9 +985,9 @@ export default function EnrollmentDetails() {
                 </button>
               </div>
               
-              {sessions.length > 0 ? (
+              {uniqueSessions.length > 0 ? (
                 <div className="space-y-4">
-                  {sessions.map((session) => (
+                  {uniqueSessions.map((session) => (
                     <div key={session._id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
@@ -1056,9 +1084,9 @@ export default function EnrollmentDetails() {
                 </div>
               </div>
               
-              {sessions.length > 0 ? (
+              {finalUniqueSessions.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {sessions.map((session) => (
+                  {finalUniqueSessions.map((session) => (
                     <div key={session._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                       <div className="flex items-center justify-between mb-2">
                         <h3 className="font-semibold text-gray-900">

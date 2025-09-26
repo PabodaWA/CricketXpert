@@ -77,8 +77,6 @@ const CoachDashboard = () => {
       const coachResponse = await axios.get(`/api/coaches/user/${userInfo._id}`);
       const coachData = coachResponse.data.data;
       
-      console.log('Coach data received:', coachData);
-      console.log('Assigned programs:', coachData.assignedPrograms);
       
       if (!coachData) {
         setError('Coach profile not found. Please contact support.');
@@ -100,7 +98,6 @@ const CoachDashboard = () => {
       try {
         const enrolledProgramsResponse = await axios.get(`/api/coaches/${coachData._id}/enrolled-programs`);
         enrolledProgramsData = enrolledProgramsResponse.data.data.docs || [];
-        console.log('Enrolled programs data:', enrolledProgramsData);
         setEnrolledPrograms(enrolledProgramsData);
       } catch (enrolledError) {
         console.warn('Could not fetch enrolled programs:', enrolledError);
@@ -108,7 +105,6 @@ const CoachDashboard = () => {
       }
       
       // SIMPLE CUSTOMER DATA WITH PROGRESS CALCULATION
-      console.log('Setting up customer data with progress...');
       
       try {
         // Get sessions for progress calculation
@@ -149,11 +145,12 @@ const CoachDashboard = () => {
             enrolledPrograms: [enrollment.program._id],
             totalSessions: recentSessions.length,
             completedSessions,
-            presentSessions
+            presentSessions,
+            enrollmentDate: enrollment.enrollmentDate || enrollment.createdAt,
+            status: enrollment.status || 'active'
           };
         });
         
-        console.log('Customers data with progress:', customersData);
         setCustomers(customersData);
         
       } catch (error) {
@@ -165,7 +162,9 @@ const CoachDashboard = () => {
           enrolledPrograms: [enrollment.program._id],
           totalSessions: 2,
           completedSessions: 0,
-          presentSessions: 0
+          presentSessions: 0,
+          enrollmentDate: enrollment.enrollmentDate || enrollment.createdAt,
+          status: enrollment.status || 'active'
         }));
         setCustomers(simpleCustomersData);
       }
@@ -174,53 +173,6 @@ const CoachDashboard = () => {
       try {
         const coachSessionsResponse = await axios.get(`/api/coaches/${coachData._id}/sessions`);
         const coachSessionsData = coachSessionsResponse.data.data.docs || [];
-        console.log('Raw coach sessions data:', coachSessionsData);
-        console.log('Total sessions fetched:', coachSessionsData.length);
-        
-        // Log session details for debugging
-        coachSessionsData.forEach((session, index) => {
-          console.log(`Session ${index + 1}:`, {
-            id: session._id,
-            title: session.title,
-            description: session.description,
-            date: session.scheduledDate,
-            participants: session.participants?.length || 0
-          });
-        });
-        
-        // Check for duplicate titles
-        const titles = coachSessionsData.map(s => s.title);
-        const uniqueTitles = [...new Set(titles)];
-        console.log('Session titles found:', titles);
-        console.log('Unique titles:', uniqueTitles);
-        
-        if (titles.length !== uniqueTitles.length) {
-          console.warn('WARNING: Duplicate session titles found!');
-          console.warn('This might be why you see only Session 2 twice');
-        }
-        
-        console.log('Session participants with attendance:', coachSessionsData.map(s => ({
-          title: s.title,
-          participants: s.participants?.map(p => ({
-            user: p.user,
-            attended: p.attended,
-            attendanceMarkedAt: p.attendanceMarkedAt
-          }))
-        })));
-        
-        // Verify attendance data persistence
-        console.log('=== ATTENDANCE PERSISTENCE CHECK ===');
-        coachSessionsData.forEach((session, index) => {
-          console.log(`Session ${index + 1} (${session.title}) attendance data:`, {
-            sessionId: session._id,
-            participants: session.participants?.map(p => ({
-              userId: p.user,
-              attended: p.attended,
-              attendanceMarkedAt: p.attendanceMarkedAt,
-              isMarked: p.attended !== undefined && p.attended !== null
-            }))
-          });
-        });
         setSessions(coachSessionsData);
         setCoachSessions(coachSessionsData);
       } catch (sessionsError) {
@@ -249,7 +201,6 @@ const CoachDashboard = () => {
   const handleSubmitFeedback = async (feedbackData) => {
     try {
       const response = await axios.post('/api/player-feedback', feedbackData);
-      console.log('Feedback submitted successfully:', response.data);
       setShowFeedbackModal(false);
       setSelectedParticipant(null);
       // Refresh data after feedback submission
@@ -263,10 +214,6 @@ const CoachDashboard = () => {
   // SIMPLE ATTENDANCE MARKING - STAY ON ATTENDANCE PAGE
   const handleMarkAttendance = async (attendanceData) => {
     try {
-      console.log('=== SIMPLE ATTENDANCE MARKING ===');
-      console.log('Session:', selectedSession._id);
-      console.log('Customer:', selectedCustomer._id);
-      console.log('Attendance Data:', attendanceData);
       
       // Get the participant for this customer
       const participant = selectedSession.participants?.find(p => p.user._id === selectedCustomer._id);
@@ -286,7 +233,6 @@ const CoachDashboard = () => {
         }
       );
       
-      console.log('Attendance marked successfully:', response.data);
       alert('Attendance marked successfully!');
       
       // Close modal
@@ -295,12 +241,9 @@ const CoachDashboard = () => {
       
       // Refresh customer sessions to show updated attendance - NO PAGE RELOAD
       if (selectedCustomer) {
-        console.log('Refreshing customer sessions...');
         await fetchCustomerSessions(selectedCustomer._id);
-        console.log('Customer sessions refreshed successfully');
         
         // SIMPLE PROGRESS CALCULATION
-        console.log('Calculating simple progress...');
         try {
           // Get fresh session data
           const sessionsResponse = await axios.get(`/api/coaches/${coach._id}/sessions`);
@@ -332,22 +275,18 @@ const CoachDashboard = () => {
               return participant && participant.attended === true;
             }).length;
             
-            console.log(`Customer ${customer.firstName} progress:`, {
-              totalSessions: recentSessions.length,
-              completedSessions,
-              presentSessions
-            });
             
             return {
               ...customer,
               totalSessions: recentSessions.length,
               completedSessions,
-              presentSessions
+              presentSessions,
+              enrollmentDate: customer.enrollmentDate,
+              status: customer.status
             };
           });
           
           setCustomers(updatedCustomers);
-          console.log('Customer progress updated successfully');
           
         } catch (refreshError) {
           console.warn('Could not calculate progress:', refreshError);
@@ -379,8 +318,6 @@ const CoachDashboard = () => {
   // SIMPLE CUSTOMER SESSIONS - NO COMPLEX LOGIC
   const fetchCustomerSessions = async (customerId, enrollmentId) => {
     try {
-      console.log('=== SIMPLE CUSTOMER SESSIONS ===');
-      console.log('Customer ID:', customerId);
       
       if (!coach || !coach._id) return;
       
@@ -395,20 +332,17 @@ const CoachDashboard = () => {
         );
       });
       
-      console.log('Found customer sessions:', customerSessions.length);
       
-      // Sort by date (newest first) and take first 2
+      // Sort by date (newest first) - show all sessions
       const sortedSessions = customerSessions
-        .sort((a, b) => new Date(b.scheduledDate) - new Date(a.scheduledDate))
-        .slice(0, 2);
+        .sort((a, b) => new Date(b.scheduledDate) - new Date(a.scheduledDate));
       
-      // Simple renaming to ensure Session 1 and Session 2
+      // Keep original session titles but add customer name
       const renamedSessions = sortedSessions.map((session, index) => ({
         ...session,
-        title: `Session ${index + 1} - Test`
+        title: `${session.title} - Test`
       }));
       
-      console.log('Final sessions:', renamedSessions);
       setCustomerSessions(renamedSessions);
       
       // Find the customer from the customers array
@@ -429,17 +363,46 @@ const CoachDashboard = () => {
 
   const handleBackToCustomers = () => {
     try {
-      console.log('Going back to customers...');
       setShowCustomerSessions(false);
       setSelectedCustomer(null);
       setCustomerSessions([]);
-      console.log('Successfully went back to customers');
     } catch (error) {
       console.error('Error going back to customers:', error);
       // Force reset all states
       setShowCustomerSessions(false);
       setSelectedCustomer(null);
       setCustomerSessions([]);
+    }
+  };
+
+  const handleCleanupDuplicates = async () => {
+    if (window.confirm('Are you sure you want to clean up duplicate sessions? This action cannot be undone.')) {
+      try {
+        const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+        if (!userInfo || !userInfo.token) {
+          alert('Please log in to perform cleanup');
+          return;
+        }
+
+        const config = {
+          headers: {
+            Authorization: `Bearer ${userInfo.token}`,
+          },
+        };
+
+        const response = await axios.post('http://localhost:5000/api/sessions/cleanup-duplicates', {}, config);
+        
+        if (response.data.success) {
+          alert(`Cleanup completed! Removed ${response.data.data.removedCount} duplicate sessions.`);
+          // Refresh the page to show updated data
+          window.location.reload();
+        } else {
+          alert(`Error: ${response.data.message}`);
+        }
+      } catch (error) {
+        console.error('Error during cleanup:', error);
+        alert(`Error during cleanup: ${error.response?.data?.message || error.message}`);
+      }
     }
   };
 
@@ -450,54 +413,7 @@ const CoachDashboard = () => {
     }
   };
 
-  // SIMPLE DEBUG FUNCTION
-  const debugSessions = () => {
-    console.log('=== SIMPLE SESSION DEBUG ===');
-    console.log('Customer sessions:', customerSessions);
-    console.log('Selected customer:', selectedCustomer);
-    console.log('All customers:', customers);
-    alert('Check console for session debug info');
-  };
-  window.debugSessions = debugSessions;
   
-  // Test attendance marking function
-  const testAttendanceMarking = async () => {
-    try {
-      console.log('=== TESTING ATTENDANCE MARKING ===');
-      if (!selectedCustomer || !selectedSession) {
-        alert('Please select a customer and session first');
-        return;
-      }
-      
-      const participant = selectedSession.participants?.find(p => p.user._id === selectedCustomer._id);
-      if (!participant) {
-        alert('Participant not found');
-        return;
-      }
-      
-      console.log('Testing with participant:', participant._id);
-      console.log('Customer:', selectedCustomer._id);
-      console.log('Session:', selectedSession._id);
-      
-      const response = await axios.put(
-        `/api/coaches/${coach._id}/sessions/${selectedSession._id}/attendance`,
-        { 
-          attendanceData: [{
-            participantId: participant._id,
-            attended: true
-          }]
-        }
-      );
-      
-      console.log('Test response:', response.data);
-      alert('Test attendance marked! Check console and refresh page to see changes.');
-      
-    } catch (error) {
-      console.error('Test attendance error:', error);
-      alert('Test failed: ' + error.message);
-    }
-  };
-  window.testAttendanceMarking = testAttendanceMarking;
 
   if (loading) {
     return (
@@ -552,14 +468,161 @@ const CoachDashboard = () => {
     });
   };
 
+  // Group customers by their coaching programs
+  const getCustomersByProgram = () => {
+    const programGroups = {};
+    
+    // Group customers by their enrolled programs
+    enrolledPrograms.forEach(enrollment => {
+      const programId = enrollment.program._id;
+      const program = enrollment.program;
+      
+      if (!programGroups[programId]) {
+        programGroups[programId] = {
+          program: program,
+          customers: []
+        };
+      }
+      
+      // Find the customer data for this enrollment
+      const customer = customers.find(c => c._id === enrollment.user._id);
+      if (customer) {
+        programGroups[programId].customers.push(customer);
+      }
+    });
+    
+    // Convert to array and filter by search term
+    return Object.values(programGroups).map(group => ({
+      ...group,
+      customers: group.customers.filter(customer => {
+        const fullName = `${customer.user.firstName} ${customer.user.lastName}`.toLowerCase();
+        return fullName.includes(searchTerm.toLowerCase()) ||
+               customer.user.email.toLowerCase().includes(searchTerm.toLowerCase());
+      })
+    })).filter(group => group.customers.length > 0);
+  };
+
+  const getUniqueSessionsCount = () => {
+    // Remove duplicates based on session title and date
+    const seenSessions = new Set();
+    
+    sessions.forEach(session => {
+      const sessionKey = `${session.title}-${session.scheduledDate}`;
+      seenSessions.add(sessionKey);
+    });
+    
+    return seenSessions.size;
+  };
+
   const getFilteredSessions = () => {
-    return sessions.filter(session => {
+    // First filter sessions
+    const filteredSessions = sessions.filter(session => {
       const matchesSearch = session.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            session.program.title.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus = statusFilter === 'All Status' || session.status === statusFilter;
       
       return matchesSearch && matchesStatus;
     });
+
+    // Group sessions by date
+    const dateGroups = new Map();
+    
+    filteredSessions.forEach(session => {
+      const sessionDate = new Date(session.scheduledDate).toDateString();
+      
+      if (!dateGroups.has(sessionDate)) {
+        dateGroups.set(sessionDate, []);
+      }
+      
+      dateGroups.get(sessionDate).push(session);
+    });
+    
+    // Sort dates and get sessions from first 4 dates
+    const sortedDates = Array.from(dateGroups.keys()).sort();
+    const sessionsByDate = [];
+    
+    sortedDates.slice(0, 4).forEach(date => {
+      const sessionsForDate = dateGroups.get(date);
+      sessionsByDate.push(...sessionsForDate);
+    });
+    
+    return sessionsByDate.slice(0, 4); // Limit to 4 total sessions
+  };
+
+  const getPastSessions = () => {
+    const now = new Date();
+    const filteredSessions = sessions.filter(session => {
+      const matchesSearch = session.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           session.program.title.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === 'All Status' || session.status === statusFilter;
+      const isPast = new Date(session.scheduledDate) < now;
+      
+      return matchesSearch && matchesStatus && isPast;
+    });
+
+    // Create individual sessions for each customer
+    const individualSessions = [];
+    
+    filteredSessions.forEach(session => {
+      if (session.participants && session.participants.length > 0) {
+        session.participants.forEach((participant, index) => {
+          if (participant.user) {
+            const customerName = `${participant.user.firstName} ${participant.user.lastName}`;
+            const individualSession = {
+              ...session,
+              _id: `${session._id}-${participant.user._id}`,
+              title: `${session.title} - ${customerName}`,
+              participant: participant,
+              customerName: customerName,
+              isIndividual: true
+            };
+            individualSessions.push(individualSession);
+          }
+        });
+      }
+    });
+
+    // Sort by date (most recent first) - show all sessions
+    return individualSessions
+      .sort((a, b) => new Date(b.scheduledDate) - new Date(a.scheduledDate));
+  };
+
+  const getUpcomingSessions = () => {
+    const now = new Date();
+    const filteredSessions = sessions.filter(session => {
+      const matchesSearch = session.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           session.program.title.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === 'All Status' || session.status === statusFilter;
+      const isUpcoming = new Date(session.scheduledDate) >= now;
+      
+      return matchesSearch && matchesStatus && isUpcoming;
+    });
+
+    // Create individual sessions for each customer
+    const individualSessions = [];
+    
+    filteredSessions.forEach(session => {
+      if (session.participants && session.participants.length > 0) {
+        session.participants.forEach((participant, index) => {
+          if (participant.user) {
+            const customerName = `${participant.user.firstName} ${participant.user.lastName}`;
+            const individualSession = {
+              ...session,
+              _id: `${session._id}-${participant.user._id}`,
+              title: `${session.title} - ${customerName}`,
+              participant: participant,
+              customerName: customerName,
+              isIndividual: true
+            };
+            individualSessions.push(individualSession);
+          }
+        });
+      }
+    });
+
+    // Sort by date (soonest first) - show all sessions
+    return individualSessions
+      .sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate));
   };
 
   const getFilteredEnrolledPrograms = () => {
@@ -585,6 +648,25 @@ const CoachDashboard = () => {
       return matchesSearch && matchesStatus;
     });
   };
+
+  // Add error boundary for the main component
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-500 text-6xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Error Loading Dashboard</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Refresh Page
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -692,7 +774,12 @@ const CoachDashboard = () => {
               <Menu className="h-6 w-6" />
             </button>
             <h1 className="text-lg font-semibold text-gray-900">Coach Dashboard</h1>
-            <div></div>
+            <button
+              onClick={handleCleanupDuplicates}
+              className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
+            >
+              Cleanup
+            </button>
           </div>
         </div>
 
@@ -701,7 +788,15 @@ const CoachDashboard = () => {
           {activeTab === 'programs' && (
             <div>
               <div className="mb-6">
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">Coaching Programs</h2>
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-2xl font-bold text-gray-900">Coaching Programs</h2>
+                  <button
+                    onClick={handleCleanupDuplicates}
+                    className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+                  >
+                    Cleanup Duplicates
+                  </button>
+                </div>
                 
                 {/* Filter Bar */}
                 <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
@@ -777,6 +872,41 @@ const CoachDashboard = () => {
             <div>
               <h2 className="text-2xl font-bold text-gray-900 mb-6">My Customers</h2>
               
+              {/* Summary Statistics */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="bg-blue-50 rounded-lg p-4">
+                  <div className="flex items-center">
+                    <BookOpen className="h-8 w-8 text-blue-600" />
+                    <div className="ml-3">
+                      <p className="text-sm font-medium text-gray-500">Total Programs</p>
+                      <p className="text-2xl font-bold text-blue-600">{enrolledPrograms.length}</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-green-50 rounded-lg p-4">
+                  <div className="flex items-center">
+                    <Users className="h-8 w-8 text-green-600" />
+                    <div className="ml-3">
+                      <p className="text-sm font-medium text-gray-500">Total Students</p>
+                      <p className="text-2xl font-bold text-green-600">{customers.length}</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-purple-50 rounded-lg p-4">
+                  <div className="flex items-center">
+                    <Calendar className="h-8 w-8 text-purple-600" />
+                    <div className="ml-3">
+                      <p className="text-sm font-medium text-gray-500">Active Programs</p>
+                      <p className="text-2xl font-bold text-purple-600">
+                        {enrolledPrograms.filter(ep => ep.program?.isActive).length}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
               {/* Search Bar */}
               <div className="mb-6">
                 <div className="relative">
@@ -791,20 +921,63 @@ const CoachDashboard = () => {
                 </div>
               </div>
 
-              {/* Customer Cards */}
-              {getFilteredCustomers().length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {getFilteredCustomers().map((customer) => {
-                    // Find the enrollment data for this customer
-                    const enrollment = enrolledPrograms.find(ep => ep.user._id === customer._id);
-                    return (
-                      <CustomerCard 
-                        key={customer._id} 
-                        customer={customer} 
-                        enrollment={enrollment}
-                      />
-                    );
-                  })}
+              {/* Customers Categorized by Program */}
+              {getCustomersByProgram().length > 0 ? (
+                <div className="space-y-8">
+                  {getCustomersByProgram().map((programGroup) => (
+                    <div key={programGroup.program._id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                      {/* Program Header */}
+                      <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center space-x-4">
+                          <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <BookOpen className="h-6 w-6 text-blue-600" />
+                          </div>
+                          <div>
+                            <h3 className="text-xl font-bold text-gray-900">{programGroup.program.title}</h3>
+                            <p className="text-gray-600">{programGroup.program.description}</p>
+                            <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
+                              <span>Duration: {programGroup.program.duration} weeks</span>
+                              <span>•</span>
+                              <span>Fee: LKR {programGroup.program.fee}</span>
+                              <span>•</span>
+                              <span>{programGroup.customers.length} students</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                            programGroup.program.isActive 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {programGroup.program.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Customers in this Program */}
+                      {programGroup.customers.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {programGroup.customers.map((customer) => {
+                            const enrollment = enrolledPrograms.find(ep => ep.user._id === customer._id);
+                            return (
+                              <CustomerCard 
+                                key={customer._id} 
+                                customer={customer} 
+                                enrollment={enrollment}
+                                onCustomerClick={handleCustomerClick}
+                              />
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8 bg-gray-50 rounded-lg">
+                          <div className="text-gray-400 text-4xl mb-2">👥</div>
+                          <p className="text-gray-600">No students enrolled in this program yet</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <div className="text-center py-12">
@@ -853,18 +1026,56 @@ const CoachDashboard = () => {
                 </div>
               </div>
 
-              {/* Session Cards */}
-              <div className="space-y-4">
-                {getFilteredSessions().map((session) => (
-                  <SessionCard
-                    key={session._id}
-                    session={session}
-                    onGiveFeedback={(participant) => {
-                      setSelectedParticipant(participant);
-                      setShowFeedbackModal(true);
-                    }}
-                  />
-                ))}
+              {/* Past Sessions */}
+              <div className="mb-8">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  <Calendar className="h-5 w-5 mr-2 text-red-600" />
+                  Past Sessions
+                </h3>
+                <div className="space-y-4">
+                  {getPastSessions().map((session) => (
+                    <SessionCard
+                      key={session._id}
+                      session={session}
+                      onGiveFeedback={(participant) => {
+                        setSelectedParticipant(participant);
+                        setShowFeedbackModal(true);
+                      }}
+                    />
+                  ))}
+                  {getPastSessions().length === 0 && (
+                    <div className="text-center py-8 bg-gray-50 rounded-lg">
+                      <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-500">No past sessions found</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Upcoming Sessions */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  <Clock className="h-5 w-5 mr-2 text-green-600" />
+                  Upcoming Sessions
+                </h3>
+                <div className="space-y-4">
+                  {getUpcomingSessions().map((session) => (
+                    <SessionCard
+                      key={session._id}
+                      session={session}
+                      onGiveFeedback={(participant) => {
+                        setSelectedParticipant(participant);
+                        setShowFeedbackModal(true);
+                      }}
+                    />
+                  ))}
+                  {getUpcomingSessions().length === 0 && (
+                    <div className="text-center py-8 bg-gray-50 rounded-lg">
+                      <Clock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-500">No upcoming sessions found</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -1051,11 +1262,14 @@ const CoachDashboard = () => {
               <h2 className="text-2xl font-bold text-gray-900 mb-6">My Profile</h2>
               
               {coach ? (
-                <CoachProfileCard 
-                  coach={coach} 
-                  enrolledPrograms={enrolledPrograms}
-                  sessions={sessions}
-                />
+                <div>
+                  
+                  <CoachProfileCard 
+                    coach={coach} 
+                    enrolledPrograms={enrolledPrograms}
+                    sessions={sessions}
+                  />
+                </div>
               ) : (
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
@@ -1420,13 +1634,23 @@ const FeedbackModal = ({ participant, onSubmit, onClose }) => {
 
 // Coach Profile Card Component
 const CoachProfileCard = ({ coach, enrolledPrograms, sessions }) => {
+  
+  // Add defensive checks
+  if (!coach) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <p className="text-red-600">Error: Coach data not available</p>
+      </div>
+    );
+  }
+  
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({
-    specializations: coach.specializations || [],
-    experience: coach.experience || 0,
-    bio: coach.bio || '',
-    hourlyRate: coach.hourlyRate || 0,
-    achievements: coach.achievements || []
+    specializations: coach?.specializations || [],
+    experience: coach?.experience || 0,
+    bio: coach?.bio || '',
+    hourlyRate: coach?.hourlyRate || 0,
+    achievements: coach?.achievements || []
   });
 
   const handleEdit = () => {
@@ -1442,13 +1666,25 @@ const CoachProfileCard = ({ coach, enrolledPrograms, sessions }) => {
 
   const handleSave = async () => {
     try {
-      // Here you would make an API call to update the coach profile
-      // await axios.put(`/api/coaches/${coach._id}`, editData);
-      console.log('Saving profile data:', editData);
-      setIsEditing(false);
-      // You might want to refresh the coach data here
+      
+      // Make API call to update the coach profile
+      const response = await axios.put(`/api/coaches/${coach._id}`, editData);
+      
+      if (response.data.success) {
+        setIsEditing(false);
+        
+        // Refresh the coach data to show updated information
+        // You might want to call fetchCoachData() here or update the local state
+        alert('Profile updated successfully!');
+        
+        // Optionally refresh the page or update local state
+        window.location.reload();
+      } else {
+        throw new Error(response.data.message || 'Failed to update profile');
+      }
     } catch (error) {
       console.error('Error updating profile:', error);
+      alert('Error updating profile: ' + (error.response?.data?.message || error.message));
     }
   };
 
@@ -1514,9 +1750,14 @@ const CoachProfileCard = ({ coach, enrolledPrograms, sessions }) => {
           </div>
           <div>
             <h3 className="text-2xl font-bold text-gray-900">
-              {coach.userId?.firstName} {coach.userId?.lastName}
+              {coach.userId?.firstName && coach.userId?.lastName 
+                ? `${coach.userId.firstName} ${coach.userId.lastName}`
+                : 'Coach Profile'
+              }
             </h3>
-            <p className="text-gray-600">{coach.userId?.email}</p>
+            <p className="text-gray-600">
+              {coach.userId?.email || 'Email not available'}
+            </p>
             <div className="flex items-center space-x-2 mt-1">
               <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                 coach.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
@@ -1567,15 +1808,15 @@ const CoachProfileCard = ({ coach, enrolledPrograms, sessions }) => {
           <div className="space-y-3">
             <div>
               <label className="block text-sm font-medium text-gray-700">First Name</label>
-              <p className="text-gray-900">{coach.userId?.firstName}</p>
+              <p className="text-gray-900">{coach.userId?.firstName || 'Not available'}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Last Name</label>
-              <p className="text-gray-900">{coach.userId?.lastName}</p>
+              <p className="text-gray-900">{coach.userId?.lastName || 'Not available'}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Email</label>
-              <p className="text-gray-900">{coach.userId?.email}</p>
+              <p className="text-gray-900">{coach.userId?.email || 'Not available'}</p>
             </div>
             {coach.userId?.contactNumber && (
               <div>
@@ -1620,7 +1861,9 @@ const CoachProfileCard = ({ coach, enrolledPrograms, sessions }) => {
                   step="0.01"
                 />
               ) : (
-                <p className="text-gray-900">LKR {coach.hourlyRate || 0}</p>
+                <p className="text-gray-900">
+                  {coach.hourlyRate && coach.hourlyRate > 0 ? `LKR ${coach.hourlyRate}` : 'Not set'}
+                </p>
               )}
             </div>
           </div>
@@ -1662,8 +1905,8 @@ const CoachProfileCard = ({ coach, enrolledPrograms, sessions }) => {
           </div>
         ) : (
           <div className="flex flex-wrap gap-2">
-            {coach.specializations?.length > 0 ? (
-              coach.specializations.map((spec, index) => (
+            {coach.specializations && coach.specializations.length > 0 ? (
+              coach.specializations.filter(spec => spec && spec.trim()).map((spec, index) => (
                 <span
                   key={index}
                   className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium"
@@ -1694,7 +1937,7 @@ const CoachProfileCard = ({ coach, enrolledPrograms, sessions }) => {
           />
         ) : (
           <p className="text-gray-900 whitespace-pre-wrap">
-            {coach.bio || 'No bio available'}
+            {coach.bio && coach.bio.trim() ? coach.bio : 'No bio available'}
           </p>
         )}
       </div>
@@ -1734,8 +1977,8 @@ const CoachProfileCard = ({ coach, enrolledPrograms, sessions }) => {
           </div>
         ) : (
           <div className="space-y-2">
-            {coach.achievements?.length > 0 ? (
-              coach.achievements.map((achievement, index) => (
+            {coach.achievements && coach.achievements.length > 0 ? (
+              coach.achievements.filter(achievement => achievement && achievement.trim()).map((achievement, index) => (
                 <div key={index} className="flex items-center space-x-2">
                   <Star className="h-4 w-4 text-yellow-500" />
                   <span className="text-gray-900">{achievement}</span>
@@ -1775,7 +2018,7 @@ const CoachProfileCard = ({ coach, enrolledPrograms, sessions }) => {
             <Calendar className="h-8 w-8 text-purple-600" />
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-500">Total Sessions</p>
-              <p className="text-2xl font-bold text-purple-600">{sessions.length}</p>
+              <p className="text-2xl font-bold text-purple-600">{Math.min(sessions?.length || 0, 4)}</p>
             </div>
           </div>
         </div>
@@ -2035,22 +2278,12 @@ const AttendanceModal = ({ session, coach, selectedCustomer, onSubmit, onClose }
     // Initialize attendance data - handle both multi-participant and single customer scenarios
     let initialData = [];
     
-    console.log('=== ATTENDANCE MODAL INITIALIZATION ===');
-    console.log('Session:', session);
-    console.log('Selected Customer:', selectedCustomer);
-    console.log('Session Participants:', session.participants);
     
     if (session.participants && session.participants.length > 0) {
       // Find the participant for the selected customer
       const participant = session.participants.find(p => p.user && p.user._id === selectedCustomer?._id);
       
       if (participant) {
-        console.log('Found participant for customer:', {
-          participantId: participant._id,
-          userId: participant.user._id,
-          customerId: selectedCustomer?._id,
-          attended: participant.attended
-        });
         
         initialData = [{
           participantId: participant._id,
@@ -2073,7 +2306,6 @@ const AttendanceModal = ({ session, coach, selectedCustomer, onSubmit, onClose }
         // Try to find participant by user ID directly
         const participantByUserId = session.participants.find(p => p.user?._id === selectedCustomer?._id);
         if (participantByUserId) {
-          console.log('Found participant by user ID:', participantByUserId);
           initialData = [{
             participantId: participantByUserId._id,
             attended: participantByUserId.attended || false,
@@ -2107,7 +2339,6 @@ const AttendanceModal = ({ session, coach, selectedCustomer, onSubmit, onClose }
       }];
     }
     
-    console.log('Initial attendance data:', initialData);
     setAttendanceData(initialData);
   }, [session, selectedCustomer]);
 
@@ -2141,8 +2372,6 @@ const AttendanceModal = ({ session, coach, selectedCustomer, onSubmit, onClose }
     e.preventDefault();
     setSubmitting(true);
     try {
-      console.log('=== ATTENDANCE MODAL SUBMIT ===');
-      console.log('Submitting attendance data:', attendanceData);
       
       // Ensure we have valid data
       const validAttendanceData = attendanceData.filter(item => 
@@ -2154,7 +2383,6 @@ const AttendanceModal = ({ session, coach, selectedCustomer, onSubmit, onClose }
         return;
       }
       
-      console.log('Valid attendance data:', validAttendanceData);
       await onSubmit(validAttendanceData);
     } finally {
       setSubmitting(false);
@@ -2305,7 +2533,26 @@ const AttendanceModal = ({ session, coach, selectedCustomer, onSubmit, onClose }
 };
 
 // Customer Card Component
-const CustomerCard = ({ customer, onCustomerClick }) => {
+const CustomerCard = ({ customer, onCustomerClick, enrollment }) => {
+  // Add defensive checks for customer object
+  if (!customer) {
+    console.error('CustomerCard: customer is null or undefined');
+    return (
+      <div className="bg-white border border-gray-200 rounded-lg p-4">
+        <p className="text-red-600">Error: Customer data not available</p>
+      </div>
+    );
+  }
+
+  if (!customer.user) {
+    console.error('CustomerCard: customer.user is null or undefined', customer);
+    return (
+      <div className="bg-white border border-gray-200 rounded-lg p-4">
+        <p className="text-red-600">Error: Customer user data not available</p>
+      </div>
+    );
+  }
+
   const getProgressColor = (percentage) => {
     if (percentage >= 80) return 'text-green-600';
     if (percentage >= 50) return 'text-yellow-600';
@@ -2346,24 +2593,35 @@ const CustomerCard = ({ customer, onCustomerClick }) => {
       <div className="space-y-2">
         <div className="flex justify-between text-sm">
           <span className="text-gray-600">Progress:</span>
-          <span className={`font-medium ${getProgressColor(customer.progress.progressPercentage || 0)}`}>
-            {customer.progress.progressPercentage || 0}%
+          <span className={`font-medium ${getProgressColor(customer.totalSessions > 0 ? Math.round((customer.completedSessions / customer.totalSessions) * 100) : 0)}`}>
+            {customer.totalSessions > 0 ? Math.round((customer.completedSessions / customer.totalSessions) * 100) : 0}%
           </span>
         </div>
         
         <div className="flex justify-between text-sm">
           <span className="text-gray-600">Sessions:</span>
           <span className="font-medium">
-            {customer.progress.completedSessions || 0} / {customer.progress.totalSessions || 0}
+            {customer.completedSessions || 0} / {customer.totalSessions || 0}
           </span>
         </div>
         
         <div className="flex justify-between text-sm">
           <span className="text-gray-600">Enrolled:</span>
           <span className="font-medium">
-            {new Date(customer.enrollmentDate).toLocaleDateString()}
+            {customer.enrollmentDate ? new Date(customer.enrollmentDate).toLocaleDateString() : 'Not available'}
           </span>
         </div>
+        
+        {/* Program Information */}
+        {enrollment && enrollment.program && (
+          <div className="mt-3 pt-3 border-t border-gray-100">
+            <div className="flex items-center space-x-2">
+              <BookOpen className="h-4 w-4 text-blue-600" />
+              <span className="text-sm font-medium text-gray-700">Program:</span>
+              <span className="text-sm text-blue-600">{enrollment.program.title}</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -2400,19 +2658,19 @@ const CustomerSessionCard = ({ session, customer, onMarkAttendance }) => {
   // Find the participant for this customer in the session
   const participant = session.participants?.find(p => p.user && p.user._id === customer._id);
   
-  console.log('CustomerSessionCard - Session:', session.title);
-  console.log('CustomerSessionCard - Customer:', customer);
-  console.log('CustomerSessionCard - Participant:', participant);
   
   const getAttendanceStatus = () => {
     if (!participant) {
-      console.log('No participant found for customer');
       return { status: 'Not Enrolled', color: 'text-gray-600', bgColor: 'bg-gray-100' };
     }
     
-    console.log('Participant attendance status:', participant.attended);
     
-    if (participant.attended === true) {
+    // Check if attendance has been marked (not undefined or null)
+    const isMarked = participant.attended !== undefined && participant.attended !== null;
+    
+    if (!isMarked) {
+      return { status: 'Not Marked', color: 'text-gray-600', bgColor: 'bg-gray-100' };
+    } else if (participant.attended === true) {
       return { status: 'Present', color: 'text-green-600', bgColor: 'bg-green-100' };
     } else if (participant.attended === false) {
       return { status: 'Absent', color: 'text-red-600', bgColor: 'bg-red-100' };
@@ -2465,7 +2723,7 @@ const CustomerSessionCard = ({ session, customer, onMarkAttendance }) => {
             {attendanceStatus.status}
           </div>
           
-          {participant?.attendanceMarkedAt && (
+          {participant?.attendanceMarkedAt && (participant.attended !== undefined && participant.attended !== null) && (
             <div className="text-sm text-gray-500">
               Marked: {new Date(participant.attendanceMarkedAt).toLocaleDateString()}
             </div>
@@ -2481,19 +2739,6 @@ const CustomerSessionCard = ({ session, customer, onMarkAttendance }) => {
           Mark Attendance
         </button>
           
-          {/* Debug button - remove in production */}
-          <button
-            onClick={() => {
-              console.log('=== DEBUG ATTENDANCE ===');
-              console.log('Session:', session);
-              console.log('Customer:', customer);
-              console.log('Participant:', participant);
-              alert('Check console for debug info');
-            }}
-            className="flex items-center px-2 py-1 bg-gray-500 text-white rounded text-xs"
-          >
-            Debug
-        </button>
         </div>
       </div>
     </div>
