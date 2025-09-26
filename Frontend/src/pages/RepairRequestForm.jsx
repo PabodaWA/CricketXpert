@@ -275,7 +275,7 @@ const RepairRequestForm = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: Brand.body }}>Customer ID</label>
-                  <input type="text" value={currentUser?.id || ''} readOnly disabled className="w-full px-3 py-2 border rounded-lg bg-gray-100 border-gray-300" />
+                  <input type="text" value={currentUser?.id ? `CUST-${currentUser.id.slice(-6).toUpperCase()}` : ''} readOnly disabled className="w-full px-3 py-2 border rounded-lg bg-gray-100 border-gray-300" />
                 </div>
               </div>
               {errors.currentUser && <p className="text-red-500 text-sm mt-2">{errors.currentUser}</p>}
