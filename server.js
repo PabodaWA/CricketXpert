@@ -31,6 +31,7 @@ import technicianRoutes from './routes/technicianRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import playerRoutes from './routes/players.js';
 import attendanceRoutes from './routes/attendanceRoutes.js';
+import payrollRoutes from './routes/payrollRoutes.js';
 
 // --- Initial Configuration ---
 // Load environment variables from .env file
@@ -76,6 +77,7 @@ app.use('/api/technicians', technicianRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/players', playerRoutes);
 app.use('/api/attendance', attendanceRoutes);
+app.use('/api/payroll', payrollRoutes);
 
 // A simple test route to check if the server is working
 app.get('/api/test', (req, res) => {
