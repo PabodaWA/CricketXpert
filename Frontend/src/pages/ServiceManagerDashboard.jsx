@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getAllRepairRequests, updateRepairStatus, assignTechnician, sendEstimate } from '../api/repairRequestApi';
 import { getAllTechnicians } from '../api/repairRequestApi';
 import { updateTechnician } from '../api/technicianApi';
+import { generateTechnicianFriendlyId } from '../utils/friendlyId';
 import Brand from '../brand';
 
 // Using shared Brand from ../brand
@@ -46,6 +47,7 @@ const ServiceManagerDashboard = () => {
   const [technicianSearchFilter, setTechnicianSearchFilter] = useState('all');
   const [technicianAvailabilityFilter, setTechnicianAvailabilityFilter] = useState('available');
   const [usernameFilter, setUsernameFilter] = useState('all');
+  const [technicianFilter, setTechnicianFilter] = useState('all');
   const [globalFilter, setGlobalFilter] = useState('all');
   const [deletingTechnician, setDeletingTechnician] = useState(null);
   const [showSidebar, setShowSidebar] = useState(false);
@@ -362,6 +364,19 @@ const ServiceManagerDashboard = () => {
       return false;
     }
     
+    // Apply technician filter
+    if (technicianFilter !== 'all') {
+      if (technicianFilter === 'unassigned') {
+        if (request.assignedTechnician) {
+          return false;
+        }
+      } else {
+        if (request.assignedTechnician?.technicianId?.username !== technicianFilter) {
+          return false;
+        }
+      }
+    }
+    
     return true;
   });
 
@@ -613,6 +628,23 @@ const ServiceManagerDashboard = () => {
                  ))}
                </select>
              </div>
+
+             {/* Technician Filter */}
+             <div>
+               <h3 className="text-sm font-semibold mb-3" style={{ color: Brand.primary }}>Technician</h3>
+               <select 
+                 value={technicianFilter} 
+                 onChange={(e) => setTechnicianFilter(e.target.value)}
+                 className="w-full px-3 py-2 border rounded-lg text-sm"
+                 style={{ borderColor: Brand.secondary, color: Brand.body }}
+               >
+                 <option value="all">All Technicians</option>
+                 <option value="unassigned">Unassigned</option>
+                 {[...new Set(repairRequests.map(request => request.assignedTechnician?.technicianId?.username).filter(Boolean))].map(technicianUsername => (
+                   <option key={technicianUsername} value={technicianUsername}>{technicianUsername}</option>
+                 ))}
+               </select>
+             </div>
            </div>
 
                                                {/* Clear Filters Button */}
@@ -627,6 +659,7 @@ const ServiceManagerDashboard = () => {
                      setTechnicianSearchFilter('all');
                      setTechnicianAvailabilityFilter('available');
                      setUsernameFilter('all');
+                     setTechnicianFilter('all');
                      setGlobalFilter('all');
                      loadData();
                    }}
@@ -667,6 +700,7 @@ const ServiceManagerDashboard = () => {
                    <th className="px-6 py-3" style={{ color: Brand.body }}>Equipment</th>
                    <th className="px-6 py-3" style={{ color: Brand.body }}>Damage</th>
                    <th className="px-6 py-3" style={{ color: Brand.body }}>Progress</th>
+                   <th className="px-6 py-3" style={{ color: Brand.body }}>Assigned Technician</th>
                    <th className="px-6 py-3 w-48" style={{ color: Brand.body }}>Status</th>
                    <th className="px-6 py-3" style={{ color: Brand.body }}>Date</th>
                    <th className="px-6 py-3" style={{ color: Brand.body }}>Actions</th>
@@ -725,6 +759,20 @@ const ServiceManagerDashboard = () => {
                           </div>
                         )}
                       </div>
+                    </td>
+                    <td className="px-6 py-4" style={{ color: Brand.body }}>
+                      {request.assignedTechnician ? (
+                        <div>
+                          <div className="font-medium">
+                            {request.assignedTechnician.technicianId?.username || 'Unknown'}
+                          </div>
+                          <div className="text-sm" style={{ color: Brand.secondary }}>
+                            {generateTechnicianFriendlyId(request.assignedTechnician._id)}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-gray-500 italic">Not assigned</span>
+                      )}
                     </td>
                                          <td className="px-6 py-4 w-48">
                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(request.status)}`}>
