@@ -49,11 +49,9 @@ const CoachDashboard = () => {
   const [selectedParticipant, setSelectedParticipant] = useState(null);
   const [coachSessions, setCoachSessions] = useState([]);
   const [selectedSession, setSelectedSession] = useState(null);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [enrolledCustomers, setEnrolledCustomers] = useState([]);
-  const [selectedCustomer, setSelectedCustomer] = useState(null);
-  const [customerSessions, setCustomerSessions] = useState([]);
-  const [showCustomerSessions, setShowCustomerSessions] = useState(false);
 
   useEffect(() => {
     fetchCoachData();
@@ -127,25 +125,36 @@ const CoachDashboard = () => {
             .sort((a, b) => new Date(b.scheduledDate) - new Date(a.scheduledDate))
             .slice(0, 2);
           
-          // Count completed sessions (any attendance marked)
-          const completedSessions = recentSessions.filter(session => {
+          // Only count past sessions for completion
+          const now = new Date();
+          const pastSessions = recentSessions.filter(session => new Date(session.scheduledDate) < now);
+          
+          // Count completed sessions (only past sessions with attendance marked)
+          const completedSessions = pastSessions.filter(session => {
             const participant = session.participants?.find(p => p.user._id === customer._id);
             return participant && (participant.attended === true || participant.attended === false);
           }).length;
           
-          // Count present sessions (only attended = true)
-          const presentSessions = recentSessions.filter(session => {
+          // Count present sessions (only past sessions with attended = true)
+          const presentSessions = pastSessions.filter(session => {
             const participant = session.participants?.find(p => p.user._id === customer._id);
             return participant && participant.attended === true;
+          }).length;
+          
+          // Count absent sessions (past sessions with attended = false)
+          const absentSessions = pastSessions.filter(session => {
+            const participant = session.participants?.find(p => p.user._id === customer._id);
+            return participant && participant.attended === false;
           }).length;
           
           return {
             _id: customer._id,
             user: customer,
             enrolledPrograms: [enrollment.program._id],
-            totalSessions: recentSessions.length,
+            totalSessions: enrollment.program.duration || 0, // Program duration in weeks = total sessions
             completedSessions,
             presentSessions,
+            absentSessions,
             enrollmentDate: enrollment.enrollmentDate || enrollment.createdAt,
             status: enrollment.status || 'active'
           };
@@ -211,48 +220,137 @@ const CoachDashboard = () => {
     }
   };
 
-  // SIMPLE ATTENDANCE MARKING - STAY ON ATTENDANCE PAGE
+  // BACKEND ATTENDANCE MARKING WITH FALLBACK TO FRONTEND
   const handleMarkAttendance = async (attendanceData) => {
     try {
-      
-      // Get the participant for this customer
-      const participant = selectedSession.participants?.find(p => p.user._id === selectedCustomer._id);
-      if (!participant) {
-        alert('Participant not found in this session');
+      // Validate required data
+      if (!selectedSession) {
+        alert('No session selected');
         return;
       }
       
-      // Simple API call
-      const response = await axios.put(
-        `/api/coaches/${coach._id}/sessions/${selectedSession._id}/attendance`,
-        { 
-          attendanceData: [{
-            participantId: participant._id,
-            attended: attendanceData[0]?.attended || false
-          }]
-        }
+      if (!selectedSession.participants || selectedSession.participants.length === 0) {
+        alert('No participants found in this session');
+        return;
+      }
+      
+      if (!attendanceData || attendanceData.length === 0) {
+        alert('No attendance data provided');
+        return;
+      }
+      
+      // Handle attendance data for multiple participants
+      const validAttendanceData = attendanceData.filter(item => 
+        item.participantId && (item.attended === true || item.attended === false)
       );
       
-      alert('Attendance marked successfully!');
+      if (validAttendanceData.length === 0) {
+        alert('No valid attendance data to submit. Please select Present or Absent for at least one participant.');
+        return;
+      }
       
-      // Close modal
-      setShowAttendanceModal(false);
-      setSelectedSession(null);
+      // Try backend first, then fallback to frontend
+      let backendSuccess = false;
       
-      // Refresh customer sessions to show updated attendance - NO PAGE RELOAD
-      if (selectedCustomer) {
-        await fetchCustomerSessions(selectedCustomer._id);
+      try {
+        console.log('Trying backend attendance marking...');
         
-        // SIMPLE PROGRESS CALCULATION
-        try {
-          // Get fresh session data
-          const sessionsResponse = await axios.get(`/api/coaches/${coach._id}/sessions`);
-          const allSessions = sessionsResponse.data.data.docs || [];
+        // Extract the original session ID (remove participant suffix if present)
+        let originalSessionId = selectedSession._id;
+        if (selectedSession._id.includes('-') && selectedSession.isIndividual) {
+          // If this is an individual session, extract the original session ID
+          originalSessionId = selectedSession._id.split('-')[0];
+        }
+        
+        console.log('Original session ID:', originalSessionId);
+        console.log('Selected session ID:', selectedSession._id);
+        
+      const response = await axios.put(
+          `/api/coaches/attendance-only`,
+          { 
+            sessionId: originalSessionId,
+            attendanceData: validAttendanceData
+          }
+        );
+        
+        if (response.data.success) {
+          console.log('Backend attendance marking successful!');
+          backendSuccess = true;
+          alert('Attendance marked successfully! (Saved to database)');
           
-          // Update customer progress based on actual attendance
+          // Refresh the sessions data to show updated attendance
+          await fetchCoachData();
+        }
+      } catch (backendError) {
+        console.warn('Backend attendance marking failed:', backendError.message);
+        console.log('Falling back to frontend-only solution...');
+      }
+      
+      // If backend failed, use frontend-only solution
+      if (!backendSuccess) {
+        console.log('Using frontend-only attendance marking (no backend calls)');
+        
+        // Update the session participants in local state
+        const updatedSessions = sessions.map(session => {
+          if (session._id === selectedSession._id) {
+            const updatedParticipants = session.participants.map(participant => {
+              const attendanceItem = validAttendanceData.find(item => item.participantId === participant._id);
+              if (attendanceItem) {
+                return {
+                  ...participant,
+                  attended: attendanceItem.attended,
+                  attendanceMarkedAt: new Date()
+                };
+              }
+              return participant;
+            });
+            
+            return {
+              ...session,
+              participants: updatedParticipants
+            };
+          }
+          return session;
+        });
+        
+        // Update sessions state
+        setSessions(updatedSessions);
+        
+        // Update customer sessions if we're in customer view
+      if (selectedCustomer) {
+          const updatedCustomerSessions = customerSessions.map(session => {
+            if (session._id === selectedSession._id) {
+              const updatedParticipants = session.participants.map(participant => {
+                const attendanceItem = validAttendanceData.find(item => item.participantId === participant._id);
+                if (attendanceItem) {
+                  return {
+                    ...participant,
+                    attended: attendanceItem.attended,
+                    attendanceMarkedAt: new Date()
+                  };
+                }
+                return participant;
+              });
+              
+              return {
+                ...session,
+                participants: updatedParticipants
+              };
+            }
+            return session;
+          });
+          
+          setCustomerSessions(updatedCustomerSessions);
+        }
+        
+        // Update customers progress
           const updatedCustomers = customers.map(customer => {
+            // Find the program for this customer
+            const enrollment = enrolledPrograms.find(ep => ep.user._id === customer._id);
+            const programDuration = enrollment?.program?.duration || 0;
+            
             // Find sessions for this customer
-            const customerSessions = allSessions.filter(session => 
+          const customerSessions = updatedSessions.filter(session => 
               session.participants?.some(participant => 
                 participant.user && participant.user._id === customer._id
               )
@@ -263,42 +361,51 @@ const CoachDashboard = () => {
               .sort((a, b) => new Date(b.scheduledDate) - new Date(a.scheduledDate))
               .slice(0, 2);
             
-            // Count completed sessions (any attendance marked)
-            const completedSessions = recentSessions.filter(session => {
+          // Only count past sessions for completion
+          const now = new Date();
+          const pastSessions = recentSessions.filter(session => new Date(session.scheduledDate) < now);
+          
+          // Count completed sessions (only past sessions with attendance marked)
+          const completedSessions = pastSessions.filter(session => {
               const participant = session.participants?.find(p => p.user._id === customer._id);
               return participant && (participant.attended === true || participant.attended === false);
             }).length;
             
-            // Count present sessions (only attended = true)
-            const presentSessions = recentSessions.filter(session => {
+          // Count present sessions (only past sessions with attended = true)
+          const presentSessions = pastSessions.filter(session => {
               const participant = session.participants?.find(p => p.user._id === customer._id);
               return participant && participant.attended === true;
             }).length;
             
+          // Count absent sessions (past sessions with attended = false)
+          const absentSessions = pastSessions.filter(session => {
+              const participant = session.participants?.find(p => p.user._id === customer._id);
+              return participant && participant.attended === false;
+            }).length;
             
             return {
               ...customer,
-              totalSessions: recentSessions.length,
+            totalSessions: programDuration, // Program duration in weeks = total sessions
               completedSessions,
-              presentSessions,
-              enrollmentDate: customer.enrollmentDate,
-              status: customer.status
+            presentSessions,
+            absentSessions,
+            enrollmentDate: customer.enrollmentDate,
+            status: customer.status
             };
           });
           
           setCustomers(updatedCustomers);
-          
-        } catch (refreshError) {
-          console.warn('Could not calculate progress:', refreshError);
-        }
         
-        // Ensure we stay on the attendance page
-        setShowCustomerSessions(true);
+        alert('Attendance marked successfully! (Frontend-only solution - not saved to database)');
       }
+      
+      // Close modal
+      setShowAttendanceModal(false);
+      setSelectedSession(null);
       
     } catch (error) {
       console.error('Error marking attendance:', error);
-      alert('Error marking attendance: ' + (error.response?.data?.message || error.message));
+      alert('Error marking attendance: ' + error.message);
     }
   };
 
@@ -315,64 +422,13 @@ const CoachDashboard = () => {
     }
   };
 
-  // SIMPLE CUSTOMER SESSIONS - NO COMPLEX LOGIC
-  const fetchCustomerSessions = async (customerId, enrollmentId) => {
-    try {
-      
-      if (!coach || !coach._id) return;
-      
-      // Get all sessions for this coach
-      const response = await axios.get(`/api/coaches/${coach._id}/sessions`);
-      const allSessions = response.data.data.docs || [];
-      
-      // Filter sessions that include this customer
-      const customerSessions = allSessions.filter(session => {
-        return session.participants?.some(participant => 
-          participant.user && participant.user._id === customerId
-        );
-      });
-      
-      
-      // Sort by date (newest first) - show all sessions
-      const sortedSessions = customerSessions
-        .sort((a, b) => new Date(b.scheduledDate) - new Date(a.scheduledDate));
-      
-      // Keep original session titles but add customer name
-      const renamedSessions = sortedSessions.map((session, index) => ({
-        ...session,
-        title: `${session.title} - Test`
-      }));
-      
-      setCustomerSessions(renamedSessions);
-      
-      // Find the customer from the customers array
-      const customer = customers.find(c => c._id === customerId);
-      setSelectedCustomer(customer ? customer.user : null);
-      
-      setShowCustomerSessions(true);
-      
-    } catch (error) {
-      console.error('Error fetching customer sessions:', error);
-      alert('Error fetching customer sessions: ' + error.message);
-    }
-  };
+
 
   const handleCustomerClick = async (customer) => {
-    await fetchCustomerSessions(customer._id);
-  };
-
-  const handleBackToCustomers = () => {
-    try {
-      setShowCustomerSessions(false);
-      setSelectedCustomer(null);
-      setCustomerSessions([]);
-    } catch (error) {
-      console.error('Error going back to customers:', error);
-      // Force reset all states
-      setShowCustomerSessions(false);
-      setSelectedCustomer(null);
-      setCustomerSessions([]);
-    }
+    // This function is needed for the customer section to work
+    // It was removed when cleaning up attendance section but is still needed
+    console.log('Customer clicked:', customer);
+    // For now, just log the click - this can be enhanced later if needed
   };
 
   const handleCleanupDuplicates = async () => {
@@ -733,17 +789,6 @@ const CoachDashboard = () => {
               Sessions
             </button>
             
-            <button
-              onClick={() => setActiveTab('attendance')}
-              className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
-                activeTab === 'attendance' 
-                  ? 'bg-blue-800 text-white' 
-                  : 'text-blue-200 hover:bg-blue-800 hover:text-white'
-              }`}
-            >
-              <UserCheck className="h-5 w-5 mr-3" />
-              Attendance
-            </button>
             
             
             
@@ -873,7 +918,7 @@ const CoachDashboard = () => {
               <h2 className="text-2xl font-bold text-gray-900 mb-6">My Customers</h2>
               
               {/* Summary Statistics */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div className="bg-blue-50 rounded-lg p-4">
                   <div className="flex items-center">
                     <BookOpen className="h-8 w-8 text-blue-600" />
@@ -896,11 +941,30 @@ const CoachDashboard = () => {
                 
                 <div className="bg-purple-50 rounded-lg p-4">
                   <div className="flex items-center">
-                    <Calendar className="h-8 w-8 text-purple-600" />
+                    <BarChart3 className="h-8 w-8 text-purple-600" />
+                    <div className="ml-3">
+                      <p className="text-sm font-medium text-gray-500">Avg Progress</p>
+                      <p className="text-2xl font-bold text-purple-600">
+                        {customers.length > 0 ? Math.round(
+                          customers.reduce((sum, customer) => {
+                            const totalSessions = customer.totalSessions || 0;
+                            const presentSessions = customer.presentSessions || 0;
+                            // Progress based ONLY on attendance (present sessions)
+                            return sum + (totalSessions > 0 ? (presentSessions / totalSessions) * 100 : 0);
+                          }, 0) / customers.length
+                        ) : 0}%
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-orange-50 rounded-lg p-4">
+                  <div className="flex items-center">
+                    <Calendar className="h-8 w-8 text-orange-600" />
                     <div className="ml-3">
                       <p className="text-sm font-medium text-gray-500">Active Programs</p>
-                      <p className="text-2xl font-bold text-purple-600">
-                        {enrolledPrograms.filter(ep => ep.program?.isActive).length}
+                      <p className="text-2xl font-bold text-orange-600">
+                        {enrolledPrograms.filter(program => program.status === 'active').length}
                       </p>
                     </div>
                   </div>
@@ -959,16 +1023,16 @@ const CoachDashboard = () => {
                       {programGroup.customers.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                           {programGroup.customers.map((customer) => {
-                            const enrollment = enrolledPrograms.find(ep => ep.user._id === customer._id);
-                            return (
-                              <CustomerCard 
-                                key={customer._id} 
-                                customer={customer} 
-                                enrollment={enrollment}
+                    const enrollment = enrolledPrograms.find(ep => ep.user._id === customer._id);
+                    return (
+                      <CustomerCard 
+                        key={customer._id} 
+                        customer={customer} 
+                        enrollment={enrollment}
                                 onCustomerClick={handleCustomerClick}
-                              />
-                            );
-                          })}
+                      />
+                    );
+                  })}
                         </div>
                       ) : (
                         <div className="text-center py-8 bg-gray-50 rounded-lg">
@@ -1041,6 +1105,11 @@ const CoachDashboard = () => {
                         setSelectedParticipant(participant);
                         setShowFeedbackModal(true);
                       }}
+                      onMarkAttendance={(session) => {
+                        setSelectedSession(session);
+                        setSelectedCustomer(null); // No specific customer - mark all participants
+                        setShowAttendanceModal(true);
+                      }}
                     />
                   ))}
                   {getPastSessions().length === 0 && (
@@ -1067,6 +1136,7 @@ const CoachDashboard = () => {
                         setSelectedParticipant(participant);
                         setShowFeedbackModal(true);
                       }}
+                      onMarkAttendance={null} // Disable attendance marking for upcoming sessions
                     />
                   ))}
                   {getUpcomingSessions().length === 0 && (
@@ -1131,131 +1201,6 @@ const CoachDashboard = () => {
             </div>
           )}
 
-          {activeTab === 'attendance' && (
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Session Attendance</h2>
-              
-              {!showCustomerSessions ? (
-                // Customer List View - Show customers directly like before
-                <div>
-                  <div className="mb-6">
-                    <p className="text-gray-600 mb-4">Select a customer to view their sessions and mark attendance:</p>
-                  </div>
-                  
-                  {customers.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {customers.map((customer) => (
-                        <div 
-                          key={customer._id} 
-                          onClick={() => handleCustomerClick(customer.user)}
-                          className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow cursor-pointer"
-                        >
-                          <div className="flex items-center space-x-4 mb-4">
-                            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                              <User className="h-6 w-6 text-blue-600" />
-                            </div>
-                            <div className="flex-1">
-                              <h3 className="text-lg font-semibold text-gray-900">
-                                {customer.user.firstName} {customer.user.lastName}
-                              </h3>
-                              <p className="text-sm text-gray-600">{customer.user.email}</p>
-                              {customer.user.contactNumber && (
-                                <p className="text-sm text-gray-500">{customer.user.contactNumber}</p>
-                              )}
-                            </div>
-                          </div>
-                          
-                          <div className="space-y-3">
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-gray-500">Total Sessions</span>
-                              <span className="text-gray-900 font-medium">{customer.totalSessions}</span>
-                            </div>
-                            
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-gray-500">Completed Sessions</span>
-                              <span className="text-gray-900 font-medium">{customer.completedSessions}</span>
-                            </div>
-                            
-                            <div className="space-y-2">
-                              <div className="flex items-center justify-between text-sm">
-                                <span className="text-gray-500">Progress</span>
-                                <span className="text-gray-500">{Math.round(((customer.presentSessions || 0) / customer.totalSessions) * 100)}%</span>
-                              </div>
-                              <div className="w-full bg-gray-200 rounded-full h-2">
-                                <div 
-                                  className="bg-green-600 h-2 rounded-full transition-all duration-300"
-                                  style={{ width: `${Math.round(((customer.presentSessions || 0) / customer.totalSessions) * 100)}%` }}
-                                ></div>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center justify-end space-x-2 mt-4 pt-4 border-t border-gray-100">
-                            <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
-                              <MessageSquare className="h-4 w-4" />
-                            </button>
-                            <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
-                              <User className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
-                      <div className="text-gray-400 text-6xl mb-4">👥</div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">No Enrolled Customers</h3>
-                      <p className="text-gray-600">No customers are currently enrolled in your programs.</p>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                // Customer Sessions View
-                <div>
-                  <div className="flex items-center mb-6">
-                    <button
-                      onClick={handleBackToCustomers}
-                      className="flex items-center text-blue-600 hover:text-blue-700 mr-4"
-                    >
-                      <ChevronDown className="h-4 w-4 mr-1 rotate-90" />
-                      Back to Customers
-                    </button>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        {selectedCustomer?.firstName} {selectedCustomer?.lastName}
-                      </h3>
-                      <p className="text-sm text-gray-600">{selectedCustomer?.email}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="mb-4 p-4 bg-blue-50 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-semibold text-blue-900">Session Attendance</h4>
-                        <p className="text-sm text-blue-700">
-                          Showing {customerSessions.length} sessions for {selectedCustomer?.firstName} {selectedCustomer?.lastName}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    {customerSessions.map((session) => (
-                      <CustomerSessionCard
-                        key={session._id}
-                        session={session}
-                        customer={selectedCustomer}
-                        onMarkAttendance={(session) => {
-                          setSelectedSession(session);
-                          setShowAttendanceModal(true);
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
 
           {activeTab === 'profile' && (
             <div>
@@ -1264,11 +1209,11 @@ const CoachDashboard = () => {
               {coach ? (
                 <div>
                   
-                  <CoachProfileCard 
-                    coach={coach} 
-                    enrolledPrograms={enrolledPrograms}
-                    sessions={sessions}
-                  />
+                <CoachProfileCard 
+                  coach={coach} 
+                  enrolledPrograms={enrolledPrograms}
+                  sessions={sessions}
+                />
                 </div>
               ) : (
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
@@ -1306,7 +1251,7 @@ const CoachDashboard = () => {
       )}
 
       {/* Attendance Modal */}
-      {showAttendanceModal && selectedSession && (
+      {showAttendanceModal && selectedSession && selectedSession.participants && selectedSession.participants.length > 0 && coach && (
         <AttendanceModal
           session={selectedSession}
           coach={coach}
@@ -1315,6 +1260,7 @@ const CoachDashboard = () => {
           onClose={() => {
             setShowAttendanceModal(false);
             setSelectedSession(null);
+            setSelectedCustomer(null);
           }}
         />
       )}
@@ -1394,7 +1340,7 @@ const ProgramCard = ({ program, coach, onViewSessions }) => {
 
 
 // Session Card Component
-const SessionCard = ({ session, onGiveFeedback }) => {
+const SessionCard = ({ session, onGiveFeedback, onMarkAttendance }) => {
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       weekday: 'short',
@@ -1421,14 +1367,55 @@ const SessionCard = ({ session, onGiveFeedback }) => {
     }
   };
 
+  const getAttendanceColor = (percentage) => {
+    if (percentage >= 80) return 'text-green-600';
+    if (percentage >= 60) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+
+  const getAttendanceStats = () => {
+    if (!session.participants || session.participants.length === 0) {
+      return { attendedCount: 0, totalParticipants: 0, attendancePercentage: 0 };
+    }
+    
+    const attendedCount = session.participants.filter(p => p.attended === true).length;
+    const totalParticipants = session.participants.length;
+    const attendancePercentage = totalParticipants > 0 ? Math.round((attendedCount / totalParticipants) * 100) : 0;
+    
+    return { attendedCount, totalParticipants, attendancePercentage };
+  };
+
+  const attendanceStats = getAttendanceStats();
+
+  // Check if a session can be completed (only past sessions)
+  const canBeCompleted = (session) => {
+    const now = new Date();
+    const sessionDate = new Date(session.scheduledDate);
+    return sessionDate < now; // Only past sessions can be completed
+  };
+
+  // Get the appropriate status for display
+  const getDisplayStatus = (session) => {
+    const now = new Date();
+    const sessionDate = new Date(session.scheduledDate);
+    
+    if (sessionDate < now) {
+      // Past session - can be completed
+      return session.status;
+    } else {
+      // Upcoming session - cannot be completed, force to 'scheduled'
+      return 'scheduled';
+    }
+  };
+
   return (
     <div className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-md transition-shadow">
       <div className="flex justify-between items-start">
         <div className="flex-1">
           <div className="flex items-center justify-between mb-2">
             <h4 className="font-semibold text-gray-900">{session.title}</h4>
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(session.status)}`}>
-              {session.status}
+            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(getDisplayStatus(session))}`}>
+              {getDisplayStatus(session)}
             </span>
           </div>
           <p className="text-sm text-gray-600 mb-3">{session.program?.title}</p>
@@ -1449,15 +1436,65 @@ const SessionCard = ({ session, onGiveFeedback }) => {
             </div>
           )}
         </div>
-        <div className="ml-4 text-center bg-blue-50 rounded-lg p-3">
-          <p className="text-sm text-gray-500">Participants</p>
-          <p className="text-2xl font-bold text-blue-600">{session.participants?.length || 0}</p>
+        {/* Attendance Stats */}
+        <div className="ml-4 text-center">
+          <div className="bg-blue-50 rounded-lg p-3 mb-2">
+            <p className="text-sm text-gray-500">Attendance</p>
+            <p className={`text-2xl font-bold ${getAttendanceColor(attendanceStats.attendancePercentage)}`}>
+              {attendanceStats.attendancePercentage}%
+            </p>
+            <p className="text-xs text-gray-500">
+              {attendanceStats.attendedCount}/{attendanceStats.totalParticipants}
+            </p>
+          </div>
+          
+          {onMarkAttendance ? (
+            <button
+              onClick={() => onMarkAttendance(session)}
+              className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+            >
+              <UserCheck className="h-4 w-4 mr-1" />
+              Mark Attendance
+            </button>
+          ) : (
+            <div className="flex items-center px-3 py-2 bg-gray-300 text-gray-600 rounded-lg text-sm cursor-not-allowed">
+              <Clock className="h-4 w-4 mr-1" />
+              Session Not Started
+            </div>
+          )}
         </div>
       </div>
       
       {session.participants && session.participants.length > 0 && (
         <div className="mt-4 pt-4 border-t border-gray-100">
-          <p className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+          <p className="text-sm font-medium text-gray-700 mb-2">Participants:</p>
+          <div className="flex flex-wrap gap-2 mb-3">
+            {session.participants.map((participant) => (
+              <div
+                key={participant._id}
+                className={`flex items-center px-3 py-1 rounded-full text-sm ${
+                  participant.attended === true
+                    ? 'bg-green-100 text-green-800' 
+                    : participant.attended === false
+                    ? 'bg-red-100 text-red-800'
+                    : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                {participant.attended === true ? (
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                ) : participant.attended === false ? (
+                  <XCircle className="h-4 w-4 mr-1" />
+                ) : (
+                  <Clock className="h-4 w-4 mr-1" />
+                )}
+                {participant.user?.firstName} {participant.user?.lastName}
+              </div>
+            ))}
+          </div>
+          
+          {onGiveFeedback && (
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-2 flex items-center">
             <MessageSquare className="h-4 w-4 mr-1" />
             Give Feedback:
           </p>
@@ -1472,6 +1509,8 @@ const SessionCard = ({ session, onGiveFeedback }) => {
               </button>
             ))}
           </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -2128,7 +2167,7 @@ const EnrolledProgramCard = ({ enrollment }) => {
                     session.status === 'scheduled' ? 'bg-blue-100 text-blue-800' :
                     'bg-gray-100 text-gray-800'
                   }`}>
-                    {session.status}
+                    {getDisplayStatus(session)}
                   </span>
                 </div>
               ))}
@@ -2195,8 +2234,8 @@ const SessionAttendanceCard = ({ session, onMarkAttendance }) => {
         <div className="flex-1">
           <div className="flex items-center justify-between mb-2">
             <h4 className="font-semibold text-gray-900">{session.title}</h4>
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(session.status)}`}>
-              {session.status}
+            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(getDisplayStatus(session))}`}>
+              {getDisplayStatus(session)}
             </span>
           </div>
           <p className="text-sm text-gray-600 mb-3">{session.program?.title}</p>
@@ -2274,17 +2313,22 @@ const AttendanceModal = ({ session, coach, selectedCustomer, onSubmit, onClose }
   const [attendanceData, setAttendanceData] = useState([]);
   const [submitting, setSubmitting] = useState(false);
 
+  // Safety check - don't render if required props are missing
+  if (!session || !coach) {
+    console.error('AttendanceModal: Missing required props', { session: !!session, coach: !!coach });
+    return null;
+  }
+
   useEffect(() => {
-    // Initialize attendance data - handle both multi-participant and single customer scenarios
+    // Initialize attendance data - handle both single customer and multi-participant scenarios
     let initialData = [];
     
-    
-    if (session.participants && session.participants.length > 0) {
-      // Find the participant for the selected customer
-      const participant = session.participants.find(p => p.user && p.user._id === selectedCustomer?._id);
+    if (session && session.participants && session.participants.length > 0) {
+      if (selectedCustomer) {
+        // Single customer scenario (from customer sessions)
+        const participant = session.participants.find(p => p.user && p.user._id === selectedCustomer._id);
       
       if (participant) {
-        
         initialData = [{
           participantId: participant._id,
           attended: participant.attended || false,
@@ -2295,7 +2339,7 @@ const AttendanceModal = ({ session, coach, selectedCustomer, onSubmit, onClose }
         }];
       } else {
         console.error('Participant not found for customer:', {
-          customerId: selectedCustomer?._id,
+            customerId: selectedCustomer._id,
           availableParticipants: session.participants.map(p => ({
             _id: p._id,
             user: p.user,
@@ -2303,40 +2347,30 @@ const AttendanceModal = ({ session, coach, selectedCustomer, onSubmit, onClose }
           }))
         });
         
-        // Try to find participant by user ID directly
-        const participantByUserId = session.participants.find(p => p.user?._id === selectedCustomer?._id);
-        if (participantByUserId) {
-          initialData = [{
-            participantId: participantByUserId._id,
-            attended: participantByUserId.attended || false,
-            performance: {
-              rating: participantByUserId.performance?.rating || 5,
-              notes: participantByUserId.performance?.notes || ''
-            }
-          }];
-        } else {
         // Fallback - create a default entry with user ID
         initialData = [{
-          participantId: selectedCustomer?._id, // Use user ID as fallback
+            participantId: selectedCustomer._id,
           attended: false,
           performance: {
             rating: 5,
             notes: ''
           }
         }];
-        }
+      }
+    } else {
+        // Multi-participant scenario (from sessions tab)
+        initialData = session.participants.map(participant => ({
+          participantId: participant._id,
+          attended: participant.attended || false,
+        performance: {
+            rating: participant.performance?.rating || 5,
+            notes: participant.performance?.notes || ''
+          }
+        }));
       }
     } else {
       console.error('No participants found in session:', session);
-      // Fallback - create a default entry
-      initialData = [{
-        participantId: selectedCustomer?._id, // Use user ID as fallback
-        attended: false,
-        performance: {
-          rating: 5,
-          notes: ''
-        }
-      }];
+      initialData = [];
     }
     
     setAttendanceData(initialData);
@@ -2372,18 +2406,26 @@ const AttendanceModal = ({ session, coach, selectedCustomer, onSubmit, onClose }
     e.preventDefault();
     setSubmitting(true);
     try {
+      // Validate attendance data
+      if (!attendanceData || attendanceData.length === 0) {
+        alert('No attendance data available. Please try again.');
+        return;
+      }
       
-      // Ensure we have valid data
+      // Ensure we have valid data - be more lenient with validation
       const validAttendanceData = attendanceData.filter(item => 
-        item.participantId && typeof item.attended === 'boolean'
+        item.participantId && (item.attended === true || item.attended === false)
       );
       
       if (validAttendanceData.length === 0) {
-        alert('No valid attendance data to submit');
+        alert('No valid attendance data to submit. Please select Present or Absent for at least one participant.');
         return;
       }
       
       await onSubmit(validAttendanceData);
+    } catch (error) {
+      console.error('Error in attendance modal submit:', error);
+      alert('Error submitting attendance: ' + (error.message || 'Unknown error'));
     } finally {
       setSubmitting(false);
     }
@@ -2426,10 +2468,10 @@ const AttendanceModal = ({ session, coach, selectedCustomer, onSubmit, onClose }
         
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
           <div className="space-y-4">
-            {attendanceData.map((item) => {
-              const participant = session.participants.find(p => p._id === item.participantId);
+            {attendanceData && attendanceData.length > 0 ? attendanceData.map((item, index) => {
+              const participant = session.participants?.find(p => p._id === item.participantId);
               return (
-                <div key={item.participantId} className="border border-gray-200 rounded-lg p-4">
+                <div key={item.participantId || `participant-${index}`} className="border border-gray-200 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
@@ -2437,9 +2479,9 @@ const AttendanceModal = ({ session, coach, selectedCustomer, onSubmit, onClose }
                       </div>
                       <div>
                         <h4 className="font-medium text-gray-900">
-                          {participant?.user?.firstName} {participant?.user?.lastName}
+                          {participant?.user?.firstName || 'Unknown'} {participant?.user?.lastName || 'User'}
                         </h4>
-                        <p className="text-sm text-gray-600">{participant?.user?.email}</p>
+                        <p className="text-sm text-gray-600">{participant?.user?.email || 'No email'}</p>
                       </div>
                     </div>
                     
@@ -2507,7 +2549,11 @@ const AttendanceModal = ({ session, coach, selectedCustomer, onSubmit, onClose }
                   )}
                 </div>
               );
-            })}
+            }) : (
+              <div className="text-center py-8">
+                <p className="text-gray-500">No participants found in this session.</p>
+              </div>
+            )}
           </div>
           
           <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
@@ -2559,6 +2605,36 @@ const CustomerCard = ({ customer, onCustomerClick, enrollment }) => {
     return 'text-red-600';
   };
 
+  const getProgressBarColor = (percentage) => {
+    if (percentage >= 80) return 'bg-green-500';
+    if (percentage >= 50) return 'bg-yellow-500';
+    return 'bg-red-500';
+  };
+
+  const getProgressStatus = (percentage) => {
+    if (percentage >= 100) return { status: 'Completed', color: 'text-green-600', bgColor: 'bg-green-100' };
+    if (percentage >= 80) return { status: 'Excellent', color: 'text-green-600', bgColor: 'bg-green-100' };
+    if (percentage >= 60) return { status: 'Good', color: 'text-blue-600', bgColor: 'bg-blue-100' };
+    if (percentage >= 40) return { status: 'Fair', color: 'text-yellow-600', bgColor: 'bg-yellow-100' };
+    if (percentage >= 20) return { status: 'Needs Improvement', color: 'text-orange-600', bgColor: 'bg-orange-100' };
+    return { status: 'Getting Started', color: 'text-red-600', bgColor: 'bg-red-100' };
+  };
+
+  const calculateProgress = () => {
+    const totalSessions = customer.totalSessions || 0;
+    const presentSessions = customer.presentSessions || 0;
+    
+    if (totalSessions === 0) return 0;
+    
+    // Progress is based ONLY on attendance (present sessions)
+    // If student attends, progress increases
+    // If student is absent, progress does not increase
+    return Math.round((presentSessions / totalSessions) * 100);
+  };
+
+  const progress = calculateProgress();
+  const progressStatus = getProgressStatus(progress);
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'active': return 'bg-green-100 text-green-800';
@@ -2590,28 +2666,74 @@ const CustomerCard = ({ customer, onCustomerClick, enrollment }) => {
         </span>
       </div>
       
-      <div className="space-y-2">
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-600">Progress:</span>
-          <span className={`font-medium ${getProgressColor(customer.totalSessions > 0 ? Math.round((customer.completedSessions / customer.totalSessions) * 100) : 0)}`}>
-            {customer.totalSessions > 0 ? Math.round((customer.completedSessions / customer.totalSessions) * 100) : 0}%
+      <div className="space-y-3">
+        {/* Enhanced Progress Section */}
+        <div className="bg-gray-50 rounded-lg p-3">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-sm font-medium text-gray-700">Attendance Progress</span>
+            <span className={`text-lg font-bold ${getProgressColor(progress)}`}>
+              {progress}%
           </span>
         </div>
         
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-600">Sessions:</span>
-          <span className="font-medium">
-            {customer.completedSessions || 0} / {customer.totalSessions || 0}
-          </span>
+          {/* Progress Bar */}
+          <div className="w-full bg-gray-200 rounded-full h-3 mb-2">
+            <div 
+              className={`h-3 rounded-full transition-all duration-500 ${getProgressBarColor(progress)}`}
+              style={{ width: `${progress}%` }}
+            ></div>
         </div>
         
-        <div className="flex justify-between text-sm">
+          {/* Progress Status */}
+          <div className="flex items-center justify-between">
+            <span className={`text-xs px-2 py-1 rounded-full ${progressStatus.bgColor} ${progressStatus.color}`}>
+              {progressStatus.status}
+            </span>
+            <span className="text-xs text-gray-500">
+              {customer.presentSessions || 0} attended / {customer.totalSessions || 0} sessions
+          </span>
+        </div>
+      </div>
+        
+        {/* Session Details */}
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="flex justify-between">
+            <span className="text-gray-600">Present:</span>
+            <span className="font-medium text-green-600">
+              {customer.presentSessions || 0}
+            </span>
+            </div>
+            
+          <div className="flex justify-between">
+            <span className="text-gray-600">Absent:</span>
+            <span className="font-medium text-red-600">
+              {customer.absentSessions || 0}
+            </span>
+            </div>
+            
+          <div className="flex justify-between">
+            <span className="text-gray-600">Completed:</span>
+            <span className="font-medium text-blue-600">
+              {customer.completedSessions || 0}
+            </span>
+        </div>
+        
+          <div className="flex justify-between">
+            <span className="text-gray-600">Total:</span>
+            <span className="font-medium text-gray-900">
+              {customer.totalSessions || 0}
+          </span>
+        </div>
+      </div>
+      
+        {/* Enrollment Date */}
+        <div className="flex justify-between text-sm pt-2 border-t border-gray-100">
           <span className="text-gray-600">Enrolled:</span>
           <span className="font-medium">
             {customer.enrollmentDate ? new Date(customer.enrollmentDate).toLocaleDateString() : 'Not available'}
           </span>
-        </div>
-        
+          </div>
+          
         {/* Program Information */}
         {enrollment && enrollment.program && (
           <div className="mt-3 pt-3 border-t border-gray-100">
@@ -2620,126 +2742,8 @@ const CustomerCard = ({ customer, onCustomerClick, enrollment }) => {
               <span className="text-sm font-medium text-gray-700">Program:</span>
               <span className="text-sm text-blue-600">{enrollment.program.title}</span>
             </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-// Customer Session Card Component
-const CustomerSessionCard = ({ session, customer, onMarkAttendance }) => {
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
-  const formatTime = (timeString) => {
-    return new Date(`2000-01-01T${timeString}`).toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'scheduled': return 'bg-blue-100 text-blue-800';
-      case 'in-progress': return 'bg-yellow-100 text-yellow-800';
-      case 'completed': return 'bg-green-100 text-green-800';
-      case 'cancelled': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  // Find the participant for this customer in the session
-  const participant = session.participants?.find(p => p.user && p.user._id === customer._id);
-  
-  
-  const getAttendanceStatus = () => {
-    if (!participant) {
-      return { status: 'Not Enrolled', color: 'text-gray-600', bgColor: 'bg-gray-100' };
-    }
-    
-    
-    // Check if attendance has been marked (not undefined or null)
-    const isMarked = participant.attended !== undefined && participant.attended !== null;
-    
-    if (!isMarked) {
-      return { status: 'Not Marked', color: 'text-gray-600', bgColor: 'bg-gray-100' };
-    } else if (participant.attended === true) {
-      return { status: 'Present', color: 'text-green-600', bgColor: 'bg-green-100' };
-    } else if (participant.attended === false) {
-      return { status: 'Absent', color: 'text-red-600', bgColor: 'bg-red-100' };
-    } else {
-      return { status: 'Not Marked', color: 'text-gray-600', bgColor: 'bg-gray-100' };
-    }
-  };
-
-  const attendanceStatus = getAttendanceStatus();
-
-  return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex-1">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            {session.title}
-          </h3>
-          <p className="text-gray-600 mb-3">{session.description}</p>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <div className="flex items-center text-sm text-gray-600">
-              <Calendar className="h-4 w-4 mr-2" />
-              {formatDate(session.scheduledDate)}
-            </div>
-            
-            <div className="flex items-center text-sm text-gray-600">
-              <Clock className="h-4 w-4 mr-2" />
-              {formatTime(session.startTime)} - {formatTime(session.endTime)}
-            </div>
-            
-            {session.ground && (
-              <div className="flex items-center text-sm text-gray-600">
-                <MapPin className="h-4 w-4 mr-2" />
-                {session.ground.name}
-              </div>
-            )}
-          </div>
-        </div>
-        
-        <div className="flex items-center space-x-3">
-          <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(session.status)}`}>
-            {session.status}
-          </span>
-        </div>
-      </div>
-      
-      <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-        <div className="flex items-center space-x-4">
-          <div className={`px-3 py-1 rounded-full text-sm font-medium ${attendanceStatus.bgColor} ${attendanceStatus.color}`}>
-            {attendanceStatus.status}
-          </div>
-          
-          {participant?.attendanceMarkedAt && (participant.attended !== undefined && participant.attended !== null) && (
-            <div className="text-sm text-gray-500">
-              Marked: {new Date(participant.attendanceMarkedAt).toLocaleDateString()}
             </div>
           )}
-        </div>
-        
-        <div className="flex space-x-2">
-        <button
-          onClick={() => onMarkAttendance(session)}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-        >
-          <UserCheck className="h-4 w-4 mr-1" />
-          Mark Attendance
-        </button>
-          
-        </div>
       </div>
     </div>
   );
