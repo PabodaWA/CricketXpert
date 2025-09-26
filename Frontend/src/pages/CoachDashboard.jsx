@@ -50,7 +50,9 @@ const CoachDashboard = () => {
   const [coachSessions, setCoachSessions] = useState([]);
   const [selectedSession, setSelectedSession] = useState(null);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [selectedEnrollment, setSelectedEnrollment] = useState(null);
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
+  const [showCustomerDetailsModal, setShowCustomerDetailsModal] = useState(false);
   const [enrolledCustomers, setEnrolledCustomers] = useState([]);
 
   useEffect(() => {
@@ -424,11 +426,10 @@ const CoachDashboard = () => {
 
 
 
-  const handleCustomerClick = async (customer) => {
-    // This function is needed for the customer section to work
-    // It was removed when cleaning up attendance section but is still needed
-    console.log('Customer clicked:', customer);
-    // For now, just log the click - this can be enhanced later if needed
+  const handleCustomerClick = async (customer, enrollment) => {
+    setSelectedCustomer(customer);
+    setSelectedEnrollment(enrollment);
+    setShowCustomerDetailsModal(true);
   };
 
   const handleCleanupDuplicates = async () => {
@@ -1261,6 +1262,19 @@ const CoachDashboard = () => {
             setShowAttendanceModal(false);
             setSelectedSession(null);
             setSelectedCustomer(null);
+          }}
+        />
+      )}
+
+      {/* Customer Details Modal */}
+      {showCustomerDetailsModal && selectedCustomer && (
+        <CustomerDetailsModal
+          customer={selectedCustomer}
+          enrollment={selectedEnrollment}
+          onClose={() => {
+            setShowCustomerDetailsModal(false);
+            setSelectedCustomer(null);
+            setSelectedEnrollment(null);
           }}
         />
       )}
@@ -2646,7 +2660,7 @@ const CustomerCard = ({ customer, onCustomerClick, enrollment }) => {
 
   return (
     <div 
-      onClick={onCustomerClick}
+      onClick={() => onCustomerClick(customer, enrollment)}
       className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
     >
       <div className="flex items-start justify-between mb-3">
@@ -2744,6 +2758,231 @@ const CustomerCard = ({ customer, onCustomerClick, enrollment }) => {
             </div>
             </div>
           )}
+      </div>
+    </div>
+  );
+};
+
+// Customer Details Modal Component
+const CustomerDetailsModal = ({ customer, enrollment, onClose }) => {
+  if (!customer) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">Customer Details</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+
+        {/* Customer Information */}
+        <div className="space-y-6">
+          {/* Personal Information */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <User className="h-5 w-5 mr-2" />
+              Personal Information
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium text-gray-600">Name</label>
+                <p className="text-gray-900">{customer.user?.firstName} {customer.user?.lastName}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600">Email</label>
+                <p className="text-gray-900">{customer.user?.email}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600">Phone</label>
+                <p className="text-gray-900">{customer.user?.phone || 'Not provided'}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600">Status</label>
+                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                  customer.status === 'active' 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-red-100 text-red-800'
+                }`}>
+                  {customer.status || 'active'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Enrollment Information */}
+          <div className="bg-blue-50 rounded-lg p-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <BookOpen className="h-5 w-5 mr-2" />
+              Enrollment Information
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium text-gray-600">Enrollment Date</label>
+                <p className="text-gray-900">
+                  {customer.enrollmentDate ? new Date(customer.enrollmentDate).toLocaleDateString() : 'Not available'}
+                </p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600">Program Duration</label>
+                <p className="text-gray-900">{customer.totalSessions || 0} weeks</p>
+              </div>
+              {enrollment && enrollment.program && (
+                <>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Program Name</label>
+                    <p className="text-gray-900">{enrollment.program.title}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Program Category</label>
+                    <p className="text-gray-900">{enrollment.program.category || 'Not specified'}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Program Fee</label>
+                    <p className="text-gray-900">LKR {enrollment.program.fee || 0}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Enrollment Status</label>
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                      enrollment.status === 'active' 
+                        ? 'bg-green-100 text-green-800' 
+                        : enrollment.status === 'completed'
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {enrollment.status || 'active'}
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+            {enrollment && enrollment.program && enrollment.program.description && (
+              <div className="mt-4">
+                <label className="text-sm font-medium text-gray-600">Program Description</label>
+                <p className="text-gray-900 mt-1">{enrollment.program.description}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Attendance Statistics */}
+          <div className="bg-green-50 rounded-lg p-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <UserCheck className="h-5 w-5 mr-2" />
+              Attendance Statistics
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">{customer.presentSessions || 0}</div>
+                <div className="text-sm text-gray-600">Present</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-red-600">{customer.absentSessions || 0}</div>
+                <div className="text-sm text-gray-600">Absent</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">{customer.completedSessions || 0}</div>
+                <div className="text-sm text-gray-600">Completed</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-gray-900">{customer.totalSessions || 0}</div>
+                <div className="text-sm text-gray-600">Total</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Progress Information */}
+          <div className="bg-purple-50 rounded-lg p-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <BarChart3 className="h-5 w-5 mr-2" />
+              Progress Information
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="text-gray-600">Attendance Progress</span>
+                  <span className="font-medium">
+                    {customer.totalSessions > 0 
+                      ? Math.round((customer.presentSessions / customer.totalSessions) * 100) 
+                      : 0}%
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-green-600 h-2 rounded-full transition-all duration-300"
+                    style={{ 
+                      width: `${customer.totalSessions > 0 
+                        ? Math.round((customer.presentSessions / customer.totalSessions) * 100) 
+                        : 0}%` 
+                    }}
+                  ></div>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Completion Rate</label>
+                  <p className="text-gray-900">
+                    {customer.totalSessions > 0 
+                      ? Math.round((customer.completedSessions / customer.totalSessions) * 100) 
+                      : 0}%
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Attendance Rate</label>
+                  <p className="text-gray-900">
+                    {customer.completedSessions > 0 
+                      ? Math.round((customer.presentSessions / customer.completedSessions) * 100) 
+                      : 0}%
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Program Details */}
+          {enrollment && enrollment.program && (
+            <div className="bg-indigo-50 rounded-lg p-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <BookOpen className="h-5 w-5 mr-2" />
+                Program Details
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Program ID</label>
+                  <p className="text-gray-900 text-xs font-mono">{enrollment.program._id}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Created Date</label>
+                  <p className="text-gray-900">
+                    {enrollment.program.createdAt ? new Date(enrollment.program.createdAt).toLocaleDateString() : 'Not available'}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Max Participants</label>
+                  <p className="text-gray-900">{enrollment.program.maxParticipants || 'Not specified'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Current Enrollments</label>
+                  <p className="text-gray-900">{enrollment.program.currentEnrollments || 0}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Close Button */}
+        <div className="mt-6 flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+          >
+            Close
+          </button>
+        </div>
       </div>
     </div>
   );
