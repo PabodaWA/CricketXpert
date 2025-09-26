@@ -159,7 +159,12 @@ const PayrollManagement = () => {
     try {
       // Update all configurations without showing individual notifications
       const updatePromises = editableSalaryConfig.map(config => 
-        updateSalaryConfigSilent(config.role, config.basicSalary, config.allowances, config.deductions)
+        updateSalaryConfigSilent(
+          config.role, 
+          parseFloat(config.monthlyBasic) || 0, 
+          parseFloat(config.monthlyAllowances) || 0, 
+          parseFloat(config.monthlyDeductions) || 0
+        )
       );
       
       await Promise.all(updatePromises);
@@ -1195,29 +1200,36 @@ const PayrollManagement = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <input
                             type="number"
-                            value={Math.round(config.basicSalary / 12)}
-                            onChange={(e) => handleSalaryConfigChange(config.role, 'basicSalary', e.target.value * 12)}
+                            value={config.monthlyBasic || ''}
+                            onChange={(e) => handleSalaryConfigChange(config.role, 'monthlyBasic', e.target.value)}
                             className="w-24 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="0"
                           />
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <input
                             type="number"
-                            value={Math.round(config.allowances / 12)}
-                            onChange={(e) => handleSalaryConfigChange(config.role, 'allowances', e.target.value * 12)}
+                            value={config.monthlyAllowances || ''}
+                            onChange={(e) => handleSalaryConfigChange(config.role, 'monthlyAllowances', e.target.value)}
                             className="w-24 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="0"
                           />
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <input
                             type="number"
-                            value={Math.round((config.deductions || 0) / 12)}
-                            onChange={(e) => handleSalaryConfigChange(config.role, 'deductions', e.target.value * 12)}
+                            value={config.monthlyDeductions || ''}
+                            onChange={(e) => handleSalaryConfigChange(config.role, 'monthlyDeductions', e.target.value)}
                             className="w-24 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="0"
                           />
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {formatCurrency(Math.round((config.basicSalary + config.allowances - (config.deductions || 0)) / 12))}
+                          {formatCurrency(
+                            (parseFloat(config.monthlyBasic) || 0) + 
+                            (parseFloat(config.monthlyAllowances) || 0) - 
+                            (parseFloat(config.monthlyDeductions) || 0)
+                          )}
                         </td>
                       </tr>
                     ))}

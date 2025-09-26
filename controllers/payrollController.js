@@ -1,6 +1,6 @@
 import Payroll from '../models/Payroll.js';
 import User from '../models/User.js';
-import { getRoleSalaryInfo, getSalaryEligibleRoles } from '../config/salaryConfig.js';
+import SalaryConfig from '../models/SalaryConfig.js';
 
 // Create new payroll entry
 const createPayroll = async (req, res) => {
@@ -325,26 +325,28 @@ const markAsPaid = async (req, res) => {
 const getEmployeesForPayroll = async (req, res) => {
   try {
     // Get roles that are eligible for salary (exclude admin and delivery_staff)
-    const salaryEligibleRoles = getSalaryEligibleRoles();
-    
     const employees = await User.find({
-      role: { $in: salaryEligibleRoles }
+      role: { $nin: ['admin', 'delivery_staff'] }
     }).select('_id firstName lastName username email role');
 
-    // Add salary information for each employee
-    const employeesWithSalary = employees.map(employee => {
-      const salaryInfo = getRoleSalaryInfo(employee.role);
-      return {
-        ...employee.toObject(),
-        salaryInfo: {
-          monthlyBasic: salaryInfo.monthlyBasic,
-          monthlyAllowances: salaryInfo.monthlyAllowances,
-          monthlyDeductions: salaryInfo.monthlyDeductions,
-          monthlyTotal: salaryInfo.monthlyTotal,
-          description: salaryInfo.description
-        }
-      };
-    });
+    // Add salary information for each employee from database
+    const employeesWithSalary = await Promise.all(
+      employees.map(async (employee) => {
+        const salaryConfig = await SalaryConfig.findOne({ role: employee.role });
+        const salaryInfo = salaryConfig ? {
+          monthlyBasic: Math.round(salaryConfig.basicSalary / 12),
+          monthlyAllowances: Math.round(salaryConfig.allowances / 12),
+          monthlyDeductions: Math.round(salaryConfig.deductions / 12),
+          monthlyTotal: Math.round((salaryConfig.basicSalary + salaryConfig.allowances - salaryConfig.deductions) / 12),
+          description: salaryConfig.description
+        } : null;
+
+        return {
+          ...employee.toObject(),
+          salaryInfo
+        };
+      })
+    );
 
     res.status(200).json({
       success: true,
@@ -363,21 +365,20 @@ const getEmployeesForPayroll = async (req, res) => {
 // Get salary configuration for all roles
 const getSalaryConfig = async (req, res) => {
   try {
-    const { ROLE_SALARIES } = await import('../config/salaryConfig.js');
+    const salaryConfigs = await SalaryConfig.find().sort({ role: 1 });
     
-    // Convert to array format for frontend
-    const salaryConfig = Object.entries(ROLE_SALARIES).map(([role, config]) => ({
-      role,
-      ...config,
+    const formattedConfig = salaryConfigs.map(config => ({
+      role: config.role,
       monthlyBasic: Math.round(config.basicSalary / 12),
       monthlyAllowances: Math.round(config.allowances / 12),
-      monthlyDeductions: Math.round((config.deductions || 0) / 12),
-      monthlyTotal: Math.round((config.basicSalary + config.allowances - (config.deductions || 0)) / 12)
+      monthlyDeductions: Math.round(config.deductions / 12),
+      monthlyTotal: Math.round((config.basicSalary + config.allowances - config.deductions) / 12),
+      description: config.description
     }));
 
     res.status(200).json({
       success: true,
-      data: salaryConfig
+      data: formattedConfig
     });
   } catch (error) {
     console.error('Error fetching salary config:', error);
@@ -401,9 +402,9 @@ const generateAllPayrolls = async (req, res) => {
       });
     }
 
-    // Get all eligible employees
+    // Get all eligible employees (exclude admin and delivery_staff)
     const employees = await User.find({
-      role: { $in: getSalaryEligibleRoles() }
+      role: { $nin: ['admin', 'delivery_staff'] }
     });
 
     if (employees.length === 0) {
@@ -430,8 +431,18 @@ const generateAllPayrolls = async (req, res) => {
           continue;
         }
 
-        // Get salary information for the role
-        const roleSalaryInfo = getRoleSalaryInfo(employee.role);
+        // Get salary information for the role from database
+        const salaryConfig = await SalaryConfig.findOne({ role: employee.role });
+        if (!salaryConfig) {
+          errors.push(`No salary configuration found for ${employee.firstName} ${employee.lastName} (${employee.role})`);
+          continue;
+        }
+        
+        const roleSalaryInfo = {
+          monthlyBasic: Math.round(salaryConfig.basicSalary / 12),
+          monthlyAllowances: Math.round(salaryConfig.allowances / 12),
+          monthlyDeductions: Math.round(salaryConfig.deductions / 12)
+        };
 
         // Create payroll entry
         const payroll = new Payroll({
@@ -498,30 +509,40 @@ const updateSalaryConfig = async (req, res) => {
       });
     }
 
-    // Import the salary config
-    const { ROLE_SALARIES } = await import('../config/salaryConfig.js');
+    // Convert monthly values to annual for storage with strict validation
+    const monthlyBasic = isNaN(parseFloat(basicSalary)) ? 0 : parseFloat(basicSalary);
+    const monthlyAllowances = isNaN(parseFloat(allowances)) ? 0 : parseFloat(allowances);
+    const monthlyDeductions = isNaN(parseFloat(deductions)) ? 0 : parseFloat(deductions);
     
-    // Check if role exists
-    if (!ROLE_SALARIES[role]) {
-      return res.status(404).json({
-        success: false,
-        message: 'Role not found in salary configuration'
-      });
-    }
+    // Ensure values are positive numbers
+    const validBasicSalary = Math.max(0, monthlyBasic);
+    const validAllowances = Math.max(0, monthlyAllowances);
+    const validDeductions = Math.max(0, monthlyDeductions);
+    
+    const annualBasicSalary = Math.round(validBasicSalary * 12);
+    const annualAllowances = Math.round(validAllowances * 12);
+    const annualDeductions = Math.round(validDeductions * 12);
 
-    // Update the salary configuration
-    ROLE_SALARIES[role].basicSalary = parseInt(basicSalary);
-    ROLE_SALARIES[role].allowances = parseInt(allowances);
-    ROLE_SALARIES[role].deductions = parseInt(deductions);
+    // Update or create salary configuration in database
+    const updatedConfig = await SalaryConfig.findOneAndUpdate(
+      { role },
+      {
+        basicSalary: annualBasicSalary,
+        allowances: annualAllowances,
+        deductions: annualDeductions
+      },
+      { new: true, upsert: true }
+    );
 
     res.status(200).json({
       success: true,
       message: 'Salary configuration updated successfully',
       data: {
-        role,
-        basicSalary: ROLE_SALARIES[role].basicSalary,
-        allowances: ROLE_SALARIES[role].allowances,
-        deductions: ROLE_SALARIES[role].deductions
+        role: updatedConfig.role,
+        monthlyBasic: Math.round(updatedConfig.basicSalary / 12),
+        monthlyAllowances: Math.round(updatedConfig.allowances / 12),
+        monthlyDeductions: Math.round(updatedConfig.deductions / 12),
+        monthlyTotal: Math.round((updatedConfig.basicSalary + updatedConfig.allowances - updatedConfig.deductions) / 12)
       }
     });
   } catch (error) {
