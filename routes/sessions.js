@@ -20,9 +20,22 @@ import {
   removeExtraSessions,
   fixSessionWeeks,
   debugSessionsForEnrollment,
-  debugSessionCreation
+  debugSessionCreation,
+  debugAttendance,
+  debugMarkAttendance,
+  debugMedhaniAttendance,
+  debugEnrollmentAttendance
 } from '../controllers/sessionController.js';
 import { protect, authorizeRoles } from '../middleware/authMiddleware.js';
+
+// Debug routes (MUST be first to avoid conflicts with /:id routes)
+router.get('/debug/enrollment/:enrollmentId', debugEnrollmentAttendance);
+router.get('/debug/medhani', debugMedhaniAttendance);
+router.get('/debug/attendance', debugAttendance);
+router.post('/debug/mark-attendance', debugMarkAttendance);
+
+// Simple test route
+router.get('/medhani-test', debugMedhaniAttendance);
 
 // Test route to verify sessions routes are working (public)
 router.get('/test', (req, res) => {

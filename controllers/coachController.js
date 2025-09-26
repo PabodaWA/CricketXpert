@@ -2077,11 +2077,24 @@ const attendanceOnly = async (req, res) => {
       });
     }
     
+    // Validate that the session date has passed (prevent marking attendance for future sessions)
+    const sessionDate = new Date(session.scheduledDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to start of day for comparison
+    
+    if (sessionDate > today) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot mark attendance for future sessions. Please wait until the session date has passed.'
+      });
+    }
+    
     console.log('Session found:', session.title);
     console.log('Participants:', session.participants.length);
     
     // Update attendance for each participant - NO COACH DATA TOUCHED
     let updatedCount = 0;
+    const Attendance = (await import('../models/Attendance.js')).default;
     
     for (const attendance of attendanceData) {
       if (!attendance.participantId || typeof attendance.attended !== 'boolean') {
@@ -2099,6 +2112,35 @@ const attendanceOnly = async (req, res) => {
         participant.attendanceMarkedAt = new Date();
         updatedCount++;
         console.log(`Updated participant ${attendance.participantId} - NO COACH DATA TOUCHED`);
+        
+        // CRITICAL FIX: Also create/update record in Attendance collection
+        try {
+          await Attendance.findOneAndUpdate(
+            { 
+              session: sessionId, 
+              participant: participant.user 
+            },
+            {
+              session: sessionId,
+              participant: participant.user,
+              coach: session.coach,
+              attended: attendance.attended,
+              status: attendance.attended ? 'present' : 'absent',
+              attendanceMarkedAt: new Date(),
+              performance: attendance.performance || {},
+              remarks: attendance.remarks || '',
+              markedBy: participant.user // Using participant as marker for now
+            },
+            { 
+              upsert: true, 
+              new: true 
+            }
+          );
+          console.log(`Created/updated Attendance record for participant ${attendance.participantId}`);
+        } catch (attendanceError) {
+          console.error('Error creating Attendance record:', attendanceError);
+          // Continue with session update even if Attendance creation fails
+        }
       } else {
         console.warn(`Participant ${attendance.participantId} not found`);
       }

@@ -495,6 +495,18 @@ const markAttendance = async (req, res) => {
       });
     }
 
+    // Validate that the session date has passed (prevent marking attendance for future sessions)
+    const sessionDate = new Date(session.scheduledDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to start of day for comparison
+    
+    if (sessionDate > today) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot mark attendance for future sessions. Please wait until the session date has passed.'
+      });
+    }
+
     // Check if user is the coach of this session
     if (session.coach.toString() !== req.user.coachId && req.user.role !== 'admin') {
       return res.status(403).json({
@@ -889,6 +901,9 @@ const getSessionsByEnrollment = async (req, res) => {
     const { enrollmentId } = req.params;
     console.log('Fetching sessions for enrollment ID:', enrollmentId);
     
+    // Import Attendance model
+    const Attendance = (await import('../models/Attendance.js')).default;
+    
     // Find sessions where participants have this enrollment
     const enrollmentQuery = await Session.find({
       'participants.enrollment': enrollmentId
@@ -901,6 +916,10 @@ const getSessionsByEnrollment = async (req, res) => {
       path: 'participants.enrollment',
       model: 'ProgramEnrollment',
       select: 'status progress'
+    })
+    .populate({
+      path: 'participants.user',
+      select: 'firstName lastName email'
     })
     .sort({ scheduledDate: 1 });
     
@@ -916,6 +935,10 @@ const getSessionsByEnrollment = async (req, res) => {
       path: 'participants.enrollment',
       model: 'ProgramEnrollment',
       select: 'status progress'
+    })
+    .populate({
+      path: 'participants.user',
+      select: 'firstName lastName email'
     })
     .sort({ scheduledDate: 1 });
     
@@ -938,10 +961,163 @@ const getSessionsByEnrollment = async (req, res) => {
 
     console.log('Found sessions after deduplication:', finalSessions.length);
     console.log('Sessions data after deduplication:', finalSessions);
+    
+    // Debug: Check if sessions have direct attendance data
+    console.log('=== CHECKING SESSION PARTICIPANTS FOR DIRECT ATTENDANCE ===');
+    finalSessions.forEach((session, index) => {
+      console.log(`Session ${index + 1} (${session._id}):`);
+      if (session.participants && session.participants.length > 0) {
+        session.participants.forEach((participant, pIndex) => {
+          console.log(`  Participant ${pIndex + 1}:`, {
+            userId: participant.user?._id,
+            attended: participant.attended,
+            attendanceMarkedAt: participant.attendanceMarkedAt,
+            performance: participant.performance
+          });
+        });
+      } else {
+        console.log('  No participants found');
+      }
+    });
+    
+    // Check if any participant has attended = true
+    const hasAttendedParticipants = finalSessions.some(session => 
+      session.participants?.some(p => p.attended === true)
+    );
+    console.log('Has any participant with attended = true:', hasAttendedParticipants);
+
+    // Get attendance records for all sessions
+    const sessionIds = finalSessions.map(session => session._id);
+    const attendanceRecords = await Attendance.find({
+      session: { $in: sessionIds }
+    })
+    .populate('participant', 'firstName lastName email')
+    .populate('markedBy', 'firstName lastName');
+
+    console.log('Found attendance records:', attendanceRecords.length);
+    console.log('Attendance records:', attendanceRecords.map(att => ({
+      session: att.session?._id || 'N/A',
+      participant: att.participant?._id || 'N/A',
+      attended: att.attended,
+      status: att.status
+    })));
+    
+    // Debug: Check if we have any attendance records at all
+    if (attendanceRecords.length === 0) {
+      console.log('❌ NO ATTENDANCE RECORDS FOUND IN DATABASE');
+      console.log('This means attendance was not properly marked in the coach dashboard');
+      console.log('Session IDs being searched:', sessionIds);
+    } else {
+      console.log('✅ Found attendance records, proceeding with mapping...');
+      console.log('Attendance records found:', attendanceRecords.length);
+    }
+
+    // Enhance sessions with attendance data
+    const sessionsWithAttendance = finalSessions.map(session => {
+      const sessionAttendance = attendanceRecords.filter(att => 
+        att.session.toString() === session._id.toString()
+      );
+
+      // Create a map of participant attendance
+      const attendanceMap = {};
+      sessionAttendance.forEach(att => {
+        // Map by user ID (participant field in Attendance refers to User)
+        if (att.participant && att.participant._id) {
+          attendanceMap[att.participant._id.toString()] = {
+            attended: att.attended,
+            status: att.status,
+            attendanceMarkedAt: att.attendanceMarkedAt,
+            performance: att.performance,
+            remarks: att.remarks,
+            markedBy: att.markedBy
+          };
+        }
+      });
+
+      console.log('Attendance map for session:', session._id, attendanceMap);
+
+      // Update participants with attendance data
+      const updatedParticipants = session.participants.map(participant => {
+        const attendanceData = attendanceMap[participant.user._id.toString()];
+        
+        console.log('Participant:', participant.user._id.toString(), 'Attendance data:', attendanceData);
+        
+        // If no attendance data from Attendance collection, use direct participant data
+        let finalAttendanceData = attendanceData;
+        if (!attendanceData && participant.attended !== undefined) {
+          console.log('Using direct participant attendance data for:', participant.user._id.toString());
+          finalAttendanceData = {
+            attended: participant.attended,
+            status: participant.attended ? 'present' : 'absent',
+            attendanceMarkedAt: participant.attendanceMarkedAt,
+            performance: participant.performance,
+            remarks: participant.remarks
+          };
+        }
+        
+        // CRITICAL FIX: Ensure the attended field is set correctly
+        const updatedParticipant = {
+          ...participant.toObject(),
+          attendance: finalAttendanceData || null
+        };
+        
+        // If we have attendance data, make sure the attended field is set
+        if (finalAttendanceData) {
+          updatedParticipant.attended = finalAttendanceData.attended;
+        } else if (participant.attended !== undefined) {
+          // Fallback: use the direct participant attended field
+          updatedParticipant.attended = participant.attended;
+        }
+        
+        return updatedParticipant;
+      });
+
+      return {
+        ...session.toObject(),
+        participants: updatedParticipants
+      };
+    });
+
+    console.log('Sessions with attendance data:', sessionsWithAttendance.length);
+    
+    // Debug: Log the final sessions with attendance data
+    console.log('=== FINAL SESSIONS WITH ATTENDANCE ===');
+    sessionsWithAttendance.forEach((session, index) => {
+      console.log(`Session ${index + 1}:`, {
+        id: session._id,
+        title: session.title,
+        status: session.status,
+        participants: session.participants?.map(p => ({
+          userId: p.user?._id,
+          attended: p.attended,
+          attendance: p.attendance
+        }))
+      });
+    });
+    
+    // Check if any final session has attendance data
+    const hasFinalAttendanceData = sessionsWithAttendance.some(session => 
+      session.participants?.some(p => p.attendance || p.attended === true)
+    );
+    console.log('Has final attendance data:', hasFinalAttendanceData);
+    
+    // Additional debugging: Check specific participant attendance
+    sessionsWithAttendance.forEach((session, index) => {
+      console.log(`\n=== SESSION ${index + 1} FINAL CHECK ===`);
+      console.log(`Session ID: ${session._id}`);
+      if (session.participants && session.participants.length > 0) {
+        session.participants.forEach((participant, pIndex) => {
+          console.log(`  Participant ${pIndex + 1}:`);
+          console.log(`    User ID: ${participant.user?._id}`);
+          console.log(`    Attended: ${participant.attended}`);
+          console.log(`    Attendance Object: ${JSON.stringify(participant.attendance)}`);
+        });
+      }
+    });
 
     res.status(200).json({
       success: true,
-      data: finalSessions
+      data: sessionsWithAttendance
     });
   } catch (error) {
     console.error('Error fetching sessions by enrollment:', error);
@@ -1613,6 +1789,287 @@ const customerRescheduleSession = async (req, res) => {
   }
 };
 
+// @desc    Simple test to mark attendance for debugging
+// @route   POST /api/sessions/debug/mark-attendance
+// @access  Public (for debugging)
+const debugMarkAttendance = async (req, res) => {
+  try {
+    const Attendance = (await import('../models/Attendance.js')).default;
+    const Session = (await import('../models/Session.js')).default;
+    
+    // Get the first session
+    const session = await Session.findOne({}).populate('participants.user');
+    if (!session) {
+      return res.status(404).json({ success: false, message: 'No sessions found' });
+    }
+    
+    // Mark attendance for the first participant
+    const participant = session.participants[0];
+    if (!participant) {
+      return res.status(404).json({ success: false, message: 'No participants found' });
+    }
+    
+    // Create attendance record
+    const attendanceRecord = new Attendance({
+      session: session._id,
+      participant: participant.user._id,
+      coach: session.coach,
+      attended: true,
+      status: 'present',
+      attendanceMarkedAt: new Date(),
+      markedBy: participant.user._id
+    });
+    
+    await attendanceRecord.save();
+    
+    // Update session participant
+    await Session.updateOne(
+      { 
+        _id: session._id,
+        'participants.user': participant.user._id
+      },
+      {
+        $set: {
+          'participants.$.attended': true,
+          'participants.$.attendanceMarkedAt': new Date()
+        }
+      }
+    );
+    
+    res.status(200).json({
+      success: true,
+      message: 'Attendance marked successfully',
+      data: {
+        sessionId: session._id,
+        participantId: participant.user._id,
+        attended: true
+      }
+    });
+  } catch (error) {
+    console.error('Error in debug mark attendance:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error marking attendance',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Simple endpoint to check attendance for any user by enrollment ID
+// @route   GET /api/sessions/debug/enrollment/:enrollmentId
+// @access  Public (for debugging)
+const debugEnrollmentAttendance = async (req, res) => {
+  try {
+    const { enrollmentId } = req.params;
+    const Attendance = (await import('../models/Attendance.js')).default;
+    const Session = (await import('../models/Session.js')).default;
+    const ProgramEnrollment = (await import('../models/ProgramEnrollment.js')).default;
+
+    // Get the enrollment
+    const enrollment = await ProgramEnrollment.findById(enrollmentId)
+      .populate('user', 'firstName lastName email')
+      .populate('program', 'title');
+
+    if (!enrollment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Enrollment not found'
+      });
+    }
+
+    // Get sessions for this enrollment
+    const sessions = await Session.find({
+      program: enrollment.program._id
+    })
+    .populate('participants.user', 'firstName lastName email')
+    .sort({ scheduledDate: -1 });
+
+    // Get attendance records for these sessions
+    const sessionIds = sessions.map(session => session._id);
+    const attendanceRecords = await Attendance.find({
+      session: { $in: sessionIds }
+    })
+    .populate('session', 'title sessionNumber scheduledDate status')
+    .populate('participant', 'firstName lastName email')
+    .sort({ attendanceMarkedAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        enrollment: {
+          _id: enrollment._id,
+          user: enrollment.user,
+          program: enrollment.program
+        },
+        sessions: sessions.length,
+        attendanceRecords: attendanceRecords.length,
+        sessionDetails: sessions.map(session => ({
+          id: session._id,
+          title: session.title,
+          status: session.status,
+          participants: session.participants.map(p => ({
+            user: `${p.user?.firstName || 'N/A'} ${p.user?.lastName || 'N/A'}`,
+            userId: p.user?._id,
+            attended: p.attended,
+            attendanceMarkedAt: p.attendanceMarkedAt
+          }))
+        })),
+        attendanceDetails: attendanceRecords.map(att => ({
+          id: att._id,
+          session: att.session?.title || 'N/A',
+          participant: `${att.participant?.firstName || 'N/A'} ${att.participant?.lastName || 'N/A'}`,
+          attended: att.attended,
+          status: att.status,
+          markedAt: att.attendanceMarkedAt
+        }))
+      }
+    });
+  } catch (error) {
+    console.error('Error in debug enrollment attendance:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching enrollment attendance',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Simple endpoint to check if attendance exists for Medhani
+// @route   GET /api/sessions/debug/medhani
+// @access  Public (for debugging)
+const debugMedhaniAttendance = async (req, res) => {
+  try {
+    const Attendance = (await import('../models/Attendance.js')).default;
+    const Session = (await import('../models/Session.js')).default;
+    const User = (await import('../models/User.js')).default;
+
+    // Find user Medhani
+    const user = await User.findOne({ 
+      $or: [
+        { firstName: /medhani/i },
+        { lastName: /medhani/i },
+        { email: /medhani/i }
+      ]
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User Medhani not found'
+      });
+    }
+
+    // Get attendance records for Medhani
+    const attendanceRecords = await Attendance.find({
+      participant: user._id
+    })
+    .populate('session', 'title sessionNumber scheduledDate status')
+    .populate('participant', 'firstName lastName email')
+    .sort({ attendanceMarkedAt: -1 });
+
+    // Get sessions for Medhani
+    const sessions = await Session.find({
+      'participants.user': user._id
+    })
+    .populate('participants.user', 'firstName lastName email')
+    .sort({ scheduledDate: -1 });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        user: {
+          _id: user._id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email
+        },
+        attendanceRecords: attendanceRecords.length,
+        sessions: sessions.length,
+        attendanceDetails: attendanceRecords.map(att => ({
+          id: att._id,
+          session: att.session?.title || 'N/A',
+          attended: att.attended,
+          status: att.status,
+          markedAt: att.attendanceMarkedAt
+        })),
+        sessionDetails: sessions.map(session => ({
+          id: session._id,
+          title: session.title,
+          status: session.status,
+          participants: session.participants.map(p => ({
+            user: `${p.user?.firstName || 'N/A'} ${p.user?.lastName || 'N/A'}`,
+            attended: p.attended,
+            attendanceMarkedAt: p.attendanceMarkedAt
+          }))
+        }))
+      }
+    });
+  } catch (error) {
+    console.error('Error in debug Medhani attendance:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching Medhani attendance',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Debug endpoint to check attendance data
+// @route   GET /api/sessions/debug/attendance
+// @access  Public (for debugging)
+const debugAttendance = async (req, res) => {
+  try {
+    const Attendance = (await import('../models/Attendance.js')).default;
+    const Session = (await import('../models/Session.js')).default;
+    const User = (await import('../models/User.js')).default;
+
+    // Get all attendance records
+    const attendanceRecords = await Attendance.find({})
+      .populate('participant', 'firstName lastName email')
+      .populate('session', 'title sessionNumber scheduledDate status')
+      .sort({ attendanceMarkedAt: -1 });
+
+    // Get all sessions
+    const sessions = await Session.find({})
+      .populate('participants.user', 'firstName lastName email')
+      .populate('program', 'title')
+      .sort({ scheduledDate: -1 });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        attendanceRecords: attendanceRecords.length,
+        sessions: sessions.length,
+        attendanceDetails: attendanceRecords.map(att => ({
+          id: att._id,
+          session: att.session?.title || 'N/A',
+          participant: `${att.participant?.firstName || 'N/A'} ${att.participant?.lastName || 'N/A'}`,
+          attended: att.attended,
+          status: att.status,
+          markedAt: att.attendanceMarkedAt
+        })),
+        sessionDetails: sessions.map(session => ({
+          id: session._id,
+          title: session.title,
+          status: session.status,
+          participants: session.participants.map(p => ({
+            user: `${p.user?.firstName || 'N/A'} ${p.user?.lastName || 'N/A'}`,
+            attended: p.attended,
+            attendanceMarkedAt: p.attendanceMarkedAt
+          }))
+        }))
+      }
+    });
+  } catch (error) {
+    console.error('Error in debug attendance:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching debug data',
+      error: error.message
+    });
+  }
+};
+
 export {
   getAllSessions,
   getSession,
@@ -1633,5 +2090,9 @@ export {
   removeExtraSessions,
   fixSessionWeeks,
   debugSessionsForEnrollment,
-  debugSessionCreation
+  debugSessionCreation,
+  debugAttendance,
+  debugMarkAttendance,
+  debugMedhaniAttendance,
+  debugEnrollmentAttendance
 };
