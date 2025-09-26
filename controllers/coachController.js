@@ -1668,14 +1668,16 @@ const createSessionsForEnrollments = async (req, res) => {
       });
     }
 
-    // Get or create a default ground
-    let ground = await Ground.findOne();
+    // Get or create Practice Ground A
+    let ground = await Ground.findOne({ name: 'Practice Ground A' });
     if (!ground) {
       ground = await Ground.create({
-        name: 'Main Cricket Ground',
-        location: 'Default Location',
+        name: 'Practice Ground A',
+        location: 'Main Sports Complex',
         capacity: 20,
-        facilities: ['Cricket Pitch', 'Changing Rooms'],
+        facilities: ['Cricket Pitch', 'Changing Rooms', 'Coaching Area'],
+        equipment: ['nets', 'balls', 'bats', 'coaching_equipment'],
+        totalSlots: 12,
         isActive: true
       });
     }
@@ -1769,10 +1771,40 @@ const getEnrolledCustomers = async (req, res) => {
   try {
     const { coachId } = req.params;
     const { programId } = req.query;
+    
+    console.log('getEnrolledCustomers called with coachId:', coachId);
+    console.log('CoachId type:', typeof coachId);
+    console.log('CoachId length:', coachId.length);
+
+    // Test database connection first
+    try {
+      const testCoach = await Coach.findOne({});
+      console.log('Database connection test - found coach:', testCoach ? 'Yes' : 'No');
+    } catch (dbError) {
+      console.log('Database connection error:', dbError.message);
+      return res.status(500).json({
+        success: false,
+        message: 'Database connection error'
+      });
+    }
 
     // Get coach's programs
+    console.log('Looking for coach with ID:', coachId);
     const coach = await Coach.findById(coachId).populate('assignedPrograms');
+    console.log('Coach found:', coach ? 'Yes' : 'No');
+    if (coach) {
+      console.log('Coach details:', {
+        id: coach._id,
+        userId: coach.userId,
+        assignedPrograms: coach.assignedPrograms?.length || 0
+      });
+    }
     if (!coach) {
+      console.log('Coach not found, returning 404');
+      // Let's also check if there are any coaches in the database
+      const allCoaches = await Coach.find({});
+      console.log('Total coaches in database:', allCoaches.length);
+      console.log('Available coach IDs:', allCoaches.map(c => c._id));
       return res.status(404).json({
         success: false,
         message: 'Coach not found'
@@ -1788,15 +1820,41 @@ const getEnrolledCustomers = async (req, res) => {
 
     // Get enrollments for coach's programs
     const ProgramEnrollment = (await import('../models/ProgramEnrollment.js')).default;
+    const Session = (await import('../models/Session.js')).default;
+    const Attendance = (await import('../models/Attendance.js')).default;
+    
     const enrollments = await ProgramEnrollment.find({
       program: { $in: programIds },
       status: { $in: ['active', 'pending'] }
     })
     .populate('user', 'firstName lastName email phone')
-    .populate('program', 'name description')
+    .populate('program', 'name description duration')
     .sort({ enrollmentDate: -1 });
 
-    // Group by program
+    // Get all sessions for these programs
+    const sessions = await Session.find({
+      program: { $in: programIds },
+      coach: coachId
+    }).populate('participants.user', 'firstName lastName email');
+
+    // Get all attendance records for these sessions
+    const sessionIds = sessions.map(s => s._id);
+    console.log(`Found ${sessions.length} sessions for coach ${coachId}`);
+    console.log('Session IDs:', sessionIds);
+    
+    const attendanceRecords = await Attendance.find({
+      session: { $in: sessionIds }
+    });
+    
+    console.log(`Found ${attendanceRecords.length} attendance records`);
+    console.log('Attendance records:', attendanceRecords.map(r => ({
+      session: r.session,
+      participant: r.participant,
+      attended: r.attended,
+      status: r.status
+    })));
+
+    // Group by program and calculate attendance statistics
     const customersByProgram = {};
     enrollments.forEach(enrollment => {
       const programId = enrollment.program._id.toString();
@@ -1806,12 +1864,76 @@ const getEnrolledCustomers = async (req, res) => {
           customers: []
         };
       }
+
+      // Find sessions for this customer and program
+      const customerSessions = sessions.filter(session => 
+        session.participants?.some(participant => 
+          participant.user && participant.user._id.toString() === enrollment.user._id.toString()
+        )
+      );
+
+      // Also get sessions where the customer is a participant (alternative approach)
+      // const allCustomerSessions = await Session.find({
+      //   program: enrollment.program._id,
+      //   coach: coachId,
+      //   'participants.user': enrollment.user._id
+      // });
+
+      console.log(`Customer ${enrollment.user.firstName} - Sessions from filter: ${customerSessions.length}`);
+      // console.log(`Customer ${enrollment.user.firstName} - Sessions from query: ${allCustomerSessions.length}`);
+
+      // Only count past sessions for attendance statistics
+      const now = new Date();
+      const pastSessions = customerSessions.filter(session => 
+        new Date(session.scheduledDate) < now
+      );
+
+      // Calculate attendance statistics from Attendance collection
+      const customerAttendanceRecords = attendanceRecords.filter(record => 
+        record.participant.toString() === enrollment.user._id.toString()
+      );
+
+      // Debug logging
+      console.log(`Customer ${enrollment.user.firstName} ${enrollment.user.lastName}:`);
+      console.log(`- Total sessions found: ${customerSessions.length}`);
+      console.log(`- Past sessions: ${pastSessions.length}`);
+      console.log(`- Attendance records: ${customerAttendanceRecords.length}`);
+      console.log(`- Attendance records:`, customerAttendanceRecords.map(r => ({
+        session: r.session,
+        attended: r.attended,
+        status: r.status
+      })));
+
+      const presentSessions = customerAttendanceRecords.filter(record => 
+        record.attended === true
+      ).length;
+
+      const absentSessions = customerAttendanceRecords.filter(record => 
+        record.attended === false
+      ).length;
+
+      const completedSessions = customerAttendanceRecords.length; // Total marked attendance
+      const totalSessions = Math.max(pastSessions.length, enrollment.program.duration || 0);
+
+      console.log(`Final stats for ${enrollment.user.firstName}:`);
+      console.log(`- Present: ${presentSessions}`);
+      console.log(`- Absent: ${absentSessions}`);
+      console.log(`- Completed: ${completedSessions}`);
+      console.log(`- Total: ${totalSessions}`);
+      console.log(`- Progress: ${totalSessions > 0 ? Math.round((presentSessions / totalSessions) * 100) : 0}%`);
+
       customersByProgram[programId].customers.push({
         enrollmentId: enrollment._id,
         user: enrollment.user,
         enrollmentDate: enrollment.enrollmentDate,
         status: enrollment.status,
-        progress: enrollment.progress
+        progress: enrollment.progress,
+        // Attendance statistics
+        totalSessions,
+        completedSessions,
+        presentSessions,
+        absentSessions,
+        progressPercentage: totalSessions > 0 ? Math.round((presentSessions / totalSessions) * 100) : 0
       });
     });
 
@@ -1828,6 +1950,143 @@ const getEnrolledCustomers = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error fetching enrolled customers',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Simple debug test
+// @route   GET /api/coaches/debug-test
+// @access  Public (for debugging)
+const debugTest = async (req, res) => {
+  try {
+    console.log('Debug test called');
+    res.status(200).json({
+      success: true,
+      message: 'Debug test working!',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Debug test error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Debug test failed',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Debug attendance data for a specific coach
+// @route   GET /api/coaches/:coachId/debug-attendance
+// @access  Public (for debugging)
+const debugAttendance = async (req, res) => {
+  try {
+    const { coachId } = req.params;
+    console.log('Debug attendance called with coachId:', coachId);
+    
+    const Session = (await import('../models/Session.js')).default;
+    const Attendance = (await import('../models/Attendance.js')).default;
+    const ProgramEnrollment = (await import('../models/ProgramEnrollment.js')).default;
+    
+    // Get coach's programs
+    console.log('Looking for coach with ID:', coachId);
+    const coach = await Coach.findById(coachId).populate('assignedPrograms');
+    console.log('Coach found:', coach ? 'Yes' : 'No');
+    if (!coach) {
+      console.log('Coach not found, returning 404');
+      return res.status(404).json({
+        success: false,
+        message: 'Coach not found'
+      });
+    }
+
+    const programIds = coach.assignedPrograms.map(p => p._id);
+    
+    // Get enrollments
+    const enrollments = await ProgramEnrollment.find({
+      program: { $in: programIds },
+      status: { $in: ['active', 'pending'] }
+    })
+    .populate('user', 'firstName lastName email')
+    .populate('program', 'name description duration');
+
+    // Get all sessions
+    const sessions = await Session.find({
+      program: { $in: programIds },
+      coach: coachId
+    }).populate('participants.user', 'firstName lastName email');
+
+    // Get all attendance records
+    const sessionIds = sessions.map(s => s._id);
+    const attendanceRecords = await Attendance.find({
+      session: { $in: sessionIds }
+    });
+
+    // Debug data for each enrollment
+    const debugData = enrollments.map(enrollment => {
+      const customerSessions = sessions.filter(session => 
+        session.participants?.some(participant => 
+          participant.user && participant.user._id.toString() === enrollment.user._id.toString()
+        )
+      );
+
+      const now = new Date();
+      const pastSessions = customerSessions.filter(session => 
+        new Date(session.scheduledDate) < now
+      );
+
+      const customerAttendanceRecords = attendanceRecords.filter(record => 
+        record.participant.toString() === enrollment.user._id.toString()
+      );
+
+      return {
+        customer: {
+          name: `${enrollment.user.firstName} ${enrollment.user.lastName}`,
+          email: enrollment.user.email,
+          id: enrollment.user._id
+        },
+        program: {
+          name: enrollment.program.name,
+          duration: enrollment.program.duration
+        },
+        sessions: {
+          total: customerSessions.length,
+          past: pastSessions.length,
+          sessionIds: customerSessions.map(s => s._id)
+        },
+        attendance: {
+          records: customerAttendanceRecords.length,
+          recordsData: customerAttendanceRecords.map(r => ({
+            session: r.session,
+            attended: r.attended,
+            status: r.status,
+            markedAt: r.attendanceMarkedAt
+          })),
+          present: customerAttendanceRecords.filter(r => r.attended === true).length,
+          absent: customerAttendanceRecords.filter(r => r.attended === false).length
+        }
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        coach: {
+          id: coach._id,
+          name: coach.userId?.firstName + ' ' + coach.userId?.lastName
+        },
+        programs: programIds,
+        totalSessions: sessions.length,
+        totalAttendanceRecords: attendanceRecords.length,
+        debugData
+      }
+    });
+
+  } catch (error) {
+    console.error('Debug attendance error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error debugging attendance',
       error: error.message
     });
   }
@@ -2171,42 +2430,6 @@ const attendanceOnly = async (req, res) => {
   }
 };
 
-export {
-  getAllCoaches,
-  getCoach,
-  getCoachByUserId,
-  createCoach,
-  updateCoach,
-  deleteCoach,
-  getCoachesBySpecialization,
-  updateCoachAvailability,
-  updateCoachRating,
-  assignProgramToCoach,
-  removeProgramFromCoach,
-  getCoachStats,
-  toggleCoachStatus,
-  createCoachProfileForUser,
-  createMissingCoachProfiles,
-  syncCoaches,
-  getCoachAvailability,
-  getBookingDateRange,
-  getWeeklySessionStructure,
-  getCoachEnrolledPrograms,
-  markSessionAttendance,
-  getSessionAttendance,
-  getCoachSessions,
-  createSessionsForEnrollments,
-  testCoachEndpoint,
-  testAttendanceEndpoint,
-  testAttendanceEndpointNew,
-  simpleAttendanceMarking,
-  ultraSimpleAttendanceMarking,
-  sessionAttendanceOnly,
-  ultraSimpleSuccess,
-  attendanceOnly,
-  getEnrolledCustomers,
-  getCustomerSessions
-};
 
 // @desc    Simple attendance marking without models - ULTRA SIMPLE VERSION
 // @route   PUT /api/coaches/simple-attendance
@@ -2284,5 +2507,45 @@ const simpleAttendanceMarking = async (req, res) => {
       error: error.message
     });
   }
+};
+
+// Export all functions
+export {
+  getAllCoaches,
+  getCoach,
+  createCoach,
+  updateCoach,
+  deleteCoach,
+  getCoachesBySpecialization,
+  getCoachByUserId,
+  getCoachAvailability,
+  getBookingDateRange,
+  getWeeklySessionStructure,
+  getCoachEnrolledPrograms,
+  getCoachSessions,
+  getSessionAttendance,
+  getEnrolledCustomers,
+  getCustomerSessions,
+  createCoachProfileForUser,
+  createMissingCoachProfiles,
+  updateCoachRating,
+  assignProgramToCoach,
+  removeProgramFromCoach,
+  syncCoaches,
+  testCoachEndpoint,
+  ultraSimpleAttendanceMarking,
+  testAttendanceEndpoint,
+  testAttendanceEndpointNew,
+  sessionAttendanceOnly,
+  ultraSimpleSuccess,
+  attendanceOnly,
+  debugAttendance,
+  debugTest,
+  simpleAttendanceMarking,
+  markSessionAttendance,
+  createSessionsForEnrollments,
+  getCoachStats,
+  toggleCoachStatus,
+  updateCoachAvailability
 };
 

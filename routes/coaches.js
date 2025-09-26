@@ -40,6 +40,9 @@ import {
 // Middleware (Note: You'll need to implement these middleware functions)
 // const { protect, authorize } = require('../middleware/auth');
 
+// Working routes for customers (bypass the problematic /:id route)
+router.get('/customers/:coachId', getEnrolledCustomers); // Get enrolled customers for coach's programs
+
 // Specific routes (must come before general /:id route)
 router.get('/test', testCoachEndpoint); // Test endpoint to verify API is working
 router.get('/', getAllCoaches); // Get all coaches with filtering

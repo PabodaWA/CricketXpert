@@ -21,6 +21,7 @@ import {
   fixSessionWeeks,
   debugSessionsForEnrollment,
   debugSessionCreation,
+  debugAllSessions,
   debugAttendance,
   debugMarkAttendance,
   debugMedhaniAttendance,
@@ -32,6 +33,7 @@ import { protect, authorizeRoles } from '../middleware/authMiddleware.js';
 router.get('/debug/enrollment/:enrollmentId', debugEnrollmentAttendance);
 router.get('/debug/medhani', debugMedhaniAttendance);
 router.get('/debug/attendance', debugAttendance);
+router.get('/debug/all-sessions', debugAllSessions);
 router.post('/debug/mark-attendance', debugMarkAttendance);
 
 // Simple test route

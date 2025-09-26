@@ -103,3 +103,4 @@ const testAttendance = async () => {
 connectDB().then(() => {
   testAttendance();
 });
+

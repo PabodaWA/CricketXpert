@@ -290,6 +290,175 @@ sessionGroundSchema.statics.createRecurringBookings = async function(bookingData
   return await this.insertMany(bookings);
 };
 
+// Static method to get available slots from Practice ground A for coaching programs
+sessionGroundSchema.statics.getPracticeGroundASlots = async function(date, duration = 60) {
+  const Ground = mongoose.model('Ground');
+  
+  // Find the Practice ground A
+  const practiceGround = await Ground.findOne({ name: 'Practice ground A' });
+  if (!practiceGround) {
+    throw new Error('Practice ground A not found');
+  }
+
+  const searchDate = new Date(date);
+  
+  // Get all bookings for Practice ground A on the specified date
+  const bookings = await this.find({
+    ground: practiceGround._id,
+    bookingDate: {
+      $gte: new Date(searchDate.setHours(0, 0, 0, 0)),
+      $lt: new Date(searchDate.setHours(23, 59, 59, 999))
+    },
+    status: { $nin: ['cancelled'] }
+  }).select('groundSlot startTime endTime status bookingType');
+
+  const totalSlots = practiceGround.totalSlots || 12;
+  const availability = [];
+
+  for (let slot = 1; slot <= totalSlots; slot++) {
+    const slotBookings = bookings.filter(booking => booking.groundSlot === slot);
+    
+    // Generate time slots (8 AM to 8 PM, customizable duration)
+    const timeSlots = [];
+    for (let hour = 8; hour < 20; hour++) {
+      const startTime = `${hour.toString().padStart(2, '0')}:00`;
+      const endTime = `${(hour + (duration / 60)).toString().padStart(2, '0')}:00`;
+      
+      // Check if this time slot conflicts with any booking
+      const isBooked = slotBookings.some(booking => {
+        return (startTime < booking.endTime && endTime > booking.startTime);
+      });
+
+      // Check if slot is suitable for coaching programs (avoid conflicting with other coaching sessions)
+      const isCoachingConflict = slotBookings.some(booking => {
+        return booking.bookingType === 'session' && 
+               (startTime < booking.endTime && endTime > booking.startTime);
+      });
+
+      timeSlots.push({
+        startTime,
+        endTime,
+        available: !isBooked && !isCoachingConflict,
+        duration: duration,
+        slotNumber: slot,
+        isCoachingFriendly: !isCoachingConflict
+      });
+    }
+
+    availability.push({
+      slot,
+      timeSlots,
+      isAvailable: timeSlots.some(ts => ts.available)
+    });
+  }
+
+  return {
+    ground: {
+      _id: practiceGround._id,
+      name: practiceGround.name,
+      location: practiceGround.location,
+      pricePerSlot: practiceGround.pricePerSlot,
+      facilities: practiceGround.facilities,
+      totalSlots: practiceGround.totalSlots
+    },
+    date: date,
+    totalSlots,
+    availability,
+    coachingProgramSlots: availability.filter(slot => slot.isAvailable)
+  };
+};
+
+// Static method to book a slot on Practice ground A for coaching programs
+sessionGroundSchema.statics.bookPracticeGroundASlot = async function(bookingData) {
+  const Ground = mongoose.model('Ground');
+  
+  // Find the Practice ground A
+  const practiceGround = await Ground.findOne({ name: 'Practice ground A' });
+  if (!practiceGround) {
+    throw new Error('Practice ground A not found');
+  }
+
+  // Check if slot is available
+  const isAvailable = await this.isSlotAvailable(
+    practiceGround._id,
+    bookingData.groundSlot,
+    bookingData.bookingDate,
+    bookingData.startTime,
+    bookingData.endTime
+  );
+
+  if (!isAvailable) {
+    throw new Error('Slot is not available for the requested time');
+  }
+
+  // Create the booking with coaching program specific data
+  const booking = new this({
+    ...bookingData,
+    ground: practiceGround._id,
+    bookingType: 'training', // Set as training for coaching programs
+    price: practiceGround.pricePerSlot,
+    requiresApproval: true, // Coaching programs might need approval
+    specialRequirements: ['coaching_equipment', 'coaching_area']
+  });
+
+  return await booking.save();
+};
+
+// Static method to get coaching program availability for a date range
+sessionGroundSchema.statics.getCoachingProgramAvailability = async function(startDate, endDate, duration = 60) {
+  const Ground = mongoose.model('Ground');
+  
+  // Find the Practice ground A
+  const practiceGround = await Ground.findOne({ name: 'Practice ground A' });
+  if (!practiceGround) {
+    throw new Error('Practice ground A not found');
+  }
+
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const availability = [];
+
+  // Get all bookings for the date range
+  const bookings = await this.find({
+    ground: practiceGround._id,
+    bookingDate: {
+      $gte: start,
+      $lte: end
+    },
+    status: { $nin: ['cancelled'] }
+  }).select('bookingDate groundSlot startTime endTime status bookingType');
+
+  // Group bookings by date
+  const bookingsByDate = {};
+  bookings.forEach(booking => {
+    const dateKey = booking.bookingDate.toISOString().split('T')[0];
+    if (!bookingsByDate[dateKey]) {
+      bookingsByDate[dateKey] = [];
+    }
+    bookingsByDate[dateKey].push(booking);
+  });
+
+  // Generate availability for each date
+  for (let date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
+    const dateKey = date.toISOString().split('T')[0];
+    const dayBookings = bookingsByDate[dateKey] || [];
+    
+    const dayAvailability = await this.getPracticeGroundASlots(date, duration);
+    availability.push(dayAvailability);
+  }
+
+  return {
+    ground: {
+      _id: practiceGround._id,
+      name: practiceGround.name,
+      location: practiceGround.location,
+      pricePerSlot: practiceGround.pricePerSlot
+    },
+    dateRange: { startDate, endDate },
+    availability
+  };
+};
+
 // Pre-save middleware to set booking deadline
 sessionGroundSchema.pre('save', function(next) {
   if (!this.bookingDeadline) {

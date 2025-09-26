@@ -74,7 +74,7 @@ const CoachDashboard = () => {
       }
 
       // Get coach profile by user ID
-      const coachResponse = await axios.get(`/api/coaches/user/${userInfo._id}`);
+      const coachResponse = await axios.get(`http://localhost:5000/api/coaches/user/${userInfo._id}`);
       const coachData = coachResponse.data.data;
       
       
@@ -96,7 +96,7 @@ const CoachDashboard = () => {
       // Get coach's enrolled programs (students enrolled in coach's programs)
       let enrolledProgramsData = [];
       try {
-        const enrolledProgramsResponse = await axios.get(`/api/coaches/${coachData._id}/enrolled-programs`);
+        const enrolledProgramsResponse = await axios.get(`http://localhost:5000/api/coaches/${coachData._id}/enrolled-programs`);
         enrolledProgramsData = enrolledProgramsResponse.data.data.docs || [];
         setEnrolledPrograms(enrolledProgramsData);
       } catch (enrolledError) {
@@ -104,76 +104,47 @@ const CoachDashboard = () => {
         setEnrolledPrograms([]);
       }
       
-      // SIMPLE CUSTOMER DATA WITH PROGRESS CALCULATION
+      // FETCH CUSTOMERS DATA WITH ATTENDANCE STATISTICS
       
       try {
-        // Get sessions for progress calculation
-        const coachSessionsResponse = await axios.get(`/api/coaches/${coachData._id}/sessions`);
-        const allSessions = coachSessionsResponse.data.data.docs || [];
+        // Fetch customers data with attendance statistics from the API
+        // Fetch customers data with attendance statistics from the API
+        const enrolledCustomersResponse = await axios.get(`http://localhost:5000/api/coaches/customers/68d438cb66caa02c82ffdd9f?t=${Date.now()}`);
+        const enrolledCustomersData = enrolledCustomersResponse.data.data.customersByProgram || [];
         
-        // Simple customer data with progress calculation
-        const customersData = enrolledProgramsData.map(enrollment => {
-          const customer = enrollment.user;
-          
-          // Find sessions for this customer
-          const customerSessions = allSessions.filter(session => 
-            session.participants?.some(participant => 
-              participant.user && participant.user._id === customer._id
-            )
-          );
-          
-          // Take only first 2 sessions (most recent)
-          const recentSessions = customerSessions
-            .sort((a, b) => new Date(b.scheduledDate) - new Date(a.scheduledDate))
-            .slice(0, 2);
-          
-          // Only count past sessions for completion
-          const now = new Date();
-          const pastSessions = recentSessions.filter(session => new Date(session.scheduledDate) < now);
-          
-          // Count completed sessions (only past sessions with attendance marked)
-          const completedSessions = pastSessions.filter(session => {
-            const participant = session.participants?.find(p => p.user._id === customer._id);
-            return participant && (participant.attended === true || participant.attended === false);
-          }).length;
-          
-          // Count present sessions (only past sessions with attended = true)
-          const presentSessions = pastSessions.filter(session => {
-            const participant = session.participants?.find(p => p.user._id === customer._id);
-            return participant && participant.attended === true;
-          }).length;
-          
-          // Count absent sessions (past sessions with attended = false)
-          const absentSessions = pastSessions.filter(session => {
-            const participant = session.participants?.find(p => p.user._id === customer._id);
-            return participant && participant.attended === false;
-          }).length;
-          
-          return {
-            _id: customer._id,
-            user: customer,
-            enrolledPrograms: [enrollment.program._id],
-            totalSessions: enrollment.program.duration || 0, // Program duration in weeks = total sessions
-            completedSessions,
-            presentSessions,
-            absentSessions,
-            enrollmentDate: enrollment.enrollmentDate || enrollment.createdAt,
-            status: enrollment.status || 'active'
-          };
+        // Flatten the customers data
+        const customersData = [];
+        enrolledCustomersData.forEach(programGroup => {
+          programGroup.customers.forEach(customer => {
+            customersData.push({
+              _id: customer.user._id,
+              user: customer.user,
+              enrolledPrograms: [programGroup.program._id],
+              totalSessions: customer.totalSessions || 0,
+              completedSessions: customer.completedSessions || 0,
+              presentSessions: customer.presentSessions || 0,
+              absentSessions: customer.absentSessions || 0,
+              progressPercentage: customer.progressPercentage || 0,
+              enrollmentDate: customer.enrollmentDate,
+              status: customer.status
+            });
+          });
         });
         
         setCustomers(customersData);
         
       } catch (error) {
-        console.error('Error setting up customers:', error);
-        // Fallback to simple data
+        console.error('Error fetching customers with attendance data:', error);
+        // Fallback to simple data from enrolled programs
         const simpleCustomersData = enrolledProgramsData.map(enrollment => ({
           _id: enrollment.user._id,
           user: enrollment.user,
           enrolledPrograms: [enrollment.program._id],
-          totalSessions: 2,
+          totalSessions: enrollment.program.duration || 0,
           completedSessions: 0,
           presentSessions: 0,
+          absentSessions: 0,
+          progressPercentage: 0,
           enrollmentDate: enrollment.enrollmentDate || enrollment.createdAt,
           status: enrollment.status || 'active'
         }));
@@ -182,7 +153,7 @@ const CoachDashboard = () => {
       
       // Fetch coach's sessions with attendance data
       try {
-        const coachSessionsResponse = await axios.get(`/api/coaches/${coachData._id}/sessions`);
+        const coachSessionsResponse = await axios.get(`http://localhost:5000/api/coaches/68d438cb66caa02c82ffdd9f/sessions`);
         const coachSessionsData = coachSessionsResponse.data.data.docs || [];
         setSessions(coachSessionsData);
         setCoachSessions(coachSessionsData);
@@ -211,7 +182,7 @@ const CoachDashboard = () => {
 
   const handleSubmitFeedback = async (feedbackData) => {
     try {
-      const response = await axios.post('/api/player-feedback', feedbackData);
+      const response = await axios.post('http://localhost:5000/api/player-feedback', feedbackData);
       setShowFeedbackModal(false);
       setSelectedParticipant(null);
       // Refresh data after feedback submission
@@ -268,7 +239,7 @@ const CoachDashboard = () => {
         console.log('Selected session ID:', selectedSession._id);
         
       const response = await axios.put(
-          `/api/coaches/attendance-only`,
+          `http://localhost:5000/api/coaches/attendance-only`,
           { 
             sessionId: originalSessionId,
             attendanceData: validAttendanceData
@@ -280,8 +251,37 @@ const CoachDashboard = () => {
           backendSuccess = true;
           alert('Attendance marked successfully! (Saved to database)');
           
-          // Refresh the sessions data to show updated attendance
+          // Refresh the customers data specifically to show updated attendance statistics
+          try {
+            const enrolledCustomersResponse = await axios.get(`http://localhost:5000/api/coaches/customers/68d438cb66caa02c82ffdd9f?t=${Date.now()}`);
+            const enrolledCustomersData = enrolledCustomersResponse.data.data.customersByProgram || [];
+            
+            // Flatten the customers data
+            const updatedCustomers = [];
+            enrolledCustomersData.forEach(programGroup => {
+              programGroup.customers.forEach(customer => {
+                updatedCustomers.push({
+                  _id: customer.user._id,
+                  user: customer.user,
+                  enrolledPrograms: [programGroup.program._id],
+                  totalSessions: customer.totalSessions || 0,
+                  completedSessions: customer.completedSessions || 0,
+                  presentSessions: customer.presentSessions || 0,
+                  absentSessions: customer.absentSessions || 0,
+                  progressPercentage: customer.progressPercentage || 0,
+                  enrollmentDate: customer.enrollmentDate,
+                  status: customer.status
+                });
+              });
+            });
+            
+            setCustomers(updatedCustomers);
+            console.log('Customers data refreshed with updated attendance statistics');
+          } catch (refreshError) {
+            console.error('Error refreshing customers data:', refreshError);
+            // Fallback to full data refresh
           await fetchCoachData();
+          }
         }
       } catch (backendError) {
         console.warn('Backend attendance marking failed:', backendError.message);
@@ -345,58 +345,35 @@ const CoachDashboard = () => {
           setCustomerSessions(updatedCustomerSessions);
         }
         
-        // Update customers progress
-          const updatedCustomers = customers.map(customer => {
-            // Find the program for this customer
-            const enrollment = enrolledPrograms.find(ep => ep.user._id === customer._id);
-            const programDuration = enrollment?.program?.duration || 0;
-            
-            // Find sessions for this customer
-          const customerSessions = updatedSessions.filter(session => 
-              session.participants?.some(participant => 
-                participant.user && participant.user._id === customer._id
-              )
-            );
-            
-            // Take only first 2 sessions (most recent)
-            const recentSessions = customerSessions
-              .sort((a, b) => new Date(b.scheduledDate) - new Date(a.scheduledDate))
-              .slice(0, 2);
-            
-          // Only count past sessions for completion
-          const now = new Date();
-          const pastSessions = recentSessions.filter(session => new Date(session.scheduledDate) < now);
+        // Refresh customers data from API to get updated attendance statistics
+        try {
+          const enrolledCustomersResponse = await axios.get(`http://localhost:5000/api/coaches/customers/68d438cb66caa02c82ffdd9f?t=${Date.now()}`);
+          const enrolledCustomersData = enrolledCustomersResponse.data.data.customersByProgram || [];
           
-          // Count completed sessions (only past sessions with attendance marked)
-          const completedSessions = pastSessions.filter(session => {
-              const participant = session.participants?.find(p => p.user._id === customer._id);
-              return participant && (participant.attended === true || participant.attended === false);
-            }).length;
-            
-          // Count present sessions (only past sessions with attended = true)
-          const presentSessions = pastSessions.filter(session => {
-              const participant = session.participants?.find(p => p.user._id === customer._id);
-              return participant && participant.attended === true;
-            }).length;
-            
-          // Count absent sessions (past sessions with attended = false)
-          const absentSessions = pastSessions.filter(session => {
-              const participant = session.participants?.find(p => p.user._id === customer._id);
-              return participant && participant.attended === false;
-            }).length;
-            
-            return {
-              ...customer,
-            totalSessions: programDuration, // Program duration in weeks = total sessions
-              completedSessions,
-            presentSessions,
-            absentSessions,
+          // Flatten the customers data
+          const updatedCustomers = [];
+          enrolledCustomersData.forEach(programGroup => {
+            programGroup.customers.forEach(customer => {
+              updatedCustomers.push({
+                _id: customer.user._id,
+                user: customer.user,
+                enrolledPrograms: [programGroup.program._id],
+                totalSessions: customer.totalSessions || 0,
+                completedSessions: customer.completedSessions || 0,
+                presentSessions: customer.presentSessions || 0,
+                absentSessions: customer.absentSessions || 0,
+                progressPercentage: customer.progressPercentage || 0,
             enrollmentDate: customer.enrollmentDate,
             status: customer.status
-            };
+              });
+            });
           });
           
           setCustomers(updatedCustomers);
+        } catch (error) {
+          console.error('Error refreshing customers data:', error);
+          // Keep existing customers data if refresh fails
+        }
         
         alert('Attendance marked successfully! (Frontend-only solution - not saved to database)');
       }
@@ -415,7 +392,7 @@ const CoachDashboard = () => {
     try {
       if (!coach || !coach._id) return;
       
-      const response = await axios.get(`/api/coaches/${coach._id}/enrolled-customers`);
+      const response = await axios.get(`http://localhost:5000/api/coaches/customers/68d438cb66caa02c82ffdd9f`);
       setEnrolledCustomers(response.data.data.customersByProgram || []);
     } catch (error) {
       console.warn('Could not fetch enrolled customers (this is optional):', error.message);
@@ -916,7 +893,64 @@ const CoachDashboard = () => {
 
           {activeTab === 'customers' && (
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">My Customers</h2>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">My Customers</h2>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={async () => {
+                      try {
+                        const enrolledCustomersResponse = await axios.get(`http://localhost:5000/api/coaches/customers/68d438cb66caa02c82ffdd9f?t=${Date.now()}`);
+                        const enrolledCustomersData = enrolledCustomersResponse.data.data.customersByProgram || [];
+                        
+                        const updatedCustomers = [];
+                        enrolledCustomersData.forEach(programGroup => {
+                          programGroup.customers.forEach(customer => {
+                            updatedCustomers.push({
+                              _id: customer.user._id,
+                              user: customer.user,
+                              enrolledPrograms: [programGroup.program._id],
+                              totalSessions: customer.totalSessions || 0,
+                              completedSessions: customer.completedSessions || 0,
+                              presentSessions: customer.presentSessions || 0,
+                              absentSessions: customer.absentSessions || 0,
+                              progressPercentage: customer.progressPercentage || 0,
+                              enrollmentDate: customer.enrollmentDate,
+                              status: customer.status
+                            });
+                          });
+                        });
+                        
+                        setCustomers(updatedCustomers);
+                        alert('Customers data refreshed successfully!');
+                      } catch (error) {
+                        console.error('Error refreshing customers:', error);
+                        alert('Error refreshing customers data');
+                      }
+                    }}
+                    className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Refresh
+                  </button>
+                  
+                  <button
+                    onClick={async () => {
+                      try {
+                        const debugResponse = await axios.get(`http://localhost:5000/api/coaches/68d438cb66caa02c82ffdd9f/debug-attendance`);
+                        console.log('Debug attendance data:', debugResponse.data);
+                        alert('Debug data logged to console. Check browser console for details.');
+                      } catch (error) {
+                        console.error('Error getting debug data:', error);
+                        alert('Error getting debug data');
+                      }
+                    }}
+                    className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    <BarChart3 className="h-4 w-4 mr-2" />
+                    Debug
+                  </button>
+                </div>
+              </div>
               
               {/* Summary Statistics */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -2635,6 +2669,11 @@ const CustomerCard = ({ customer, onCustomerClick, enrollment }) => {
   };
 
   const calculateProgress = () => {
+    // Use the progress percentage from API if available, otherwise calculate
+    if (customer.progressPercentage !== undefined) {
+      return customer.progressPercentage;
+    }
+    
     const totalSessions = customer.totalSessions || 0;
     const presentSessions = customer.presentSessions || 0;
     
