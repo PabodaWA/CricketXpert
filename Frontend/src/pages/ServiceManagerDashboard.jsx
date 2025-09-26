@@ -45,6 +45,7 @@ const ServiceManagerDashboard = () => {
   const [requestSearchFilter, setRequestSearchFilter] = useState('all');
   const [technicianSearchFilter, setTechnicianSearchFilter] = useState('all');
   const [technicianAvailabilityFilter, setTechnicianAvailabilityFilter] = useState('available');
+  const [usernameFilter, setUsernameFilter] = useState('all');
   const [globalFilter, setGlobalFilter] = useState('all');
   const [deletingTechnician, setDeletingTechnician] = useState(null);
   const [showSidebar, setShowSidebar] = useState(false);
@@ -356,6 +357,11 @@ const ServiceManagerDashboard = () => {
       }
     }
     
+    // Apply username filter
+    if (usernameFilter !== 'all' && request.customerId?.username !== usernameFilter) {
+      return false;
+    }
+    
     return true;
   });
 
@@ -532,7 +538,7 @@ const ServiceManagerDashboard = () => {
                                    {/* Filters */}
           {(globalFilter === 'all' || globalFilter === 'repair_requests') && (
             <div className="bg-white rounded-xl shadow-md p-6 mb-6">
-           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
              {/* Status Filter */}
              <div>
                <h3 className="text-sm font-semibold mb-3" style={{ color: Brand.primary }}>Status Filter</h3>
@@ -591,6 +597,22 @@ const ServiceManagerDashboard = () => {
                     <option value="Other">Other</option>
                   </select>
                 </div>
+
+             {/* Username Filter */}
+             <div>
+               <h3 className="text-sm font-semibold mb-3" style={{ color: Brand.primary }}>Username</h3>
+               <select 
+                 value={usernameFilter} 
+                 onChange={(e) => setUsernameFilter(e.target.value)}
+                 className="w-full px-3 py-2 border rounded-lg text-sm"
+                 style={{ borderColor: Brand.secondary, color: Brand.body }}
+               >
+                 <option value="all">All Usernames</option>
+                 {[...new Set(repairRequests.map(request => request.customerId?.username).filter(Boolean))].map(username => (
+                   <option key={username} value={username}>{username}</option>
+                 ))}
+               </select>
+             </div>
            </div>
 
                                                {/* Clear Filters Button */}
@@ -603,7 +625,8 @@ const ServiceManagerDashboard = () => {
                      setTechnicianSearchTerm('');
                      setRequestSearchFilter('all');
                      setTechnicianSearchFilter('all');
-                                           setTechnicianAvailabilityFilter('available');
+                     setTechnicianAvailabilityFilter('available');
+                     setUsernameFilter('all');
                      setGlobalFilter('all');
                      loadData();
                    }}
@@ -1386,7 +1409,7 @@ const ServiceManagerDashboard = () => {
                        Technician ID
                      </label>
                      <p className="text-sm font-mono text-gray-600">
-                       {selectedTechnician._id}
+                       {selectedTechnician._id ? `TECH-${selectedTechnician._id.slice(-6).toUpperCase()}` : ''}
                      </p>
                    </div>
                  </div>

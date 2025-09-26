@@ -709,17 +709,36 @@ const getAllRepairRequestsWithFilter = async (req, res) => {
 const downloadAndEmailReport = async (req, res) => {
   try {
     const { id } = req.params;
+    console.log('PDF download requested for repair ID:', id);
 
     const request = await RepairRequest.findById(id)
       .populate('customerId', 'username email')
       .populate({ path: 'assignedTechnician', populate: { path: 'technicianId', select: 'username email' } });
 
-    if (!request) return res.status(404).json({ error: 'Repair request not found' });
+    if (!request) {
+      console.log('Repair request not found for ID:', id);
+      return res.status(404).json({ error: 'Repair request not found' });
+    }
 
-    await sendRepairReportEmail(request); // send email
+    console.log('Found repair request:', {
+      id: request._id,
+      customer: request.customerId?.username,
+      status: request.status
+    });
+
+    // Send email first, then download PDF
+    try {
+      await sendRepairReportEmail(request); // send email
+      console.log('Email sent successfully for repair ID:', id);
+    } catch (emailError) {
+      console.error('Failed to send email for repair ID:', id, emailError.message);
+      // Continue with PDF download even if email fails
+    }
+    
     pipeRepairReportToResponse(res, request); // download in browser
 
   } catch (err) {
+    console.error('Error in downloadAndEmailReport:', err);
     res.status(500).json({ error: err.message });
   }
 };
