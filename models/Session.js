@@ -135,6 +135,11 @@ const sessionSchema = new mongoose.Schema({
   bookingDeadline: {
     type: Date,
     required: true
+  },
+  attendance: {
+    type: String,
+    enum: ['not marked', 'present', 'absent'],
+    default: 'not marked'
   }
 }, { timestamps: true });
 
@@ -159,6 +164,54 @@ sessionSchema.virtual('canBook').get(function() {
   const now = new Date();
   return now < this.bookingDeadline && !this.isFull && this.status === 'scheduled';
 });
+
+// Method to check if session is in the past
+sessionSchema.methods.isPastSession = function() {
+  const sessionDate = new Date(this.scheduledDate);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return sessionDate < today;
+};
+
+// Method to check if session is upcoming
+sessionSchema.methods.isUpcomingSession = function() {
+  const sessionDate = new Date(this.scheduledDate);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return sessionDate >= today;
+};
+
+// Method to check if attendance has been marked for a specific participant
+sessionSchema.methods.hasAttendanceMarked = function(userId) {
+  const participant = this.participants.find(p => p.user && p.user.toString() === userId.toString());
+  if (!participant) return false;
+  
+  // Check if attendance has been marked (either through attendanceMarkedAt or attended field)
+  return participant.attendanceMarkedAt || participant.attended !== undefined;
+};
+
+// Method to get attendance status for a specific participant
+sessionSchema.methods.getAttendanceStatus = function(userId) {
+  const participant = this.participants.find(p => p.user && p.user.toString() === userId.toString());
+  if (!participant) return 'not_found';
+  
+  // If session is upcoming, always return 'not_marked'
+  if (this.isUpcomingSession()) {
+    return 'not_marked';
+  }
+  
+  // If session is past but no attendance marked
+  if (this.isPastSession() && !this.hasAttendanceMarked(userId)) {
+    return 'not_marked';
+  }
+  
+  // If session is past and attendance is marked
+  if (this.isPastSession() && this.hasAttendanceMarked(userId)) {
+    return participant.attended ? 'present' : 'absent';
+  }
+  
+  return 'not_marked';
+};
 
 // Method to check ground slot availability
 sessionSchema.statics.isSlotAvailable = async function(groundId, slot, date, startTime, endTime, excludeSessionId = null) {

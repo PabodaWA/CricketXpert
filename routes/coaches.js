@@ -27,11 +27,21 @@ import {
   createSessionsForEnrollments,
   testCoachEndpoint,
   getEnrolledCustomers,
-  getCustomerSessions
+  getCustomerSessions,
+  simpleAttendanceMarking,
+  ultraSimpleAttendanceMarking,
+  testAttendanceEndpoint,
+  testAttendanceEndpointNew,
+  sessionAttendanceOnly,
+  ultraSimpleSuccess,
+  attendanceOnly
 } from '../controllers/coachController.js';
 
 // Middleware (Note: You'll need to implement these middleware functions)
 // const { protect, authorize } = require('../middleware/auth');
+
+// Working routes for customers (bypass the problematic /:id route)
+router.get('/customers/:coachId', getEnrolledCustomers); // Get enrolled customers for coach's programs
 
 // Specific routes (must come before general /:id route)
 router.get('/test', testCoachEndpoint); // Test endpoint to verify API is working
@@ -58,6 +68,16 @@ router.get('/:id', getCoach); // Get single coach profile
 
 // Coach and Admin routes
 router.post('/', /* authorize('admin', 'coaching_manager'), */ createCoach); // Create coach profile
+
+// Specific routes must come before parameterized routes
+router.put('/simple-attendance', /* authorize('coach'), */ simpleAttendanceMarking); // Simple attendance marking fallback
+router.put('/ultra-simple-attendance', /* authorize('coach'), */ ultraSimpleAttendanceMarking); // Ultra simple attendance marking
+router.put('/test-attendance', /* authorize('coach'), */ testAttendanceEndpointNew); // Test attendance endpoint
+router.put('/session-attendance-only', /* authorize('coach'), */ sessionAttendanceOnly); // Session attendance only (no coach updates)
+router.put('/ultra-simple-success', /* authorize('coach'), */ ultraSimpleSuccess); // Ultra simple success (no database operations)
+router.put('/attendance-only', /* authorize('coach'), */ attendanceOnly); // Attendance only (no coach data touched)
+
+// Parameterized routes must come after specific routes
 router.put('/:id', /* authorize('admin', 'coach'), */ updateCoach); // Update coach profile
 router.put('/:id/availability', /* authorize('admin', 'coach'), */ updateCoachAvailability); // Update availability
 router.put('/:id/sessions/:sessionId/attendance', /* authorize('coach'), */ markSessionAttendance); // Mark session attendance

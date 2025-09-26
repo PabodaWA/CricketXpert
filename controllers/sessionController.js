@@ -495,6 +495,18 @@ const markAttendance = async (req, res) => {
       });
     }
 
+    // Validate that the session date has passed (prevent marking attendance for future sessions)
+    const sessionDate = new Date(session.scheduledDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to start of day for comparison
+    
+    if (sessionDate > today) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot mark attendance for future sessions. Please wait until the session date has passed.'
+      });
+    }
+
     // Check if user is the coach of this session
     if (session.coach.toString() !== req.user.coachId && req.user.role !== 'admin') {
       return res.status(403).json({
@@ -560,7 +572,41 @@ const getSessionsByProgram = async (req, res) => {
       ]
     };
 
-    const sessions = await paginateHelper(Session, filter, options);
+    const allSessions = await Session.find(filter)
+      .populate(options.populate)
+      .sort(options.sort);
+
+    // Deduplicate sessions by session ID
+    const seenSessionIds = new Set();
+    const uniqueSessions = allSessions.filter(session => {
+      if (seenSessionIds.has(session._id.toString())) {
+        console.log('Removing duplicate session by ID:', session._id, session.title);
+        return false;
+      }
+      seenSessionIds.add(session._id.toString());
+      return true;
+    });
+
+    // Apply pagination to deduplicated sessions
+    const startIndex = (options.page - 1) * options.limit;
+    const endIndex = startIndex + options.limit;
+    const paginatedSessions = uniqueSessions.slice(startIndex, endIndex);
+
+    const totalDocs = uniqueSessions.length;
+    const totalPages = Math.ceil(totalDocs / options.limit);
+
+    const sessions = {
+      docs: paginatedSessions,
+      totalDocs,
+      limit: options.limit,
+      page: options.page,
+      totalPages,
+      hasNextPage: options.page < totalPages,
+      hasPrevPage: options.page > 1
+    };
+
+    console.log('Sessions by program - Total found:', allSessions.length);
+    console.log('Sessions by program - After deduplication:', uniqueSessions.length);
 
     res.status(200).json({
       success: true,
@@ -602,7 +648,41 @@ const getSessionsByCoach = async (req, res) => {
       ]
     };
 
-    const sessions = await paginateHelper(Session, filter, options);
+    const allSessions = await Session.find(filter)
+      .populate(options.populate)
+      .sort(options.sort);
+
+    // Deduplicate sessions by session ID
+    const seenSessionIds = new Set();
+    const uniqueSessions = allSessions.filter(session => {
+      if (seenSessionIds.has(session._id.toString())) {
+        console.log('Removing duplicate session by ID:', session._id, session.title);
+        return false;
+      }
+      seenSessionIds.add(session._id.toString());
+      return true;
+    });
+
+    // Apply pagination to deduplicated sessions
+    const startIndex = (options.page - 1) * options.limit;
+    const endIndex = startIndex + options.limit;
+    const paginatedSessions = uniqueSessions.slice(startIndex, endIndex);
+
+    const totalDocs = uniqueSessions.length;
+    const totalPages = Math.ceil(totalDocs / options.limit);
+
+    const sessions = {
+      docs: paginatedSessions,
+      totalDocs,
+      limit: options.limit,
+      page: options.page,
+      totalPages,
+      hasNextPage: options.page < totalPages,
+      hasPrevPage: options.page > 1
+    };
+
+    console.log('Sessions by coach - Total found:', allSessions.length);
+    console.log('Sessions by coach - After deduplication:', uniqueSessions.length);
 
     res.status(200).json({
       success: true,
@@ -821,8 +901,14 @@ const getSessionsByEnrollment = async (req, res) => {
     const { enrollmentId } = req.params;
     console.log('Fetching sessions for enrollment ID:', enrollmentId);
     
+    // Import Attendance model
+    const Attendance = (await import('../models/Attendance.js')).default;
+    
     // Find sessions where participants have this enrollment
-    const sessions = await Session.find({
+    console.log('Searching for sessions with enrollment ID:', enrollmentId);
+    console.log('Enrollment ID type:', typeof enrollmentId);
+    
+    const allSessions = await Session.find({
       'participants.enrollment': enrollmentId
     })
     .populate('program', 'title description')
@@ -834,14 +920,222 @@ const getSessionsByEnrollment = async (req, res) => {
       model: 'ProgramEnrollment',
       select: 'status progress'
     })
+    .populate({
+      path: 'participants.user',
+      select: 'firstName lastName email'
+    })
     .sort({ scheduledDate: 1 });
 
-    console.log('Found sessions:', sessions.length);
-    console.log('Sessions data:', sessions);
+    console.log('Found sessions:', allSessions.length);
+    console.log('Sessions data:', allSessions);
+    
+    // If no sessions found, try alternative queries
+    if (allSessions.length === 0) {
+      console.log('=== TRYING ALTERNATIVE QUERIES ===');
+      
+      // Try with ObjectId conversion
+      const mongoose = (await import('mongoose')).default;
+      try {
+        const objectIdEnrollmentId = new mongoose.Types.ObjectId(enrollmentId);
+        console.log('Trying with ObjectId:', objectIdEnrollmentId);
+        
+        const altSessions = await Session.find({
+          'participants.enrollment': objectIdEnrollmentId
+        });
+        console.log('Alternative query result:', altSessions.length);
+        
+        if (altSessions.length > 0) {
+          console.log('Found sessions with ObjectId query!');
+          allSessions.push(...altSessions);
+        }
+      } catch (error) {
+        console.log('ObjectId conversion failed:', error.message);
+      }
+      
+      // Try finding all sessions and filtering manually
+      const allSessionsInDb = await Session.find({});
+      console.log('Total sessions in database:', allSessionsInDb.length);
+      
+      const manualFilter = allSessionsInDb.filter(session => {
+        return session.participants.some(participant => 
+          participant.enrollment && participant.enrollment.toString() === enrollmentId
+        );
+      });
+      console.log('Manual filter result:', manualFilter.length);
+      
+      if (manualFilter.length > 0) {
+        console.log('Found sessions with manual filter!');
+        allSessions.push(...manualFilter);
+      }
+    }
+    
+    // Debug: Log each session found
+    if (allSessions.length > 0) {
+      console.log('=== SESSIONS FOUND ===');
+      allSessions.forEach((session, index) => {
+        console.log(`Session ${index + 1}:`, {
+          id: session._id,
+          title: session.title,
+          sessionNumber: session.sessionNumber,
+          scheduledDate: session.scheduledDate,
+          participants: session.participants?.length || 0
+        });
+      });
+    } else {
+      console.log('=== NO SESSIONS FOUND ===');
+      console.log('This means either:');
+      console.log('1. No sessions have been created for this enrollment');
+      console.log('2. The enrollment ID is incorrect');
+      console.log('3. Sessions exist but participants.enrollment field is not set correctly');
+    }
+
+    // Use sessions directly since we're only doing one query now
+    const finalSessions = allSessions;
+    
+    // Debug: Check if sessions have direct attendance data
+    console.log('=== CHECKING SESSION PARTICIPANTS FOR DIRECT ATTENDANCE ===');
+    finalSessions.forEach((session, index) => {
+      console.log(`Session ${index + 1} (${session._id}):`);
+      if (session.participants && session.participants.length > 0) {
+        session.participants.forEach((participant, pIndex) => {
+          console.log(`  Participant ${pIndex + 1}:`, {
+            userId: participant.user?._id,
+            attended: participant.attended,
+            attendanceMarkedAt: participant.attendanceMarkedAt,
+            performance: participant.performance
+          });
+        });
+      } else {
+        console.log('  No participants found');
+      }
+    });
+    
+    // Check if any participant has attended = true
+    const hasAttendedParticipants = finalSessions.some(session => 
+      session.participants?.some(p => p.attended === true)
+    );
+    console.log('Has any participant with attended = true:', hasAttendedParticipants);
+
+    // Get attendance records for all sessions
+    const sessionIds = finalSessions.map(session => session._id);
+    const attendanceRecords = await Attendance.find({
+      session: { $in: sessionIds }
+    })
+    .populate('participant', 'firstName lastName email')
+    .populate('markedBy', 'firstName lastName');
+
+    console.log('Found attendance records:', attendanceRecords.length);
+    console.log('Attendance records:', attendanceRecords.map(att => ({
+      session: att.session?._id || 'N/A',
+      participant: att.participant?._id || 'N/A',
+      attended: att.attended,
+      status: att.status
+    })));
+    
+    // Debug: Check if we have any attendance records at all
+    if (attendanceRecords.length === 0) {
+      console.log('❌ NO ATTENDANCE RECORDS FOUND IN DATABASE');
+      console.log('This means attendance was not properly marked in the coach dashboard');
+      console.log('Session IDs being searched:', sessionIds);
+    } else {
+      console.log('✅ Found attendance records, proceeding with mapping...');
+      console.log('Attendance records found:', attendanceRecords.length);
+    }
+
+    // Map attendance records to sessions
+    const sessionsWithAttendance = finalSessions.map(session => {
+      const sessionAttendanceRecords = attendanceRecords.filter(record => 
+        record.session.toString() === session._id.toString()
+      );
+      
+      // Update participants with attendance data
+      const updatedParticipants = session.participants.map(participant => {
+        const attendanceRecord = sessionAttendanceRecords.find(record => 
+          record.participant.toString() === participant.user._id.toString()
+        );
+        
+        if (attendanceRecord) {
+          return {
+            ...participant.toObject(),
+            attended: attendanceRecord.attended,
+            attendance: {
+              attended: attendanceRecord.attended,
+              status: attendanceRecord.status,
+              attendanceMarkedAt: attendanceRecord.attendanceMarkedAt,
+              performance: attendanceRecord.performance,
+              remarks: attendanceRecord.remarks
+            }
+          };
+        }
+        
+        return participant;
+      });
+      
+      return {
+        ...session.toObject(),
+        participants: updatedParticipants
+      };
+    });
+
+    console.log('Sessions with attendance data:', sessionsWithAttendance.length);
+    
+    // Return sessions with attendance data
+    const sessionsWithAttendanceStatus = sessionsWithAttendance;
+
+    // Debug: Log the final sessions with attendance data
+    console.log('=== FINAL SESSIONS WITH ATTENDANCE STATUS ===');
+    sessionsWithAttendanceStatus.forEach((session, index) => {
+      console.log(`Session ${index + 1}:`, {
+        id: session._id,
+        title: session.title,
+        status: session.status,
+        isPastSession: session.isPastSession,
+        isUpcomingSession: session.isUpcomingSession,
+        participants: session.participants?.map(p => ({
+          userId: p.user?._id,
+          attended: p.attended,
+          attendanceStatus: p.attendanceStatus,
+          hasAttendanceMarked: p.hasAttendanceMarked
+        }))
+      });
+    });
+    
+    // Check if any final session has attendance data
+    const hasFinalAttendanceData = sessionsWithAttendance.some(session => 
+      session.participants?.some(p => p.attendance || p.attended === true)
+    );
+    console.log('Has final attendance data:', hasFinalAttendanceData);
+    
+    // Additional debugging: Check specific participant attendance
+    sessionsWithAttendance.forEach((session, index) => {
+      console.log(`\n=== SESSION ${index + 1} FINAL CHECK ===`);
+      console.log(`Session ID: ${session._id}`);
+      if (session.participants && session.participants.length > 0) {
+        session.participants.forEach((participant, pIndex) => {
+          console.log(`  Participant ${pIndex + 1}:`);
+          console.log(`    User ID: ${participant.user?._id}`);
+          console.log(`    Attended: ${participant.attended}`);
+          console.log(`    Attendance Object: ${JSON.stringify(participant.attendance)}`);
+        });
+      }
+    });
+
+    // Final debug: Log what we're sending to the frontend
+    console.log('=== FINAL RESPONSE DEBUG ===');
+    console.log('Sending to frontend:', {
+      success: true,
+      dataLength: sessionsWithAttendanceStatus.length,
+      sessions: sessionsWithAttendanceStatus.map(s => ({
+        id: s._id,
+        title: s.title,
+        sessionNumber: s.sessionNumber,
+        participants: s.participants?.length || 0
+      }))
+    });
 
     res.status(200).json({
       success: true,
-      data: sessions
+      data: sessionsWithAttendanceStatus
     });
   } catch (error) {
     console.error('Error fetching sessions by enrollment:', error);
@@ -909,6 +1203,9 @@ const createDirectSession = async (req, res) => {
       });
     }
     
+    // Allow manual booking even if automatic sessions exist
+    // This gives customers the flexibility to book their own sessions
+    
     // Check program total sessions limit
     const programTotalSessions = enrollment.program.totalSessions || 10;
     console.log('Program total sessions:', programTotalSessions);
@@ -960,37 +1257,37 @@ const createDirectSession = async (req, res) => {
       duration: duration || 60
     });
     
-    // Get a default ground or create one if none exists
-    let defaultGround = await Ground.findOne();
-    if (!defaultGround) {
+    // Get Practice Ground A or create it if it doesn't exist
+    let practiceGround = await Ground.findOne({ name: 'Practice Ground A' });
+    if (!practiceGround) {
       try {
-        // Create a default ground
-        defaultGround = new Ground({
-          name: 'Default Cricket Ground',
+        // Create Practice Ground A
+        practiceGround = new Ground({
+          name: 'Practice Ground A',
           location: 'Main Sports Complex',
           pricePerSlot: 50,
-          description: 'Default ground for cricket sessions',
+          description: 'Practice ground for cricket coaching sessions',
           totalSlots: 12,
-          facilities: ['parking', 'changing_room'],
-          equipment: ['nets', 'balls', 'bats'],
+          facilities: ['parking', 'changing_room', 'coaching_area'],
+          equipment: ['nets', 'balls', 'bats', 'coaching_equipment'],
           isActive: true
         });
-        await defaultGround.save();
-        console.log('Created default ground:', defaultGround._id);
+        await practiceGround.save();
+        console.log('Created Practice Ground A:', practiceGround._id);
       } catch (groundError) {
-        console.error('Error creating default ground:', groundError);
+        console.error('Error creating Practice Ground A:', groundError);
         return res.status(500).json({
           success: false,
-          message: 'Error creating default ground',
+          message: 'Error creating Practice Ground A',
           error: groundError.message
         });
       }
     }
     
     console.log('Using ground:', {
-      id: defaultGround._id,
-      name: defaultGround.name,
-      totalSlots: defaultGround.totalSlots
+      id: practiceGround._id,
+      name: practiceGround.name,
+      totalSlots: practiceGround.totalSlots
     });
     
     // Calculate booking deadline (24 hours before session)
@@ -998,12 +1295,28 @@ const createDirectSession = async (req, res) => {
     
     // Validate ground slot
     const groundSlot = 1; // Default to slot 1
-    if (groundSlot < 1 || groundSlot > defaultGround.totalSlots) {
+    if (groundSlot < 1 || groundSlot > practiceGround.totalSlots) {
       return res.status(400).json({
         success: false,
-        message: `Invalid ground slot. Must be between 1 and ${defaultGround.totalSlots}`
+        message: `Invalid ground slot. Must be between 1 and ${practiceGround.totalSlots}`
       });
     }
+    
+    // Calculate the week number (each session gets its own week)
+    const weekNumber = nextSessionNumber;
+    
+    // Calculate the session date based on enrollment date + week number
+    // Session 1 = week 1 from enrollment, Session 2 = week 2 from enrollment, etc.
+    const enrollmentDate = new Date(enrollment.createdAt);
+    const sessionDate = new Date(enrollmentDate);
+    sessionDate.setDate(enrollmentDate.getDate() + (weekNumber - 1) * 7); // Add 7 days for each week from enrollment
+    
+    console.log('Session scheduling:', {
+      sessionNumber: nextSessionNumber,
+      weekNumber: weekNumber,
+      originalDate: scheduledDate,
+      calculatedDate: sessionDate.toISOString().split('T')[0]
+    });
     
     // Create session directly
     const sessionData = {
@@ -1011,12 +1324,12 @@ const createDirectSession = async (req, res) => {
       coach: enrollment.program.coach._id,
       title: `Session ${nextSessionNumber} - ${enrollment.program.title}`,
       sessionNumber: nextSessionNumber,
-      week: Math.ceil(nextSessionNumber / 2), // Assuming 2 sessions per week
-      scheduledDate: new Date(scheduledDate),
+      week: weekNumber, // Each session gets its own week
+      scheduledDate: sessionDate, // Use the calculated date
       startTime: startTime,
       endTime: endTime,
       duration: duration || 60,
-      ground: defaultGround._id,
+      ground: practiceGround._id,
       groundSlot: groundSlot,
       status: 'scheduled',
       participants: [{
@@ -1025,7 +1338,7 @@ const createDirectSession = async (req, res) => {
         attended: false
       }],
       notes: notes || '',
-      bookingDeadline: bookingDeadline,
+      bookingDeadline: new Date(sessionDate.getTime() - 24 * 60 * 60 * 1000), // 24 hours before session
       maxParticipants: 10,
       isRecurring: false
     };
@@ -1099,13 +1412,260 @@ const createDirectSession = async (req, res) => {
   }
 };
 
+// @desc    Remove extra sessions for 2-week program
+// @route   POST /api/sessions/remove-extra/:enrollmentId
+// @access  Public (for debugging)
+const removeExtraSessions = async (req, res) => {
+  try {
+    const { enrollmentId } = req.params;
+    console.log('=== REMOVING EXTRA SESSIONS ===');
+    console.log('Enrollment ID:', enrollmentId);
+    
+    // Find all sessions for this enrollment
+    const sessions = await Session.find({
+      'participants.enrollment': enrollmentId
+    }).sort({ sessionNumber: 1, week: 1 });
+    
+    console.log('Found sessions:', sessions.length);
+    
+    // For a 2-week program, we should only have 2 sessions
+    if (sessions.length > 2) {
+      // Remove sessions beyond the first 2
+      const sessionsToRemove = sessions.slice(2);
+      console.log('Sessions to remove:', sessionsToRemove.length);
+      
+      for (const session of sessionsToRemove) {
+        console.log(`Removing session: ${session._id} (${session.title})`);
+        
+        // Remove from enrollments
+        await ProgramEnrollment.updateMany(
+          { sessions: session._id },
+          { $pull: { sessions: session._id } }
+        );
+        
+        // Delete the session
+        await Session.findByIdAndDelete(session._id);
+      }
+      
+      console.log(`Removed ${sessionsToRemove.length} extra sessions`);
+      
+      res.status(200).json({
+        success: true,
+        message: `Removed ${sessionsToRemove.length} extra sessions`,
+        data: { removedCount: sessionsToRemove.length }
+      });
+    } else {
+      res.status(200).json({
+        success: true,
+        message: 'No extra sessions to remove',
+        data: { removedCount: 0 }
+      });
+    }
+    
+  } catch (error) {
+    console.error('Remove error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Remove error',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Fix session week numbers
+// @route   POST /api/sessions/fix-weeks/:enrollmentId
+// @access  Public (for debugging)
+const fixSessionWeeks = async (req, res) => {
+  try {
+    const { enrollmentId } = req.params;
+    console.log('=== FIXING SESSION WEEKS ===');
+    console.log('Enrollment ID:', enrollmentId);
+    
+    // Find all sessions for this enrollment
+    const sessions = await Session.find({
+      'participants.enrollment': enrollmentId
+    }).sort({ sessionNumber: 1 });
+    
+    console.log('Found sessions:', sessions.length);
+    
+    let fixedCount = 0;
+    
+    for (let i = 0; i < sessions.length; i++) {
+      const session = sessions[i];
+      const correctWeek = i + 1; // Week should match session number
+      
+      if (session.week !== correctWeek) {
+        console.log(`Fixing session ${session.sessionNumber}: week ${session.week} -> ${correctWeek}`);
+        session.week = correctWeek;
+        await session.save();
+        fixedCount++;
+      }
+    }
+    
+    console.log(`Fixed ${fixedCount} sessions`);
+    
+    res.status(200).json({
+      success: true,
+      message: `Fixed ${fixedCount} sessions`,
+      data: { fixedCount }
+    });
+    
+  } catch (error) {
+    console.error('Fix error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Fix error',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Debug sessions for specific enrollment
+// @route   GET /api/sessions/debug/:enrollmentId
+// @access  Public (for debugging)
+const debugSessionsForEnrollment = async (req, res) => {
+  try {
+    const { enrollmentId } = req.params;
+    console.log('=== DEBUG SESSIONS FOR ENROLLMENT ===');
+    console.log('Enrollment ID:', enrollmentId);
+    
+    // Find all sessions for this enrollment
+    const allSessions = await Session.find({
+      'participants.enrollment': enrollmentId
+    }).populate('program', 'title duration');
+    
+    console.log('Total sessions found:', allSessions.length);
+    
+    const debugInfo = {
+      enrollmentId: enrollmentId,
+      totalSessions: allSessions.length,
+      sessions: allSessions.map(session => ({
+        id: session._id,
+        title: session.title,
+        sessionNumber: session.sessionNumber,
+        week: session.week,
+        program: session.program?.title,
+        participants: session.participants?.length || 0
+      }))
+    };
+    
+    console.log('Debug info:', JSON.stringify(debugInfo, null, 2));
+    
+    res.status(200).json({
+      success: true,
+      data: debugInfo
+    });
+    
+  } catch (error) {
+    console.error('Debug error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Debug error',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Clean up duplicate sessions
+// @route   POST /api/sessions/cleanup-duplicates
+// @access  Private (Admin/Coach)
+const cleanupDuplicateSessions = async (req, res) => {
+  try {
+    console.log('Starting cleanup of duplicate sessions...');
+    
+    // Find all sessions
+    const allSessions = await Session.find({}).populate('program');
+    
+    console.log(`Found ${allSessions.length} total sessions`);
+    
+    // Group sessions by program and session number
+    const sessionGroups = {};
+    
+    allSessions.forEach(session => {
+      if (session.program && session.program._id) {
+        const key = `${session.program._id}-${session.sessionNumber}-${session.week}`;
+        if (!sessionGroups[key]) {
+          sessionGroups[key] = [];
+        }
+        sessionGroups[key].push(session);
+      } else {
+        console.log('Skipping session without program data:', session._id);
+      }
+    });
+    
+    // Find duplicates
+    const duplicates = Object.entries(sessionGroups).filter(([key, sessions]) => sessions.length > 1);
+    
+    console.log(`Found ${duplicates.length} groups with duplicate sessions`);
+    
+    let removedCount = 0;
+    const removedSessions = [];
+    
+    for (const [key, sessions] of duplicates) {
+      console.log(`\nProcessing duplicate group: ${key}`);
+      console.log(`Found ${sessions.length} duplicate sessions`);
+      
+      // Keep the first session, remove the rest
+      const sessionToKeep = sessions[0];
+      const sessionsToRemove = sessions.slice(1);
+      
+      console.log(`Keeping session: ${sessionToKeep._id} (${sessionToKeep.title})`);
+      
+      for (const sessionToRemove of sessionsToRemove) {
+        console.log(`Removing session: ${sessionToRemove._id} (${sessionToRemove.title})`);
+        
+        // Remove session from enrollments
+        await ProgramEnrollment.updateMany(
+          { sessions: sessionToRemove._id },
+          { $pull: { sessions: sessionToRemove._id } }
+        );
+        
+        removedSessions.push({
+          id: sessionToRemove._id,
+          title: sessionToRemove.title,
+          sessionNumber: sessionToRemove.sessionNumber,
+          week: sessionToRemove.week
+        });
+        
+        // Delete the session
+        await Session.findByIdAndDelete(sessionToRemove._id);
+        removedCount++;
+      }
+    }
+    
+    console.log(`\nCleanup completed! Removed ${removedCount} duplicate sessions.`);
+    
+    res.status(200).json({
+      success: true,
+      message: `Cleanup completed! Removed ${removedCount} duplicate sessions.`,
+      data: {
+        totalSessionsFound: allSessions.length,
+        duplicateGroups: duplicates.length,
+        removedCount: removedCount,
+        removedSessions: removedSessions
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error during cleanup:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error during cleanup',
+      error: error.message
+    });
+  }
+};
+
 // @desc    Customer reschedule session
 // @route   PUT /api/sessions/reschedule
 // @access  Private (Customer)
 const customerRescheduleSession = async (req, res) => {
   try {
+    console.log('=== CUSTOMER RESCHEDULE SESSION START ===');
     console.log('Customer reschedule request received:', req.body);
     const { sessionId, newDate, newTime, newGroundSlot, duration } = req.body;
+    
+    console.log('Request parameters:', { sessionId, newDate, newTime, newGroundSlot, duration });
 
     // Find the session
     console.log('Looking for session with ID:', sessionId);
@@ -1118,6 +1678,13 @@ const customerRescheduleSession = async (req, res) => {
       console.log('Session not found');
       return res.status(404).json({ success: false, message: 'Session not found' });
     }
+    
+    console.log('Session details:', {
+      id: session._id,
+      sessionNumber: session.sessionNumber,
+      week: session.week,
+      scheduledDate: session.scheduledDate
+    });
 
     // Check if new session date is more than 24 hours away
     const now = new Date();
@@ -1144,13 +1711,52 @@ const customerRescheduleSession = async (req, res) => {
       });
     }
 
-    // Validate new date is within 7 days
-    const daysDifference = (newSessionDate - now) / (1000 * 60 * 60 * 24);
+    // Validate new date is within the same week as the original session
+    const originalWeek = session.week;
     
-    if (daysDifference > 7) {
+    // Get enrollment date to calculate week boundaries
+    console.log('Looking up enrollment...');
+    const ProgramEnrollment = (await import('../models/ProgramEnrollment.js')).default;
+    const enrollment = await ProgramEnrollment.findById(session.participants[0].enrollment);
+    
+    console.log('Enrollment found:', enrollment ? 'Yes' : 'No');
+    if (!enrollment) {
+      console.log('Enrollment not found');
       return res.status(400).json({ 
         success: false, 
-        message: 'New session date must be within 7 days from today' 
+        message: 'Enrollment not found' 
+      });
+    }
+    
+    console.log('Enrollment details:', {
+      id: enrollment._id,
+      createdAt: enrollment.createdAt
+    });
+    
+    const enrollmentDate = new Date(enrollment.createdAt);
+    console.log('Enrollment date:', enrollmentDate.toISOString().split('T')[0]);
+    
+    // Calculate week boundaries based on enrollment date
+    const startOfWeek = new Date(enrollmentDate);
+    startOfWeek.setDate(enrollmentDate.getDate() + (originalWeek - 1) * 7); // Start of the specific week
+    
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6); // End of the specific week
+    
+    console.log('Week validation based on enrollment:', {
+      enrollmentDate: enrollmentDate.toISOString().split('T')[0],
+      originalWeek: originalWeek,
+      newDate: newSessionDate.toISOString().split('T')[0],
+      startOfWeek: startOfWeek.toISOString().split('T')[0],
+      endOfWeek: endOfWeek.toISOString().split('T')[0],
+      isWithinWeek: newSessionDate >= startOfWeek && newSessionDate <= endOfWeek
+    });
+    
+    // Check if new date is within the same week as the original session
+    if (newSessionDate < startOfWeek || newSessionDate > endOfWeek) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Session can only be rescheduled within Week ${originalWeek} (${startOfWeek.toLocaleDateString()} - ${endOfWeek.toLocaleDateString()})` 
       });
     }
 
@@ -1169,11 +1775,22 @@ const customerRescheduleSession = async (req, res) => {
     const endDateTime = new Date(startDateTime.getTime() + (duration || 120) * 60000);
     const endTime = endDateTime.toTimeString().slice(0, 5);
 
+    console.log('Coach availability check:', {
+      coachId: coach._id,
+      requestedDate: newDate,
+      requestedTime: newTime,
+      endTime: endTime,
+      dayOfWeek: newSessionDate.getDay()
+    });
+
     // Check if coach is available (using existing availability logic)
     const coachAvailability = coach.availability || [];
     const dayOfWeek = newSessionDate.getDay();
     const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
     const currentDayName = dayNames[dayOfWeek].toLowerCase();
+
+    console.log('Coach availability slots:', coachAvailability);
+    console.log('Requested day:', currentDayName);
 
     const isCoachAvailable = coachAvailability.some(availability => {
       if (availability.day.toLowerCase() === currentDayName) {
@@ -1181,6 +1798,15 @@ const customerRescheduleSession = async (req, res) => {
         const endHour = parseInt(availability.endTime.split(':')[0]);
         const requestedStartHour = parseInt(newTime.split(':')[0]);
         const requestedEndHour = parseInt(endTime.split(':')[0]);
+        
+        console.log('Checking availability slot:', {
+          day: availability.day,
+          startHour: startHour,
+          endHour: endHour,
+          requestedStartHour: requestedStartHour,
+          requestedEndHour: requestedEndHour,
+          isAvailable: requestedStartHour >= startHour && requestedEndHour <= endHour
+        });
         
         return requestedStartHour >= startHour && requestedEndHour <= endHour;
       }
@@ -1190,7 +1816,7 @@ const customerRescheduleSession = async (req, res) => {
     if (!isCoachAvailable) {
       return res.status(400).json({ 
         success: false, 
-        message: 'Coach is not available at the requested time' 
+        message: `Coach is not available on ${currentDayName} at ${newTime}. Please check coach availability.` 
       });
     }
 
@@ -1220,8 +1846,8 @@ const customerRescheduleSession = async (req, res) => {
     }
 
     // Store original values before updating
-    const originalDate = session.scheduledDate;
-    const originalTime = session.scheduledTime;
+    const originalSessionDateValue = session.scheduledDate;
+    const originalTime = session.startTime || session.scheduledTime;
     const originalGroundSlot = session.groundSlot;
 
     // Update the session
@@ -1233,7 +1859,7 @@ const customerRescheduleSession = async (req, res) => {
     session.rescheduled = true;
     session.rescheduledAt = new Date();
     session.rescheduledFrom = {
-      date: originalDate,
+      date: originalSessionDateValue,
       time: originalTime,
       groundSlot: originalGroundSlot
     };
@@ -1248,11 +1874,24 @@ const customerRescheduleSession = async (req, res) => {
     await session.save();
 
     console.log('Session saved successfully');
+    console.log('Updated session data:', {
+      id: session._id,
+      scheduledDate: session.scheduledDate,
+      scheduledTime: session.scheduledTime,
+      groundSlot: session.groundSlot,
+      rescheduled: session.rescheduled
+    });
 
     res.status(200).json({ 
       success: true, 
       message: 'Session rescheduled successfully',
-      data: session 
+      data: {
+        id: session._id,
+        scheduledDate: session.scheduledDate,
+        scheduledTime: session.scheduledTime,
+        groundSlot: session.groundSlot,
+        rescheduled: session.rescheduled
+      }
     });
 
   } catch (error) {
@@ -1265,6 +1904,330 @@ const customerRescheduleSession = async (req, res) => {
     });
   }
 };
+
+// @desc    Simple test to mark attendance for debugging
+// @route   POST /api/sessions/debug/mark-attendance
+// @access  Public (for debugging)
+const debugMarkAttendance = async (req, res) => {
+  try {
+    const Attendance = (await import('../models/Attendance.js')).default;
+    const Session = (await import('../models/Session.js')).default;
+    
+    // Get the first session
+    const session = await Session.findOne({}).populate('participants.user');
+    if (!session) {
+      return res.status(404).json({ success: false, message: 'No sessions found' });
+    }
+    
+    // Mark attendance for the first participant
+    const participant = session.participants[0];
+    if (!participant) {
+      return res.status(404).json({ success: false, message: 'No participants found' });
+    }
+    
+    // Create attendance record
+    const attendanceRecord = new Attendance({
+      session: session._id,
+      participant: participant.user._id,
+      coach: session.coach,
+      attended: true,
+      status: 'present',
+      attendanceMarkedAt: new Date(),
+      markedBy: participant.user._id
+    });
+    
+    await attendanceRecord.save();
+    
+    // Update session participant
+    await Session.updateOne(
+      { 
+        _id: session._id,
+        'participants.user': participant.user._id
+      },
+      {
+        $set: {
+          'participants.$.attended': true,
+          'participants.$.attendanceMarkedAt': new Date()
+        }
+      }
+    );
+    
+    res.status(200).json({
+      success: true,
+      message: 'Attendance marked successfully',
+      data: {
+        sessionId: session._id,
+        participantId: participant.user._id,
+        attended: true
+      }
+    });
+  } catch (error) {
+    console.error('Error in debug mark attendance:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error marking attendance',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Simple endpoint to check attendance for any user by enrollment ID
+// @route   GET /api/sessions/debug/enrollment/:enrollmentId
+// @access  Public (for debugging)
+const debugEnrollmentAttendance = async (req, res) => {
+  try {
+    const { enrollmentId } = req.params;
+    const Attendance = (await import('../models/Attendance.js')).default;
+    const Session = (await import('../models/Session.js')).default;
+    const ProgramEnrollment = (await import('../models/ProgramEnrollment.js')).default;
+
+    // Get the enrollment
+    const enrollment = await ProgramEnrollment.findById(enrollmentId)
+      .populate('user', 'firstName lastName email')
+      .populate('program', 'title');
+
+    if (!enrollment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Enrollment not found'
+      });
+    }
+
+    // Get sessions for this enrollment
+    const sessions = await Session.find({
+      program: enrollment.program._id
+    })
+    .populate('participants.user', 'firstName lastName email')
+    .sort({ scheduledDate: -1 });
+
+    // Get attendance records for these sessions
+    const sessionIds = sessions.map(session => session._id);
+    const attendanceRecords = await Attendance.find({
+      session: { $in: sessionIds }
+    })
+    .populate('session', 'title sessionNumber scheduledDate status')
+    .populate('participant', 'firstName lastName email')
+    .sort({ attendanceMarkedAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        enrollment: {
+          _id: enrollment._id,
+          user: enrollment.user,
+          program: enrollment.program
+        },
+        sessions: sessions.length,
+        attendanceRecords: attendanceRecords.length,
+        sessionDetails: sessions.map(session => ({
+          id: session._id,
+          title: session.title,
+          status: session.status,
+          participants: session.participants.map(p => ({
+            user: `${p.user?.firstName || 'N/A'} ${p.user?.lastName || 'N/A'}`,
+            userId: p.user?._id,
+            attended: p.attended,
+            attendanceMarkedAt: p.attendanceMarkedAt
+          }))
+        })),
+        attendanceDetails: attendanceRecords.map(att => ({
+          id: att._id,
+          session: att.session?.title || 'N/A',
+          participant: `${att.participant?.firstName || 'N/A'} ${att.participant?.lastName || 'N/A'}`,
+          attended: att.attended,
+          status: att.status,
+          markedAt: att.attendanceMarkedAt
+        }))
+      }
+    });
+  } catch (error) {
+    console.error('Error in debug enrollment attendance:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching enrollment attendance',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Simple endpoint to check if attendance exists for Medhani
+// @route   GET /api/sessions/debug/medhani
+// @access  Public (for debugging)
+const debugMedhaniAttendance = async (req, res) => {
+  try {
+    const Attendance = (await import('../models/Attendance.js')).default;
+    const Session = (await import('../models/Session.js')).default;
+    const User = (await import('../models/User.js')).default;
+
+    // Find user Medhani
+    const user = await User.findOne({ 
+      $or: [
+        { firstName: /medhani/i },
+        { lastName: /medhani/i },
+        { email: /medhani/i }
+      ]
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User Medhani not found'
+      });
+    }
+
+    // Get attendance records for Medhani
+    const attendanceRecords = await Attendance.find({
+      participant: user._id
+    })
+    .populate('session', 'title sessionNumber scheduledDate status')
+    .populate('participant', 'firstName lastName email')
+    .sort({ attendanceMarkedAt: -1 });
+
+    // Get sessions for Medhani
+    const sessions = await Session.find({
+      'participants.user': user._id
+    })
+    .populate('participants.user', 'firstName lastName email')
+    .sort({ scheduledDate: -1 });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        user: {
+          _id: user._id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email
+        },
+        attendanceRecords: attendanceRecords.length,
+        sessions: sessions.length,
+        attendanceDetails: attendanceRecords.map(att => ({
+          id: att._id,
+          session: att.session?.title || 'N/A',
+          attended: att.attended,
+          status: att.status,
+          markedAt: att.attendanceMarkedAt
+        })),
+        sessionDetails: sessions.map(session => ({
+          id: session._id,
+          title: session.title,
+          status: session.status,
+          participants: session.participants.map(p => ({
+            user: `${p.user?.firstName || 'N/A'} ${p.user?.lastName || 'N/A'}`,
+            attended: p.attended,
+            attendanceMarkedAt: p.attendanceMarkedAt
+          }))
+        }))
+      }
+    });
+  } catch (error) {
+    console.error('Error in debug Medhani attendance:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching Medhani attendance',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Debug endpoint to check all sessions in database
+// @route   GET /api/sessions/debug/all-sessions
+// @access  Public (for debugging)
+const debugAllSessions = async (req, res) => {
+  try {
+    const allSessions = await Session.find({})
+      .populate('program', 'title')
+      .populate('coach', 'userId')
+      .populate('participants.user', 'firstName lastName')
+      .populate('participants.enrollment', 'status')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        totalSessions: allSessions.length,
+        sessions: allSessions.map(session => ({
+          id: session._id,
+          title: session.title,
+          sessionNumber: session.sessionNumber,
+          program: session.program?.title,
+          coach: session.coach?.userId?.firstName,
+          participants: session.participants?.map(p => ({
+            user: `${p.user?.firstName} ${p.user?.lastName}`,
+            enrollment: p.enrollment?._id,
+            enrollmentStatus: p.enrollment?.status
+          })),
+          scheduledDate: session.scheduledDate,
+          status: session.status
+        }))
+      }
+    });
+  } catch (error) {
+    console.error('Error in debug all sessions:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching all sessions',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Debug endpoint to check attendance data
+// @route   GET /api/sessions/debug/attendance
+// @access  Public (for debugging)
+const debugAttendance = async (req, res) => {
+  try {
+    const Attendance = (await import('../models/Attendance.js')).default;
+    const Session = (await import('../models/Session.js')).default;
+    const User = (await import('../models/User.js')).default;
+
+    // Get all attendance records
+    const attendanceRecords = await Attendance.find({})
+      .populate('participant', 'firstName lastName email')
+      .populate('session', 'title sessionNumber scheduledDate status')
+      .sort({ attendanceMarkedAt: -1 });
+
+    // Get all sessions
+    const sessions = await Session.find({})
+      .populate('participants.user', 'firstName lastName email')
+      .populate('program', 'title')
+      .sort({ scheduledDate: -1 });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        attendanceRecords: attendanceRecords.length,
+        sessions: sessions.length,
+        attendanceDetails: attendanceRecords.map(att => ({
+          id: att._id,
+          session: att.session?.title || 'N/A',
+          participant: `${att.participant?.firstName || 'N/A'} ${att.participant?.lastName || 'N/A'}`,
+          attended: att.attended,
+          status: att.status,
+          markedAt: att.attendanceMarkedAt
+        })),
+        sessionDetails: sessions.map(session => ({
+          id: session._id,
+          title: session.title,
+          status: session.status,
+          participants: session.participants.map(p => ({
+            user: `${p.user?.firstName || 'N/A'} ${p.user?.lastName || 'N/A'}`,
+            attended: p.attended,
+            attendanceMarkedAt: p.attendanceMarkedAt
+          }))
+        }))
+      }
+    });
+  } catch (error) {
+    console.error('Error in debug attendance:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching debug data',
+      error: error.message
+    });
+  }
+};
+
 
 export {
   getAllSessions,
@@ -1282,5 +2245,14 @@ export {
   getGroundAvailability,
   rescheduleSession,
   customerRescheduleSession,
-  debugSessionCreation
+  cleanupDuplicateSessions,
+  removeExtraSessions,
+  fixSessionWeeks,
+  debugSessionsForEnrollment,
+  debugSessionCreation,
+  debugAllSessions,
+  debugAttendance,
+  debugMarkAttendance,
+  debugMedhaniAttendance,
+  debugEnrollmentAttendance
 };
