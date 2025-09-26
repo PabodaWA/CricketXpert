@@ -1,6 +1,8 @@
 import Payroll from '../models/Payroll.js';
 import User from '../models/User.js';
 import SalaryConfig from '../models/SalaryConfig.js';
+import PDFDocument from 'pdfkit';
+import nodemailer from 'nodemailer';
 
 // Create new payroll entry
 const createPayroll = async (req, res) => {
@@ -306,9 +308,23 @@ const markAsPaid = async (req, res) => {
       });
     }
 
+    // Generate and send paysheet PDF via email
+    try {
+      console.log('📄 Generating paysheet PDF for payroll:', payroll._id);
+      const pdfBuffer = await generatePaysheetPDF(payroll);
+      
+      console.log('📧 Sending paysheet email for payroll:', payroll._id);
+      await sendPaysheetEmail(payroll, pdfBuffer);
+      
+      console.log('✅ Paysheet sent successfully for payroll:', payroll._id);
+    } catch (emailError) {
+      console.error('❌ Failed to send paysheet email for payroll:', payroll._id, emailError);
+      // Continue with success response even if email fails
+    }
+
     res.status(200).json({
       success: true,
-      message: 'Payroll marked as paid successfully',
+      message: 'Payroll marked as paid successfully and paysheet sent to employee',
       data: payroll
     });
   } catch (error) {
@@ -552,6 +568,135 @@ const updateSalaryConfig = async (req, res) => {
       message: 'Internal server error',
       error: error.message
     });
+  }
+};
+
+// Generate paysheet PDF
+const generatePaysheetPDF = async (payroll) => {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument();
+      const buffers = [];
+
+      doc.on('data', buffers.push.bind(buffers));
+      doc.on('end', () => {
+        const pdfBuffer = Buffer.concat(buffers);
+        resolve(pdfBuffer);
+      });
+
+      // Set page margins and width
+      const pageWidth = 612;
+      const margin = 50;
+      const contentWidth = pageWidth - (margin * 2);
+
+      // Header
+      doc.fontSize(20).text('PAYSLIP', { align: 'center' }).moveDown();
+      doc.fontSize(16).text('CricketExpert', { align: 'center' }).moveDown(2);
+
+      // Employee Details
+      doc.fontSize(14).text('Employee Details:', { underline: true }).moveDown(0.5);
+      doc.fontSize(12).text(`Name: ${payroll.employeeId?.firstName} ${payroll.employeeId?.lastName}`);
+      doc.text(`Email: ${payroll.employeeId?.email}`);
+      doc.text(`Role: ${payroll.employeeId?.role}`);
+      doc.text(`Pay Period: ${payroll.month}/${payroll.year}`).moveDown();
+
+      // Salary Details
+      doc.fontSize(14).text('Salary Details:', { underline: true }).moveDown(0.5);
+      doc.fontSize(12).text(`Basic Salary: LKR ${payroll.basicSalary?.toLocaleString()}`);
+      doc.text(`Allowances: LKR ${payroll.allowances?.toLocaleString()}`);
+      doc.text(`Deductions: LKR ${payroll.deductions?.toLocaleString()}`);
+      doc.text(`Net Salary: LKR ${payroll.netSalary?.toLocaleString()}`, { underline: true }).moveDown();
+
+      // Payment Details
+      doc.fontSize(14).text('Payment Details:', { underline: true }).moveDown(0.5);
+      doc.fontSize(12).text(`Payment Method: ${payroll.paymentMethod}`);
+      doc.text(`Payment Date: ${new Date(payroll.paymentDate).toLocaleDateString()}`);
+      doc.text(`Status: ${payroll.status.toUpperCase()}`).moveDown();
+
+      // Footer
+      doc.fontSize(10).text('This is a computer generated payslip.', { align: 'center' });
+      doc.text('CricketExpert - Payroll Management System', { align: 'center' });
+
+      doc.end();
+    } catch (err) {
+      reject(err);
+    }
+  });
+};
+
+// Send paysheet via email
+const sendPaysheetEmail = async (payroll, pdfBuffer) => {
+  try {
+    console.log('📧 Starting to send paysheet email...');
+    console.log('📧 Email config check:', {
+      hasEmailUser: !!process.env.EMAIL_USER,
+      hasEmailPass: !!process.env.EMAIL_PASS,
+      employeeEmail: payroll.employeeId?.email
+    });
+
+    const transporter = nodemailer.createTransport({
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    await transporter.verify();
+    console.log('📧 Email transporter verified successfully');
+
+    const employeeEmail = payroll.employeeId?.email;
+    if (!employeeEmail) {
+      console.error('❌ Employee email not found for payroll:', payroll._id);
+      throw new Error(`Employee email not found for payroll ${payroll._id}`);
+    }
+
+    console.log('📧 Sending paysheet to employee:', employeeEmail);
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: employeeEmail,
+      subject: `Your Payslip - ${payroll.month}/${payroll.year}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #42ADF5;">CricketExpert - Payslip</h2>
+          <p>Dear ${payroll.employeeId?.firstName || 'Employee'},</p>
+          <p>Your payslip for ${payroll.month}/${payroll.year} is ready. Please find the detailed payslip attached as a PDF.</p>
+          
+          <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <h3 style="margin-top: 0;">Payroll Summary</h3>
+            <p><strong>Employee:</strong> ${payroll.employeeId?.firstName} ${payroll.employeeId?.lastName}</p>
+            <p><strong>Pay Period:</strong> ${payroll.month}/${payroll.year}</p>
+            <p><strong>Basic Salary:</strong> LKR ${payroll.basicSalary?.toLocaleString()}</p>
+            <p><strong>Allowances:</strong> LKR ${payroll.allowances?.toLocaleString()}</p>
+            <p><strong>Deductions:</strong> LKR ${payroll.deductions?.toLocaleString()}</p>
+            <p><strong>Net Salary:</strong> LKR ${payroll.netSalary?.toLocaleString()}</p>
+            <p><strong>Payment Date:</strong> ${new Date(payroll.paymentDate).toLocaleDateString()}</p>
+          </div>
+          
+          <p>If you have any questions about your payslip, please contact the HR department.</p>
+          <p>Best regards,<br>The CricketExpert Team</p>
+        </div>
+      `,
+      attachments: [
+        {
+          filename: `payslip-${payroll.employeeId?.firstName}-${payroll.month}-${payroll.year}.pdf`,
+          content: pdfBuffer,
+          contentType: 'application/pdf'
+        }
+      ]
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log('📧 Paysheet email sent successfully:', info.messageId);
+    console.log('📧 Email sent to:', employeeEmail);
+    return true;
+
+  } catch (error) {
+    console.error('❌ Error in sendPaysheetEmail:', error);
+    throw error;
   }
 };
 
