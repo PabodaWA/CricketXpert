@@ -19,6 +19,7 @@ import UserManagement from './pages/UserManagement.jsx';
 import AllPayments from './pages/Allpayments.jsx'; 
 import Inventorys from './pages/Inventory.jsx';
 import PayrollManagement from './pages/PayrollManagement.jsx'; 
+import RevenueAnalytics from './pages/RevenueAnalytics.jsx';
 import MyOrders from './pages/MyOrders.jsx';
 
 // --- New E-commerce Pages ---
@@ -173,6 +174,7 @@ export default function App() {
                 <Route path="users" element={<UserManagement />} />
                 <Route path="payments" element={<AllPayments />} />
                 <Route path="payroll" element={<PayrollManagement />} />
+                <Route path="revenue-analytics" element={<RevenueAnalytics />} />
                 <Route path="inventory" element={<Inventorys />} />
                 <Route path="profile" element={<Profile />} />
                 <Route path="edit-account" element={<EditAccount />} />
