@@ -31,6 +31,8 @@ const Payment = () => {
   const [error, setError] = useState(null);
   const [cartOrder, setCartOrder] = useState(null);
   const [products, setProducts] = useState([]);
+  const [validationErrors, setValidationErrors] = useState({});
+  const [isFormValid, setIsFormValid] = useState(false);
 
   // Get current logged-in user ID
   const userId = getCurrentUserId();
@@ -102,26 +104,233 @@ const Payment = () => {
     return products.find(product => product._id === productId) || {};
   };
 
+  // Luhn algorithm for card number validation
+  const luhnCheck = (cardNumber) => {
+    const digits = cardNumber.replace(/\s/g, '').split('').map(Number);
+    let sum = 0;
+    let isEven = false;
+    
+    for (let i = digits.length - 1; i >= 0; i--) {
+      let digit = digits[i];
+      
+      if (isEven) {
+        digit *= 2;
+        if (digit > 9) {
+          digit -= 9;
+        }
+      }
+      
+      sum += digit;
+      isEven = !isEven;
+    }
+    
+    return sum % 10 === 0;
+  };
+
+  // Detect card type based on number
+  const detectCardType = (cardNumber) => {
+    const cleanNumber = cardNumber.replace(/\s/g, '');
+    if (cleanNumber.startsWith('34') || cleanNumber.startsWith('37')) {
+      return 'amex';
+    }
+    return 'visa_mastercard';
+  };
+
+  // Email validation
+  const validateEmail = (email) => {
+    if (!email.trim()) {
+      return 'Email is required';
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return 'Please enter a valid email format (name@domain.com)';
+    }
+    return null;
+  };
+
+  // Card number validation
+  const validateCardNumber = (cardNumber) => {
+    const cleanNumber = cardNumber.replace(/\s/g, '');
+    if (!cleanNumber) {
+      return 'Card number is required';
+    }
+    if (!/^\d+$/.test(cleanNumber)) {
+      return 'Card number must contain only digits';
+    }
+    
+    const cardType = detectCardType(cleanNumber);
+    if (cardType === 'amex' && cleanNumber.length !== 15) {
+      return 'American Express cards must have 15 digits';
+    }
+    if (cardType === 'visa_mastercard' && cleanNumber.length !== 16) {
+      return 'Visa/Mastercard must have 16 digits';
+    }
+    
+    if (!luhnCheck(cleanNumber)) {
+      return 'Invalid card number';
+    }
+    
+    return null;
+  };
+
+  // Expiry date validation
+  const validateExpiryDate = (expiryDate) => {
+    if (!expiryDate) {
+      return 'Expiry date is required';
+    }
+    
+    const dateRegex = /^(0[1-9]|1[0-2])\/\d{2}$/;
+    if (!dateRegex.test(expiryDate)) {
+      return 'Please enter expiry date in MM/YY format';
+    }
+    
+    const [month, year] = expiryDate.split('/');
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear() % 100;
+    const currentMonth = currentDate.getMonth() + 1;
+    
+    const expiryYear = parseInt(year);
+    const expiryMonth = parseInt(month);
+    
+    if (expiryYear < currentYear || (expiryYear === currentYear && expiryMonth < currentMonth)) {
+      return 'Card has expired';
+    }
+    
+    return null;
+  };
+
+  // CVC validation
+  const validateCVC = (cvc, cardNumber) => {
+    if (!cvc) {
+      return 'CVC is required';
+    }
+    if (!/^\d+$/.test(cvc)) {
+      return 'CVC must contain only digits';
+    }
+    
+    const cardType = detectCardType(cardNumber);
+    if (cardType === 'amex' && cvc.length !== 4) {
+      return 'American Express CVC must be 4 digits';
+    }
+    if (cardType === 'visa_mastercard' && cvc.length !== 3) {
+      return 'Visa/Mastercard CVC must be 3 digits';
+    }
+    
+    return null;
+  };
+
+  // Cardholder name validation
+  const validateCardholderName = (name) => {
+    if (!name.trim()) {
+      return 'Cardholder name is required';
+    }
+    const nameRegex = /^[a-zA-Z\s]+$/;
+    if (!nameRegex.test(name)) {
+      return 'Cardholder name must contain only letters and spaces';
+    }
+    return null;
+  };
+
+  // Format card number with spaces
+  const formatCardNumber = (value) => {
+    const cleanValue = value.replace(/\s/g, '');
+    const cardType = detectCardType(cleanValue);
+    
+    if (cardType === 'amex') {
+      // Amex: 4-6-5 format
+      return cleanValue.replace(/(\d{4})(\d{6})(\d{5})/, '$1 $2 $3');
+    } else {
+      // Visa/Mastercard: 4-4-4-4 format
+      return cleanValue.replace(/(\d{4})(?=\d)/g, '$1 ');
+    }
+  };
+
+  // Format expiry date
+  const formatExpiryDate = (value) => {
+    const cleanValue = value.replace(/\D/g, '');
+    if (cleanValue.length >= 2) {
+      return cleanValue.substring(0, 2) + '/' + cleanValue.substring(2, 4);
+    }
+    return cleanValue;
+  };
+
+  // Validate all fields
+  const validateAllFields = (paymentData) => {
+    const errors = {};
+    
+    const emailError = validateEmail(paymentData.email);
+    if (emailError) errors.email = emailError;
+    
+    const cardNumberError = validateCardNumber(paymentData.cardNumber);
+    if (cardNumberError) errors.cardNumber = cardNumberError;
+    
+    const expiryError = validateExpiryDate(paymentData.expiryDate);
+    if (expiryError) errors.expiryDate = expiryError;
+    
+    const cvcError = validateCVC(paymentData.cvc, paymentData.cardNumber);
+    if (cvcError) errors.cvc = cvcError;
+    
+    const cardholderError = validateCardholderName(paymentData.cardholderName);
+    if (cardholderError) errors.cardholderName = cardholderError;
+    
+    return errors;
+  };
+
   const handleChange = (field, value) => {
-    setPaymentInfo(prev => ({ ...prev, [field]: value }));
+    let formattedValue = value;
+    
+    // Apply formatting based on field type
+    if (field === 'cardNumber') {
+      formattedValue = formatCardNumber(value);
+    } else if (field === 'expiryDate') {
+      formattedValue = formatExpiryDate(value);
+    } else if (field === 'cvc') {
+      formattedValue = value.replace(/\D/g, '');
+    }
+    
+    const updatedPaymentInfo = { ...paymentInfo, [field]: formattedValue };
+    setPaymentInfo(updatedPaymentInfo);
+    
+    // Validate the specific field
+    const errors = { ...validationErrors };
+    let fieldError = null;
+    
+    switch (field) {
+      case 'email':
+        fieldError = validateEmail(formattedValue);
+        break;
+      case 'cardNumber':
+        fieldError = validateCardNumber(formattedValue);
+        break;
+      case 'expiryDate':
+        fieldError = validateExpiryDate(formattedValue);
+        break;
+      case 'cvc':
+        fieldError = validateCVC(formattedValue, updatedPaymentInfo.cardNumber);
+        break;
+      case 'cardholderName':
+        fieldError = validateCardholderName(formattedValue);
+        break;
+    }
+    
+    if (fieldError) {
+      errors[field] = fieldError;
+    } else {
+      delete errors[field];
+    }
+    
+    setValidationErrors(errors);
+    
+    // Check if form is valid
+    const allErrors = validateAllFields(updatedPaymentInfo);
+    setIsFormValid(Object.keys(allErrors).length === 0);
   };
 
   const validatePaymentInfo = () => {
-    const cardNumber = paymentInfo.cardNumber.replace(/\s/g, '');
-    if (!cardNumber || cardNumber.length !== 16 || isNaN(cardNumber)) {
-      setError('Please enter a valid 16-digit card number.');
-      return false;
-    }
-    if (!paymentInfo.expiryDate.match(/^(0[1-9]|1[0-2])\/\d{2}$/)) {
-      setError('Please enter a valid expiry date (MM/YY).');
-      return false;
-    }
-    if (!paymentInfo.cvc || paymentInfo.cvc.length !== 3 || isNaN(paymentInfo.cvc)) {
-      setError('Please enter a valid 3-digit CVC.');
-      return false;
-    }
-    if (!paymentInfo.cardholderName.trim()) {
-      setError('Please enter the cardholder name.');
+    const errors = validateAllFields(paymentInfo);
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      setError('Please fix the validation errors before proceeding.');
       return false;
     }
     setError(null);
@@ -293,52 +502,87 @@ const Payment = () => {
           <h3 className="font-bold text-lg mb-6">Pay with Card</h3>
           
           <div className="space-y-4">
-            <input 
-              type="email" 
-              placeholder="Email"
-              value={paymentInfo.email}
-              onChange={(e) => handleChange('email', e.target.value)}
-              className="w-full border rounded-lg px-3 py-2"
-            />
-            
-            <div className="relative">
+            <div>
               <input 
-                type="text" 
-                placeholder="1234 1234 1234 1234"
-                value={paymentInfo.cardNumber}
-                onChange={(e) => handleChange('cardNumber', e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 pr-20"
+                type="email" 
+                placeholder="Email"
+                value={paymentInfo.email}
+                onChange={(e) => handleChange('email', e.target.value)}
+                className={`w-full border rounded-lg px-3 py-2 ${
+                  validationErrors.email ? 'border-red-500' : 'border-gray-300'
+                }`}
               />
-              <div className="absolute right-3 top-2 flex space-x-1">
-                <div className="w-6 h-4 bg-red-500 rounded"></div>
-                <div className="w-6 h-4 bg-blue-500 rounded"></div>
+              {validationErrors.email && (
+                <p className="text-red-500 text-sm mt-1">{validationErrors.email}</p>
+              )}
+            </div>
+            
+            <div>
+              <div className="relative">
+                <input 
+                  type="text" 
+                  placeholder="1234 1234 1234 1234"
+                  value={paymentInfo.cardNumber}
+                  onChange={(e) => handleChange('cardNumber', e.target.value)}
+                  className={`w-full border rounded-lg px-3 py-2 pr-20 ${
+                    validationErrors.cardNumber ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                />
+                <div className="absolute right-3 top-2 flex space-x-1">
+                  <div className="w-6 h-4 bg-red-500 rounded"></div>
+                  <div className="w-6 h-4 bg-blue-500 rounded"></div>
+                </div>
               </div>
+              {validationErrors.cardNumber && (
+                <p className="text-red-500 text-sm mt-1">{validationErrors.cardNumber}</p>
+              )}
             </div>
             
             <div className="grid grid-cols-2 gap-4">
-              <input 
-                type="text" 
-                placeholder="MM/YY"
-                value={paymentInfo.expiryDate}
-                onChange={(e) => handleChange('expiryDate', e.target.value)}
-                className="border rounded-lg px-3 py-2"
-              />
-              <input 
-                type="text" 
-                placeholder="CVC"
-                value={paymentInfo.cvc}
-                onChange={(e) => handleChange('cvc', e.target.value)}
-                className="border rounded-lg px-3 py-2"
-              />
+              <div>
+                <input 
+                  type="text" 
+                  placeholder="MM/YY"
+                  value={paymentInfo.expiryDate}
+                  onChange={(e) => handleChange('expiryDate', e.target.value)}
+                  className={`border rounded-lg px-3 py-2 ${
+                    validationErrors.expiryDate ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                />
+                {validationErrors.expiryDate && (
+                  <p className="text-red-500 text-sm mt-1">{validationErrors.expiryDate}</p>
+                )}
+              </div>
+              <div>
+                <input 
+                  type="text" 
+                  placeholder="CVC"
+                  value={paymentInfo.cvc}
+                  onChange={(e) => handleChange('cvc', e.target.value)}
+                  className={`border rounded-lg px-3 py-2 ${
+                    validationErrors.cvc ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                />
+                {validationErrors.cvc && (
+                  <p className="text-red-500 text-sm mt-1">{validationErrors.cvc}</p>
+                )}
+              </div>
             </div>
             
-            <input 
-              type="text" 
-              placeholder="Cardholder name"
-              value={paymentInfo.cardholderName}
-              onChange={(e) => handleChange('cardholderName', e.target.value)}
-              className="w-full border rounded-lg px-3 py-2"
-            />
+            <div>
+              <input 
+                type="text" 
+                placeholder="Cardholder name"
+                value={paymentInfo.cardholderName}
+                onChange={(e) => handleChange('cardholderName', e.target.value)}
+                className={`w-full border rounded-lg px-3 py-2 ${
+                  validationErrors.cardholderName ? 'border-red-500' : 'border-gray-300'
+                }`}
+              />
+              {validationErrors.cardholderName && (
+                <p className="text-red-500 text-sm mt-1">{validationErrors.cardholderName}</p>
+              )}
+            </div>
             
           
              
@@ -347,8 +591,12 @@ const Payment = () => {
             {error && <p className="text-red-500 text-sm">{error}</p>}
             <button 
               onClick={handlePay}
-              className="w-full bg-[#42ADF5] text-white py-3 rounded-lg hover:bg-[#2C8ED1] transition-colors"
-              disabled={loading}
+              className={`w-full py-3 rounded-lg transition-colors ${
+                isFormValid && !loading
+                  ? 'bg-[#42ADF5] text-white hover:bg-[#2C8ED1]'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
+              disabled={!isFormValid || loading}
             >
               {loading ? 'Processing...' : 'Pay'}
             </button>
