@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 export default function CustomerCalendar() {
     const [currentDate, setCurrentDate] = useState(new Date());
@@ -83,26 +84,76 @@ export default function CustomerCalendar() {
         }
     };
 
-    // Load events (placeholder for now)
+    // Load events from API
     useEffect(() => {
-        // TODO: Load actual events from API
-        setEvents([
-            {
-                id: 1,
-                title: 'Cricket Session',
-                date: new Date(),
-                type: 'session',
-                time: '10:00 AM'
-            },
-            {
-                id: 2,
-                title: 'Ground Booking',
-                date: new Date(Date.now() + 24 * 60 * 60 * 1000),
-                type: 'booking',
-                time: '2:00 PM'
-            }
-        ]);
+        fetchUserSessions();
     }, []);
+
+    const fetchUserSessions = async () => {
+        try {
+            setLoading(true);
+            const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+            const config = {
+                headers: {
+                    Authorization: `Bearer ${userInfo.token}`,
+                },
+            };
+
+            // Fetch all sessions and filter for user's sessions
+            const { data } = await axios.get(
+                'http://localhost:5000/api/sessions',
+                config
+            );
+
+            if (data.success) {
+                // Filter sessions where the user is a participant
+                const userSessions = data.data.docs.filter(session => 
+                    session.participants.some(participant => 
+                        participant.user._id === userInfo._id
+                    )
+                );
+
+                // Convert sessions to events format
+                const sessionEvents = userSessions.map(session => ({
+                    id: session._id,
+                    title: session.title || `Session ${session.sessionNumber || ''}`,
+                    date: new Date(session.scheduledDate),
+                    type: 'session',
+                    time: new Date(session.scheduledDate).toLocaleTimeString('en-US', { 
+                        hour: '2-digit', 
+                        minute: '2-digit',
+                        hour12: true 
+                    }),
+                    status: session.status,
+                    ground: session.ground?.name || 'TBD',
+                    coach: session.coach?.firstName + ' ' + session.coach?.lastName || 'TBD'
+                }));
+
+                setEvents(sessionEvents);
+            }
+        } catch (err) {
+            console.error('Error fetching sessions:', err);
+            // Keep placeholder events if API fails
+            setEvents([
+                {
+                    id: 1,
+                    title: 'Cricket Session',
+                    date: new Date(),
+                    type: 'session',
+                    time: '10:00 AM'
+                },
+                {
+                    id: 2,
+                    title: 'Ground Booking',
+                    date: new Date(Date.now() + 24 * 60 * 60 * 1000),
+                    type: 'booking',
+                    time: '2:00 PM'
+                }
+            ]);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
         <div className="min-h-screen bg-gray-50 p-4">
@@ -239,6 +290,22 @@ export default function CustomerCalendar() {
                                         <div className="flex-1">
                                             <h4 className="font-medium text-gray-900">{event.title}</h4>
                                             <p className="text-sm text-gray-600">{event.time}</p>
+                                            {event.ground && (
+                                                <p className="text-xs text-gray-500">Ground: {event.ground}</p>
+                                            )}
+                                            {event.coach && (
+                                                <p className="text-xs text-gray-500">Coach: {event.coach}</p>
+                                            )}
+                                            {event.status && (
+                                                <span className={`inline-block px-2 py-1 text-xs rounded-full mt-1 ${
+                                                    event.status === 'scheduled' ? 'bg-blue-100 text-blue-800' :
+                                                    event.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                                    event.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                                                    'bg-gray-100 text-gray-800'
+                                                }`}>
+                                                    {event.status}
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
                                 ))}
