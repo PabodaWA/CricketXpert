@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import bellIcon from '../assets/bell-icon.svg';
 import cricketexpertLogo from '../assets/cricketexpert.png';
+import NotificationDropdown from './NotificationDropdown';
 
 const Header = () => {
   const location = useLocation();
@@ -161,14 +162,8 @@ const Header = () => {
                 </span>
               </button>
 
-              {/* Notification Icon */}
-              <button className="relative p-3 text-white hover:bg-white hover:bg-opacity-10 rounded-full transition-colors">
-                <img src={bellIcon} alt="Notifications" className="w-7 h-7" />
-                {/* Notification Badge */}
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                  3
-                </span>
-              </button>
+              {/* Notification Dropdown */}
+              <NotificationDropdown />
 
               {/* Profile Icon */}
               <button 

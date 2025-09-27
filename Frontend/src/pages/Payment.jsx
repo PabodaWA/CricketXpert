@@ -168,6 +168,14 @@ const Payment = () => {
         };
         localStorage.setItem('paymentEnrollmentData', JSON.stringify(paymentEnrollmentData));
         
+        // Store notification message for successful enrollment
+        const enrollmentNotificationMessage = "Thank you! Your enrollment payment has been processed successfully. You can manage your program from your profile page.";
+        localStorage.setItem('latestNotification', JSON.stringify({
+          message: enrollmentNotificationMessage,
+          timestamp: new Date().toISOString(),
+          type: 'enrollment_success'
+        }));
+        
         // Show success notification and redirect to profile
         alert('Payment successful! You have been enrolled in the program.');
         // Use window.location.href for reliable navigation to customer profile
@@ -191,6 +199,14 @@ const Payment = () => {
         const purchasedSet = new Set(productIds.map(String));
         const remainingLocal = currentLocal.filter(line => !purchasedSet.has(String(line.productId)));
         localStorage.setItem('cricketCart', JSON.stringify(remainingLocal));
+
+        // Store notification message for successful order
+        const notificationMessage = "Thank you! Your order has been placed successfully. You can track your order in the 'My Orders' section.";
+        localStorage.setItem('latestNotification', JSON.stringify({
+          message: notificationMessage,
+          timestamp: new Date().toISOString(),
+          type: 'order_success'
+        }));
 
         // If we came from selecting subset, Payment received only selected items in cart state.
         // After success, return to cart to reflect remaining items, or go to orders page.

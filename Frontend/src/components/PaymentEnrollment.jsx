@@ -50,6 +50,14 @@ export default function PaymentEnrollment({ enrollment, program, onClose }) {
             // Update enrollment status to active
             await axios.put(`http://localhost:5000/api/enrollments/${enrollment._id}/activate`, {}, config);
             
+            // Store notification message for successful enrollment activation
+            const enrollmentNotificationMessage = "Thank you! Your enrollment has been activated successfully. You can now access your program from your profile page.";
+            localStorage.setItem('latestNotification', JSON.stringify({
+                message: enrollmentNotificationMessage,
+                timestamp: new Date().toISOString(),
+                type: 'enrollment_activated'
+            }));
+            
             setSuccess(true);
         } catch (err) {
             console.error('Error completing enrollment:', err);

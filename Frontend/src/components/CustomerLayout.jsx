@@ -11,6 +11,7 @@ const CogIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5
 export default function CustomerLayout() {
     const [showSidebar, setShowSidebar] = useState(false);
     const [userInfo, setUserInfo] = useState(null);
+    const [hasNotifications, setHasNotifications] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -20,6 +21,24 @@ export default function CustomerLayout() {
         } else {
             navigate('/login');
         }
+
+        // Check for notifications
+        const checkNotifications = () => {
+            const notification = localStorage.getItem('latestNotification');
+            setHasNotifications(!!notification);
+        };
+
+        checkNotifications();
+
+        // Listen for storage changes
+        const handleStorageChange = (e) => {
+            if (e.key === 'latestNotification') {
+                checkNotifications();
+            }
+        };
+
+        window.addEventListener('storage', handleStorageChange);
+        return () => window.removeEventListener('storage', handleStorageChange);
     }, [navigate]);
 
     const handleLogout = () => {
@@ -64,9 +83,15 @@ export default function CustomerLayout() {
                          <a href="/customer/my-orders" className="flex items-center px-4 py-3 rounded-lg font-medium text-text-body hover:bg-secondary hover:text-white transition-colors">
                            <ClipboardListIcon /> My Orders
                         </a>
-                         <a href="#" className="flex items-center px-4 py-3 rounded-lg font-medium text-text-body hover:bg-secondary hover:text-white transition-colors">
-                           <BellIcon /> Notifications
-                        </a>
+                         <Link to="/customer/notifications" className="flex items-center px-4 py-3 rounded-lg font-medium text-text-body hover:bg-secondary hover:text-white transition-colors">
+                           <BellIcon /> 
+                           <span className="ml-3">Notifications</span>
+                           {hasNotifications && (
+                             <span className="ml-auto bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
+                               1
+                             </span>
+                           )}
+                        </Link>
                     </nav>
 
                     <div className="mt-auto">
