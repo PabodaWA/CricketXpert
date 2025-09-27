@@ -67,12 +67,140 @@ const createRepairRequest = async (req, res) => {
     console.log('🔍 VERIFICATION - SAVED REQUEST DESCRIPTION:', savedRequest.description);
     console.log('🔍 VERIFICATION - SAVED REQUEST DESCRIPTION TYPE:', typeof savedRequest.description);
     
-    //Notify Service Manager
+    // Get customer details for comprehensive email
+    const customer = await User.findById(customerId);
+    
+    //Notify Service Manager with comprehensive details
     if (process.env.SERVICE_MANAGER_EMAIL) {
+      console.log('📧 SENDING ENHANCED EMAIL TO SERVICE MANAGER');
+      const emailSubject = `🔧 New Repair Request Submitted - ${customer?.username || 'Unknown Customer'}`;
+      
+      const emailBody = `
+🏢 CRICKETXPERT REPAIR SERVICE
+═══════════════════════════════════════════════════════════════
+
+📋 REPAIR REQUEST DETAILS
+───────────────────────────────────────────────────────────────
+Request ID: REP-${repairRequest._id.toString().slice(-8).toUpperCase()}
+Submission Date: ${new Date().toLocaleDateString('en-US', { 
+  weekday: 'long', 
+  year: 'numeric', 
+  month: 'long', 
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit'
+})}
+Status: ${repairRequest.status}
+Current Stage: ${repairRequest.currentStage}
+
+👤 CUSTOMER INFORMATION
+───────────────────────────────────────────────────────────────
+Customer ID: CUST-${customerId.toString().slice(-6).toUpperCase()}
+Full Name: ${customer?.firstName || ''} ${customer?.lastName || ''}
+Username: ${customer?.username || 'N/A'}
+Email: ${customer?.email || 'N/A'}
+Phone: ${customer?.contactNumber || 'N/A'}
+Address: ${customer?.address || 'N/A'}
+
+🔧 EQUIPMENT & DAMAGE DETAILS
+───────────────────────────────────────────────────────────────
+Equipment Type: ${equipmentType ? equipmentType.replace('_', ' ').toUpperCase() : 'Not Specified'}
+Damage Type: ${damageType}
+Description: ${description || 'No description provided'}
+
+📊 REQUEST SUMMARY
+───────────────────────────────────────────────────────────────
+This repair request has been automatically assigned a Pending status and 
+is ready for your review and technician assignment.
+
+Next Steps:
+1. Review the damage details and customer information
+2. Assign an appropriate technician based on equipment type
+3. Provide cost and time estimates to the customer
+
+═══════════════════════════════════════════════════════════════
+This is an automated notification from the CricketXpert Repair System.
+Please do not reply to this email.
+
+For system support, contact: ${process.env.EMAIL_USER || 'support@cricketxpert.com'}
+      `.trim();
+
       await sendEmail(
         process.env.SERVICE_MANAGER_EMAIL,
-        'New Repair Request Submitted',
-        `A new repair request has been submitted.\n\nCustomer ID: ${customerId}\nEquipment: ${equipmentType}\nDamage Type: ${damageType}`
+        emailSubject,
+        emailBody
+      );
+    }
+
+    // Send confirmation email to customer
+    if (customer?.email) {
+      console.log('📧 SENDING CONFIRMATION EMAIL TO CUSTOMER');
+      const customerEmailSubject = `✅ Repair Request Confirmation - REP-${repairRequest._id.toString().slice(-8).toUpperCase()}`;
+      
+      const customerEmailBody = `
+🏢 CRICKETXPERT REPAIR SERVICE
+═══════════════════════════════════════════════════════════════
+
+Dear ${customer?.firstName || customer?.username || 'Valued Customer'},
+
+Thank you for choosing CricketXpert for your equipment repair needs. 
+Your repair request has been successfully submitted and is now under review.
+
+📋 YOUR REPAIR REQUEST DETAILS
+───────────────────────────────────────────────────────────────
+Request ID: REP-${repairRequest._id.toString().slice(-8).toUpperCase()}
+Customer ID: CUST-${customerId.toString().slice(-6).toUpperCase()}
+Submission Date: ${new Date().toLocaleDateString('en-US', { 
+  weekday: 'long', 
+  year: 'numeric', 
+  month: 'long', 
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit'
+})}
+Status: ${repairRequest.status}
+Current Stage: ${repairRequest.currentStage}
+
+🔧 EQUIPMENT & DAMAGE INFORMATION
+───────────────────────────────────────────────────────────────
+Equipment Type: ${equipmentType ? equipmentType.replace('_', ' ').toUpperCase() : 'Not Specified'}
+Damage Type: ${damageType}
+Description: ${description || 'No description provided'}
+
+📞 WHAT HAPPENS NEXT?
+───────────────────────────────────────────────────────────────
+1. Our service manager will review your request within 24 hours
+2. You will receive an email with cost and time estimates
+3. Once approved, a qualified technician will be assigned
+4. You'll receive regular updates on repair progress
+5. You'll be notified when your equipment is ready for pickup
+
+💡 IMPORTANT NOTES
+───────────────────────────────────────────────────────────────
+• Keep this email as your reference for Request ID: REP-${repairRequest._id.toString().slice(-8).toUpperCase()}
+• You can track your repair progress in your customer dashboard
+• For any questions, please contact us with your Request ID
+• Estimated review time: 24-48 hours
+
+📧 CONTACT INFORMATION
+───────────────────────────────────────────────────────────────
+Email: ${process.env.EMAIL_USER || 'support@cricketxpert.com'}
+Phone: [Your Contact Number]
+Website: [Your Website]
+
+Thank you for trusting CricketXpert with your equipment repair needs!
+
+Best regards,
+CricketXpert Repair Team
+
+═══════════════════════════════════════════════════════════════
+This is an automated confirmation email. Please do not reply to this email.
+      `.trim();
+
+      await sendEmail(
+        customer.email,
+        customerEmailSubject,
+        customerEmailBody
       );
     }
 
@@ -217,10 +345,11 @@ const updateRepairGeneral = async (req, res) => {
     if (!request) return res.status(404).json({ error: 'Repair request not found' });
 
     if (process.env.SERVICE_MANAGER_EMAIL) {
+      console.log('📧 SENDING UPDATED REPAIR REQUEST EMAIL WITH NEW FORMAT');
       await sendEmail(
         process.env.SERVICE_MANAGER_EMAIL,
-        'Repair Request Updated',
-        `Repair request has been updated.\n\nCustomer ID: ${request.customerId}\nDamage Type: ${request.damageType}`
+        `Repair Request Updated - REP-${request._id.toString().slice(-8).toUpperCase()}`,
+        `Repair request has been updated.\n\nRequest ID: REP-${request._id.toString().slice(-8).toUpperCase()}\nCustomer ID: CUST-${request.customerId.toString().slice(-6).toUpperCase()}\nDamage Type: ${request.damageType}\nStatus: ${request.status}`
       );
     }
 
@@ -298,14 +427,14 @@ const updateRequestStatus = async (req, res) => {
     await request.save();
 
     // Send email to customer
-    let emailBody = `Hello ${request.customerId.username},\n\nYour repair request status is: ${status}\n`;
+    let emailBody = `Hello ${request.customerId.username},\n\nYour repair request status has been updated.\n\nRequest ID: REP-${request._id.toString().slice(-8).toUpperCase()}\nStatus: ${status}\nCurrent Stage: ${request.currentStage}\n`;
     if (status.toLowerCase() === 'approved') {
       emailBody += `Cost Estimate: ${request.costEstimate || 'Not provided'}\nTime Estimate: ${request.timeEstimate || 'Not provided'}\n`;
     } else if (status.toLowerCase() === 'rejected') {
       emailBody += `Reason: ${request.rejectionReason || 'Not provided'}\n`;
     }
-    emailBody += '\nThank you,\nService Team';
-    await sendEmail(request.customerId.email, 'Repair Request Status Updated', emailBody);
+    emailBody += '\nThank you,\nCricketXpert Repair Team';
+    await sendEmail(request.customerId.email, `Repair Request Status Updated - REP-${request._id.toString().slice(-8).toUpperCase()}`, emailBody);
 
     res.json({ message: 'Repair request status updated sucessfully', request });
   } catch (err) {
@@ -340,8 +469,8 @@ const customerApproveReject = async (req, res) => {
     if (process.env.SERVICE_MANAGER_EMAIL) {
       await sendEmail(
         process.env.SERVICE_MANAGER_EMAIL,
-        `Customer ${decision}d Estimate`,
-        `Repair Request ID: ${request._id}\nDecision: ${decision}`
+        `Customer ${decision}d Estimate - REP-${request._id.toString().slice(-8).toUpperCase()}`,
+        `Repair Request ID: REP-${request._id.toString().slice(-8).toUpperCase()}\nCustomer: ${request.customerId.username}\nDecision: ${decision}\nStatus: ${request.status}`
       );
     }
 
@@ -433,16 +562,18 @@ const assignTechnician = async (req, res) => {
 
     // Send notification emails
     try {
+      console.log('📧 SENDING TECHNICIAN ASSIGNMENT EMAIL WITH NEW FORMAT');
       await sendEmail(
         technician.technicianId.email, 
-        'New Repair Assignment', 
-        `You have been assigned a new repair request:\n\nRequest ID: ${request._id}\nEquipment: ${equipmentType ? equipmentType.replace('_', ' ') : 'Unknown'}\nDamage Type: ${request.damageType}\nCustomer: ${request.customerId.username}\n\nPlease begin work on this repair.`
+        `New Repair Assignment - REP-${request._id.toString().slice(-8).toUpperCase()}`, 
+        `You have been assigned a new repair request:\n\nRequest ID: REP-${request._id.toString().slice(-8).toUpperCase()}\nCustomer ID: CUST-${request.customerId._id.toString().slice(-6).toUpperCase()}\nCustomer: ${request.customerId.username}\nEquipment: ${equipmentType ? equipmentType.replace('_', ' ') : 'Unknown'}\nDamage Type: ${request.damageType}\nStatus: In Repair\n\nPlease begin work on this repair.`
       );
       
+      console.log('📧 SENDING CUSTOMER ASSIGNMENT EMAIL WITH NEW FORMAT');
       await sendEmail(
         request.customerId.email, 
-        'Technician Assigned', 
-        `Your repair request has been assigned to a technician:\n\nRequest ID: ${request._id}\nEquipment: ${equipmentType ? equipmentType.replace('_', ' ') : 'Unknown'}\nDamage Type: ${request.damageType}\nStatus: In Repair\n\nYour repair is now in progress.`
+        `Technician Assigned - REP-${request._id.toString().slice(-8).toUpperCase()}`, 
+        `Your repair request has been assigned to a technician:\n\nRequest ID: REP-${request._id.toString().slice(-8).toUpperCase()}\nCustomer ID: CUST-${request.customerId._id.toString().slice(-6).toUpperCase()}\nEquipment: ${equipmentType ? equipmentType.replace('_', ' ') : 'Unknown'}\nDamage Type: ${request.damageType}\nStatus: In Repair\nTechnician: ${technician.technicianId.firstName} ${technician.technicianId.lastName}\n\nYour repair is now in progress.`
       );
     } catch (emailError) {
       console.error('Email notification failed:', emailError);
