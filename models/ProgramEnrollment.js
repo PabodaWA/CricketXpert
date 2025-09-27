@@ -113,6 +113,38 @@ const programenrollmentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Certificate'
   },
+  // Enrollment form data
+  enrollmentFormData: {
+    firstName: {
+      type: String,
+      required: true
+    },
+    lastName: {
+      type: String,
+      required: true
+    },
+    email: {
+      type: String,
+      required: true
+    },
+    contactNumber: {
+      type: String,
+      required: true
+    },
+    emergencyContact: {
+      type: String,
+      required: true
+    },
+    experience: {
+      type: String,
+      enum: ['beginner', 'intermediate', 'advanced'],
+      required: true
+    },
+    goals: {
+      type: String,
+      required: true
+    }
+  },
   notes: String
 }, { timestamps: true });
 

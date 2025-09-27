@@ -14,6 +14,10 @@ export default function ProgramDetails() {
   const [error, setError] = useState('');
   const [enrolling, setEnrolling] = useState(false);
   const [showEnrollmentModal, setShowEnrollmentModal] = useState(false);
+  const [isEnrolled, setIsEnrolled] = useState(false);
+  const [enrollmentStatus, setEnrollmentStatus] = useState(null);
+  const [enrollmentId, setEnrollmentId] = useState(null);
+  const [checkingEnrollment, setCheckingEnrollment] = useState(false);
   const [enrollmentData, setEnrollmentData] = useState({
     firstName: '',
     lastName: '',
@@ -29,12 +33,14 @@ export default function ProgramDetails() {
   useEffect(() => {
     if (id) {
       fetchProgramDetails();
+      checkEnrollmentStatus();
     }
     
     // Listen for coach updates from other pages
     const handleCoachUpdate = () => {
       if (id) {
         fetchProgramDetails();
+        checkEnrollmentStatus();
       }
     };
     
@@ -69,28 +75,88 @@ export default function ProgramDetails() {
     }
   };
 
+  const checkEnrollmentStatus = async () => {
+    if (!isLoggedIn() || !id) return;
+    
+    try {
+      setCheckingEnrollment(true);
+      const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+      
+      const config = {
+        headers: {
+          Authorization: `Bearer ${userInfo.token}`
+        }
+      };
+      
+      const response = await axios.get(`http://localhost:5000/api/enrollments/check/${id}`, config);
+      
+      if (response.data.success) {
+        setIsEnrolled(response.data.data.isEnrolled);
+        setEnrollmentStatus(response.data.data.enrollmentStatus);
+        setEnrollmentId(response.data.data.enrollment?.id || null);
+      }
+    } catch (err) {
+      console.error('Error checking enrollment status:', err);
+      // If user is not authenticated or there's an error, assume not enrolled
+      setIsEnrolled(false);
+      setEnrollmentStatus(null);
+      setEnrollmentId(null);
+    } finally {
+      setCheckingEnrollment(false);
+    }
+  };
+
   const handleEnroll = () => {
     if (!isLoggedIn()) {
       navigate('/login');
       return;
     }
 
-    // Load user data into enrollment form
+    // Load user data into enrollment form - pre-fill user details
     const userInfo = JSON.parse(localStorage.getItem('userInfo'));
     setEnrollmentData({
       firstName: userInfo.firstName || '',
       lastName: userInfo.lastName || '',
       email: userInfo.email || '',
-      contactNumber: userInfo.contactNumber || '',
-      emergencyContact: '',
-      experience: '',
-      goals: ''
+      contactNumber: userInfo.contactNumber || '', // Pre-fill if available
+      emergencyContact: '', // User needs to fill this
+      experience: '', // User needs to select this
+      goals: '' // User needs to fill this
     });
     setShowEnrollmentModal(true);
   };
 
   const handleEnrollmentSubmit = async () => {
     try {
+      // Validate required fields
+      if (!enrollmentData.firstName || !enrollmentData.lastName || !enrollmentData.email || !enrollmentData.contactNumber || !enrollmentData.emergencyContact || !enrollmentData.experience || !enrollmentData.goals) {
+        alert('Please fill in all required fields (First Name, Last Name, Email, Contact Number, Emergency Contact, Experience, and Goals)');
+        return;
+      }
+
+      // Phone number validation
+      const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
+      const sriLankanPhoneRegex = /^(\+94|0)?[0-9]{9}$/;
+      const cleanContactNumber = enrollmentData.contactNumber.replace(/[\s\-\(\)]/g, '');
+      const cleanEmergencyContact = enrollmentData.emergencyContact.replace(/[\s\-\(\)]/g, '');
+
+      if (!phoneRegex.test(cleanContactNumber) && !sriLankanPhoneRegex.test(cleanContactNumber)) {
+        alert('Invalid contact number format. Please enter a valid phone number.');
+        return;
+      }
+
+      if (!phoneRegex.test(cleanEmergencyContact) && !sriLankanPhoneRegex.test(cleanEmergencyContact)) {
+        alert('Invalid emergency contact number format. Please enter a valid phone number.');
+        return;
+      }
+
+      // Email validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(enrollmentData.email)) {
+        alert('Invalid email format. Please enter a valid email address.');
+        return;
+      }
+
       setEnrolling(true);
       console.log('Starting enrollment process...');
       
@@ -105,7 +171,14 @@ export default function ProgramDetails() {
 
       const enrollmentPayload = {
         programId: id,
-        userId: userInfo._id
+        userId: userInfo._id,
+        firstName: enrollmentData.firstName,
+        lastName: enrollmentData.lastName,
+        email: enrollmentData.email,
+        contactNumber: enrollmentData.contactNumber,
+        emergencyContact: enrollmentData.emergencyContact,
+        experience: enrollmentData.experience,
+        goals: enrollmentData.goals
       };
       
       console.log('Enrollment payload:', enrollmentPayload);
@@ -117,6 +190,8 @@ export default function ProgramDetails() {
       
       if (response.data.success) {
         setShowEnrollmentModal(false);
+        // Refresh enrollment status
+        await checkEnrollmentStatus();
         // Navigate to payment page with enrollment data
         navigate('/payment', { 
           state: { 
@@ -269,33 +344,58 @@ export default function ProgramDetails() {
                 {program.materials && program.materials.length > 0 && (
                   <div className="mb-8">
                     <h2 className="text-2xl font-semibold text-gray-900 mb-4">Program Materials</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {program.materials.map((material, index) => (
-                        <div key={index} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                          <div className="flex items-center">
-                            <div className="mr-3">
-                              {material.type === 'video' ? (
-                                <span className="text-red-500 text-xl">🎥</span>
-                              ) : (
-                                <span className="text-blue-500 text-xl">📄</span>
-                              )}
+                    {isEnrolled ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {program.materials.map((material, index) => (
+                          <div key={index} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                            <div className="flex items-center">
+                              <div className="mr-3">
+                                {material.type === 'video' ? (
+                                  <span className="text-red-500 text-xl">🎥</span>
+                                ) : (
+                                  <span className="text-blue-500 text-xl">📄</span>
+                                )}
+                              </div>
+                              <div className="flex-1">
+                                <h3 className="font-medium text-gray-900">{material.name}</h3>
+                                <p className="text-sm text-gray-600 capitalize">{material.type}</p>
+                              </div>
+                              <a
+                                href={material.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                              >
+                                View
+                              </a>
                             </div>
-                            <div className="flex-1">
-                              <h3 className="font-medium text-gray-900">{material.name}</h3>
-                              <p className="text-sm text-gray-600 capitalize">{material.type}</p>
-                            </div>
-                            <a
-                              href={material.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                            >
-                              View
-                            </a>
                           </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
+                        <div className="text-blue-600 text-4xl mb-3">🔒</div>
+                        <h3 className="text-lg font-semibold text-blue-900 mb-2">Materials Available After Enrollment</h3>
+                        <p className="text-blue-700 mb-4">
+                          Program materials will be available once you enroll in this program.
+                        </p>
+                        {!isLoggedIn() ? (
+                          <button
+                            onClick={() => navigate('/login')}
+                            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                          >
+                            Log In to Enroll
+                          </button>
+                        ) : (
+                          <button
+                            onClick={handleEnroll}
+                            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                          >
+                            Enroll Now
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -351,7 +451,29 @@ export default function ProgramDetails() {
               </div>
               
               {/* Enroll Button */}
-              {canEnroll ? (
+              {isEnrolled ? (
+                <div className="text-center">
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                    <div className="text-green-600 text-2xl mb-2">✅</div>
+                    <h3 className="text-lg font-semibold text-green-900 mb-1">You're Enrolled!</h3>
+                    <p className="text-green-700 text-sm mb-3">
+                      Status: {enrollmentStatus === 'active' ? 'Active' : enrollmentStatus === 'pending' ? 'Pending' : enrollmentStatus}
+                    </p>
+                    <button
+                      onClick={() => {
+                        if (enrollmentId) {
+                          navigate(`/enrollment/${enrollmentId}`);
+                        } else {
+                          navigate('/customer/profile');
+                        }
+                      }}
+                      className="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                    >
+                      View My Sessions
+                    </button>
+                  </div>
+                </div>
+              ) : canEnroll ? (
                 <button
                   onClick={handleEnroll}
                   disabled={enrolling}
@@ -404,28 +526,43 @@ export default function ProgramDetails() {
               </div>
 
               <div className="space-y-4">
+                {/* Pre-filled information notice */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-start">
+                    <div className="text-blue-600 mr-3">
+                      <span className="text-lg">ℹ️</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-blue-800">Pre-filled Information</p>
+                      <p className="text-sm text-blue-700">
+                        Your profile information has been automatically filled in. You can modify these fields if needed, but please complete the remaining required fields.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      First Name *
+                      First Name * <span className="text-green-600 text-xs">(Pre-filled from profile)</span>
                     </label>
                     <input
                       type="text"
                       value={enrollmentData.firstName}
                       onChange={(e) => handleInputChange('firstName', e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-green-50"
                       required
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Last Name *
+                      Last Name * <span className="text-green-600 text-xs">(Pre-filled from profile)</span>
                     </label>
                     <input
                       type="text"
                       value={enrollmentData.lastName}
                       onChange={(e) => handleInputChange('lastName', e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-green-50"
                       required
                     />
                   </div>
@@ -433,51 +570,54 @@ export default function ProgramDetails() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email *
+                    Email * <span className="text-green-600 text-xs">(Pre-filled from profile)</span>
                   </label>
                   <input
                     type="email"
                     value={enrollmentData.email}
                     onChange={(e) => handleInputChange('email', e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-green-50"
                     required
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Contact Number *
+                    Contact Number * {enrollmentData.contactNumber && <span className="text-green-600 text-xs">(Pre-filled from profile)</span>}
                   </label>
                   <input
                     type="tel"
                     value={enrollmentData.contactNumber}
                     onChange={(e) => handleInputChange('contactNumber', e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${enrollmentData.contactNumber ? 'bg-green-50' : ''}`}
+                    placeholder="e.g., +94771234567 or 0771234567"
                     required
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Emergency Contact
+                    Emergency Contact *
                   </label>
                   <input
                     type="tel"
                     value={enrollmentData.emergencyContact}
                     onChange={(e) => handleInputChange('emergencyContact', e.target.value)}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Emergency contact number"
+                    placeholder="e.g., +94771234567 or 0771234567"
+                    required
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Cricket Experience
+                    Cricket Experience *
                   </label>
                   <select
                     value={enrollmentData.experience}
                     onChange={(e) => handleInputChange('experience', e.target.value)}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
                   >
                     <option value="">Select your experience level</option>
                     <option value="beginner">Beginner (0-1 years)</option>
@@ -488,7 +628,7 @@ export default function ProgramDetails() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Goals & Expectations
+                    Goals & Expectations *
                   </label>
                   <textarea
                     value={enrollmentData.goals}
@@ -496,6 +636,7 @@ export default function ProgramDetails() {
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     rows="3"
                     placeholder="What do you hope to achieve from this program?"
+                    required
                   />
                 </div>
 
@@ -547,7 +688,7 @@ export default function ProgramDetails() {
                     });
                     handleEnrollmentSubmit();
                   }}
-                  disabled={enrolling || !enrollmentData.firstName || !enrollmentData.lastName || !enrollmentData.email || !enrollmentData.contactNumber}
+                  disabled={enrolling || !enrollmentData.firstName || !enrollmentData.lastName || !enrollmentData.email || !enrollmentData.contactNumber || !enrollmentData.emergencyContact || !enrollmentData.experience || !enrollmentData.goals}
                   className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors"
                 >
                   {enrolling ? 'Processing...' : 'Continue to Payment'}
