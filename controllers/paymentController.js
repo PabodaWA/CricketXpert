@@ -3,7 +3,8 @@ import Order from '../models/Order.js';
 import CartPending from '../models/cart_Pending.js';
 import Product from '../models/Product.js';
 import ProgramEnrollment from '../models/ProgramEnrollment.js';
-import { sendLowStockAlert } from '../utils/wemailService.js';
+import User from '../models/User.js';
+import { sendLowStockAlert, sendOrderConfirmationEmail, sendOrderManagerNotificationEmail } from '../utils/wemailService.js';
 
 // Create payment
 const createPayment = async (req, res) => {
@@ -233,14 +234,43 @@ const processOrderPayment = async (req, res) => {
     await payment.save();
 
     // Update order with paymentId + manual status
-    await Order.findByIdAndUpdate(orderId, { 
+    const updatedOrder = await Order.findByIdAndUpdate(orderId, { 
       paymentId: payment._id,
       ...(orderStatus && { status: orderStatus }) // <-- manual order status update
-    });
+    }, { new: true });
 
     const populatedPayment = await Payment.findById(payment._id)
       .populate('userId')
       .populate('orderId');
+
+    // Send email notifications if order is completed
+    if (orderStatus === 'completed' || updatedOrder.status === 'completed') {
+      try {
+        console.log('📧 Sending order confirmation emails for completed order...');
+        
+        // Get populated order with customer details for email
+        const populatedOrder = await Order.findById(orderId)
+          .populate('items.productId')
+          .populate('customerId')
+          .populate('paymentId');
+        
+        // Send confirmation email to customer
+        if (populatedOrder.customerId && populatedOrder.customerId.email) {
+          await sendOrderConfirmationEmail(populatedOrder, populatedOrder.customerId);
+          console.log(`📧 Order confirmation email sent to customer: ${populatedOrder.customerId.email}`);
+        } else {
+          console.log('⚠️ Customer email not found, skipping customer confirmation email');
+        }
+
+        // Send notification email to order manager
+        await sendOrderManagerNotificationEmail(populatedOrder, populatedOrder.customerId);
+        console.log('📧 Order notification email sent to manager');
+        
+      } catch (emailError) {
+        console.error('❌ Failed to send order confirmation emails:', emailError);
+        // Continue with response even if emails fail
+      }
+    }
 
     res.status(201).json(populatedPayment);
   } catch (error) {
@@ -434,14 +464,37 @@ export const paySelectedCartItems = async (req, res) => {
     // Delete the purchased items from Cart_Pending
     await CartPending.deleteMany({ cartToken, productId: { $in: productIds } });
 
+    // Get populated order with customer details for email
+    const populatedOrder = await Order.findById(order._id)
+      .populate('items.productId')
+      .populate('customerId')
+      .populate('paymentId');
+
+    // Send email notifications after successful order creation
+    try {
+      console.log('📧 Sending order confirmation emails...');
+      
+      // Send confirmation email to customer
+      if (populatedOrder.customerId && populatedOrder.customerId.email) {
+        await sendOrderConfirmationEmail(populatedOrder, populatedOrder.customerId);
+        console.log(`📧 Order confirmation email sent to customer: ${populatedOrder.customerId.email}`);
+      } else {
+        console.log('⚠️ Customer email not found, skipping customer confirmation email');
+      }
+
+      // Send notification email to order manager
+      await sendOrderManagerNotificationEmail(populatedOrder, populatedOrder.customerId);
+      console.log('📧 Order notification email sent to manager');
+      
+    } catch (emailError) {
+      console.error('❌ Failed to send order confirmation emails:', emailError);
+      // Continue with response even if emails fail
+    }
+
     // Return remaining cart items for the token
     const remainingCart = await CartPending.find({ cartToken, status: { $ne: 'removed' } })
       .populate('productId')
       .sort({ createdAt: 1 });
-
-    const populatedOrder = await Order.findById(order._id)
-      .populate('items.productId')
-      .populate('paymentId');
 
     return res.status(200).json({
       success: true,

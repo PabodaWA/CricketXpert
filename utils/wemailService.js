@@ -133,10 +133,153 @@ const sendLowStockAlert = async (product) => {
   }
 };
 
+// --- Function 6: Order Confirmation Email to Customer ---
+const sendOrderConfirmationEmail = async (order, customer) => {
+  try {
+    console.log('📧 Starting to send order confirmation email to customer...');
+    
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: customer.email,
+      subject: `🎉 Order Confirmation - ${order._id}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #42ADF5;">🎉 Order Confirmation - CricketExpert</h2>
+          <p>Dear ${customer.firstName || 'Customer'},</p>
+          <p><strong>Your order was successful. Thank you for shopping with us!</strong></p>
+          
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #072679; margin-top: 0;">Order Details</h3>
+            <p><strong>Order ID:</strong> ${order._id}</p>
+            <p><strong>Order Date:</strong> ${new Date(order.date || order.createdAt).toLocaleDateString()}</p>
+            <p><strong>Status:</strong> ${order.status}</p>
+            <p><strong>Total Amount:</strong> LKR ${order.amount || 0}.00</p>
+            <p><strong>Delivery Address:</strong> ${order.address || 'N/A'}</p>
+          </div>
+
+          <div style="background-color: #e2e3e5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #072679; margin-top: 0;">Order Items</h3>
+            ${order.items && order.items.length > 0 ? 
+              order.items.map(item => `
+                <div style="border-bottom: 1px solid #dee2e6; padding: 10px 0;">
+                  <p style="margin: 5px 0;"><strong>${item.productId?.name || 'Unknown Product'}</strong></p>
+                  <p style="margin: 5px 0; color: #6c757d;">Quantity: ${item.quantity} × LKR ${item.priceAtOrder || 0} = LKR ${(item.quantity * (item.priceAtOrder || 0)).toFixed(2)}</p>
+                </div>
+              `).join('') : 
+              '<p>No items found</p>'
+            }
+          </div>
+          
+          <div style="background-color: #d1ecf1; border: 1px solid #bee5eb; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <h3 style="margin-top: 0; color: #0c5460;">What's Next?</h3>
+            <p style="color: #0c5460; margin: 0;">Your order is being processed and will be delivered to your address soon. You will receive updates on your order status.</p>
+          </div>
+          
+          <p>If you have any questions about your order, please don't hesitate to contact us.</p>
+          <p>Thank you for choosing CricketExpert!</p>
+          
+          <hr style="margin: 30px 0;">
+          <p style="color: #6c757d; font-size: 12px;">
+            This is an automated confirmation from CricketExpert Order Management System.<br>
+            Generated on: ${new Date().toLocaleString()}
+          </p>
+        </div>
+      `,
+    };
+    
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`📧 Order confirmation email sent to customer ${customer.email}: ${info.response}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to send order confirmation email to customer:', error);
+    return false;
+  }
+};
+
+// --- Function 7: Order Notification Email to Manager ---
+const sendOrderManagerNotificationEmail = async (order, customer) => {
+  try {
+    console.log('📧 Starting to send order notification email to manager...');
+    
+    const serviceManagerEmail = process.env.SERVICE_MANAGER_EMAIL;
+    if (!serviceManagerEmail) {
+      console.error('❌ Service manager email not configured');
+      throw new Error('Service manager email not configured');
+    }
+    
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: serviceManagerEmail,
+      subject: `📦 New Order Received - ${order._id}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #28a745;">📦 New Order Received</h2>
+          <p>Dear Order Manager,</p>
+          <p>A new order has been placed and requires your attention.</p>
+          
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #072679; margin-top: 0;">Order Information</h3>
+            <p><strong>Order ID:</strong> ${order._id}</p>
+            <p><strong>Order Date:</strong> ${new Date(order.date || order.createdAt).toLocaleDateString()}</p>
+            <p><strong>Status:</strong> ${order.status}</p>
+            <p><strong>Total Amount:</strong> LKR ${order.amount || 0}.00</p>
+            <p><strong>Payment ID:</strong> ${order.paymentId || 'N/A'}</p>
+          </div>
+
+          <div style="background-color: #e2e3e5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #072679; margin-top: 0;">Customer Information</h3>
+            <p><strong>Name:</strong> ${customer.firstName || ''} ${customer.lastName || ''}</p>
+            <p><strong>Email:</strong> ${customer.email || 'N/A'}</p>
+            <p><strong>Phone:</strong> ${customer.phone || 'N/A'}</p>
+            <p><strong>Delivery Address:</strong> ${order.address || 'N/A'}</p>
+          </div>
+
+          <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #856404; margin-top: 0;">Order Items</h3>
+            ${order.items && order.items.length > 0 ? 
+              order.items.map(item => `
+                <div style="border-bottom: 1px solid #ffeaa7; padding: 10px 0;">
+                  <p style="margin: 5px 0;"><strong>${item.productId?.name || 'Unknown Product'}</strong></p>
+                  <p style="margin: 5px 0; color: #856404;">Quantity: ${item.quantity} × LKR ${item.priceAtOrder || 0} = LKR ${(item.quantity * (item.priceAtOrder || 0)).toFixed(2)}</p>
+                </div>
+              `).join('') : 
+              '<p>No items found</p>'
+            }
+          </div>
+          
+          <div style="background-color: #d1ecf1; border: 1px solid #bee5eb; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <h3 style="margin-top: 0; color: #0c5460;">Action Required</h3>
+            <ol style="color: #0c5460;">
+              <li>Review the order details</li>
+              <li>Prepare the items for packaging</li>
+              <li>Update order status to "Processing"</li>
+              <li>Arrange for delivery</li>
+            </ol>
+          </div>
+          
+          <p style="color: #6c757d; font-size: 12px;">
+            This is an automated notification from CricketExpert Order Management System.<br>
+            Generated on: ${new Date().toLocaleString()}
+          </p>
+        </div>
+      `,
+    };
+    
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`📧 Order notification email sent to manager ${serviceManagerEmail}: ${info.response}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to send order notification email to manager:', error);
+    return false;
+  }
+};
+
 export {
   sendWelcomeEmail,
   sendNewUserNotification,
   sendPasswordResetCodeEmail,
   sendEmailVerificationCode,
   sendLowStockAlert,
+  sendOrderConfirmationEmail,
+  sendOrderManagerNotificationEmail,
 };
