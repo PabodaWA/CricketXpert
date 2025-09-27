@@ -154,7 +154,6 @@ const Payment = () => {
         // Process enrollment payment using the new endpoint
         const paymentRes = await axios.post(`http://localhost:5000/api/enrollments/${enrollment._id}/payment`, {
           userId,
-          enrollmentId: enrollment._id,
           amount: amount,
           status: 'success',
           paymentDate: new Date()

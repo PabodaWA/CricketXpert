@@ -11,7 +11,8 @@ import {
   getProgramEnrollmentStats,
   activateEnrollment,
   debugAllEnrollments,
-  processEnrollmentPayment
+  processEnrollmentPayment,
+  checkEnrollment
 } from '../controllers/programEnrollmentController.js';
 import { protect, authorizeRoles } from '../middleware/authMiddleware.js';
 
@@ -26,6 +27,7 @@ router.get('/program/:programId/stats', /* authorize('coach', 'admin'), */ getPr
 
 // User accessible routes
 router.get('/:id', getEnrollment);
+router.get('/check/:programId', checkEnrollment);
 router.post('/', createEnrollment);
 router.put('/:id', updateEnrollment);
 router.delete('/:id', cancelEnrollment);
@@ -48,5 +50,8 @@ router.get('/debug/all', debugAllEnrollments);
 
 // Payment route
 router.post('/:id/payment', processEnrollmentPayment);
+
+// Test email route (commented out to fix server crash)
+// router.post('/test-email', testEmailFunctionality);
 
 export default router;

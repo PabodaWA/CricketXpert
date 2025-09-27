@@ -28,109 +28,76 @@ const paginateHelper = async (Model, filter, options) => {
   };
 };
 
-// Email configuration
-const createEmailTransporter = () => {
-  return nodemailer.createTransporter({
-    service: 'gmail', // You can change this to your preferred email service
-    auth: {
-      user: process.env.EMAIL_USER || 'your-email@gmail.com',
-      pass: process.env.EMAIL_PASS || 'your-app-password'
-    }
-  });
-};
+// Import the working email service
+import { sendEmail } from '../utils/notification.js';
 
-// Email template for enrollment confirmation
-const createEnrollmentEmailTemplate = (user, program, enrollment) => {
-  return {
-    subject: `Welcome to ${program.title} - Enrollment Confirmation`,
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-          <h1 style="margin: 0; font-size: 28px;">Welcome to Your Coaching Program!</h1>
-        </div>
-        
-        <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
-          <h2 style="color: #333; margin-top: 0;">Dear ${user.firstName || user.name},</h2>
-          
-          <p style="font-size: 16px; line-height: 1.6; color: #555;">
-            Congratulations! You have successfully enrolled in <strong>${program.title}</strong>. 
-            We're excited to have you join our coaching program and look forward to supporting your journey.
-          </p>
-          
-          <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea;">
-            <h3 style="color: #333; margin-top: 0;">Program Details:</h3>
-            <ul style="color: #555; line-height: 1.8;">
-              <li><strong>Program:</strong> ${program.title}</li>
-              <li><strong>Category:</strong> ${program.category || 'General Coaching'}</li>
-              <li><strong>Duration:</strong> ${program.duration || 'Ongoing'}</li>
-              <li><strong>Enrollment Date:</strong> ${new Date(enrollment.enrollmentDate).toLocaleDateString()}</li>
-              <li><strong>Status:</strong> ${enrollment.status}</li>
-            </ul>
-          </div>
-          
-          <div style="background: #e8f4fd; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <h3 style="color: #1976d2; margin-top: 0;">What's Next?</h3>
-            <p style="color: #555; margin: 0;">
-              You will receive further instructions about your coaching sessions and program materials within the next 24 hours. 
-              Please check your email regularly for updates.
-            </p>
-          </div>
-          
-          <div style="text-align: center; margin: 30px 0;">
-            <p style="color: #666; font-size: 14px;">
-              If you have any questions, please don't hesitate to contact our support team.
-            </p>
-          </div>
-        </div>
-        
-        <div style="text-align: center; padding: 20px; color: #999; font-size: 12px;">
-          <p>This is an automated message. Please do not reply to this email.</p>
-        </div>
-      </div>
-    `,
-    text: `
-      Welcome to ${program.title} - Enrollment Confirmation
-      
-      Dear ${user.firstName || user.name},
-      
-      Congratulations! You have successfully enrolled in ${program.title}.
-      
-      Program Details:
-      - Program: ${program.title}
-      - Category: ${program.category || 'General Coaching'}
-      - Duration: ${program.duration || 'Ongoing'}
-      - Enrollment Date: ${new Date(enrollment.enrollmentDate).toLocaleDateString()}
-      - Status: ${enrollment.status}
-      
-      What's Next?
-      You will receive further instructions about your coaching sessions and program materials within the next 24 hours.
-      
-      If you have any questions, please contact our support team.
-      
-      This is an automated message. Please do not reply to this email.
-    `
-  };
-};
 
-// Send enrollment confirmation email
+// Send enrollment confirmation email using the working email system
 const sendEnrollmentConfirmationEmail = async (user, program, enrollment) => {
   try {
-    const transporter = createEmailTransporter();
-    const emailTemplate = createEnrollmentEmailTemplate(user, program, enrollment);
+    console.log('📧 Starting to send enrollment confirmation email...');
+    console.log('📧 Email config check:', {
+      hasEmailUser: !!process.env.EMAIL_USER,
+      hasEmailPass: !!process.env.EMAIL_PASS,
+      userEmail: user.email
+    });
+
+    const enrollmentDate = new Date(enrollment.enrollmentDate).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    const emailSubject = `🎉 Welcome to ${program.title} - Payment Confirmed & Enrollment Active!`;
     
-    const mailOptions = {
-      from: process.env.EMAIL_USER || 'your-email@gmail.com',
-      to: user.email,
-      subject: emailTemplate.subject,
-      html: emailTemplate.html,
-      text: emailTemplate.text
-    };
+    const emailText = `
+🎉 Welcome to ${program.title} - Payment Confirmed & Enrollment Active!
+
+Dear ${user.firstName || user.name},
+
+✅ Payment Successfully Processed!
+Your enrollment in ${program.title} is now active and you have full access to all program materials.
+
+📋 Program Details:
+- Program: ${program.title}
+- Category: ${program.category || 'General Coaching'}
+- Duration: ${program.duration || 'Ongoing'} weeks
+- Enrollment Date: ${enrollmentDate}
+- Status: ${enrollment.status}
+
+📝 Your Enrollment Information:
+- Experience Level: ${enrollment.enrollmentFormData?.experience || 'Not specified'}
+- Goals: ${enrollment.enrollmentFormData?.goals || 'Not specified'}
+- Emergency Contact: ${enrollment.enrollmentFormData?.emergencyContact || 'Not provided'}
+
+🚀 What's Next?
+- Access your program materials in your dashboard
+- Check your email for session schedules and updates
+- Join our community and connect with fellow participants
+- Your coach will contact you within 24 hours to discuss your goals
+
+📚 Program Materials Access:
+You now have full access to all program materials including videos, documents, and resources. 
+Visit your program dashboard to get started!
+
+Need Help? Contact our support team at support@cricketxpert.com
+
+This email was sent to ${user.email}. If you have any questions about your enrollment, please contact us.
+
+© 2024 CricketXpert. All rights reserved.
+    `;
+
+    const emailSent = await sendEmail(user.email, emailSubject, emailText);
     
-    const result = await transporter.sendMail(mailOptions);
-    console.log('Enrollment confirmation email sent successfully:', result.messageId);
-    return { success: true, messageId: result.messageId };
+    if (emailSent) {
+      console.log('✅ Enrollment confirmation email sent successfully to:', user.email);
+      return { success: true, message: 'Email sent successfully' };
+    } else {
+      console.error('❌ Failed to send enrollment confirmation email to:', user.email);
+      return { success: false, error: 'Email sending failed' };
+    }
   } catch (error) {
-    console.error('Error sending enrollment confirmation email:', error);
+    console.error('❌ Error sending enrollment confirmation email:', error);
     return { success: false, error: error.message };
   }
 };
@@ -196,7 +163,7 @@ const getEnrollment = async (req, res) => {
       .populate('user', 'firstName lastName email contactNumber')
       .populate({
         path: 'program',
-        select: 'title description category specialization duration fee coach totalSessions',
+        select: 'title description category specialization duration fee coach totalSessions materials',
         populate: {
           path: 'coach',
           select: 'userId',
@@ -249,13 +216,52 @@ const getEnrollment = async (req, res) => {
 // @access  Private
 const createEnrollment = async (req, res) => {
   try {
-    const { programId, userId } = req.body;
+    const { 
+      programId, 
+      userId, 
+      firstName, 
+      lastName, 
+      email, 
+      contactNumber, 
+      emergencyContact, 
+      experience, 
+      goals 
+    } = req.body;
     
     // Validate required fields
-    if (!programId || !userId) {
+    if (!programId || !userId || !firstName || !lastName || !email || !contactNumber || !emergencyContact || !experience || !goals) {
       return res.status(400).json({
         success: false,
-        message: 'Program ID and User ID are required'
+        message: 'All fields are required: Program ID, User ID, First Name, Last Name, Email, Contact Number, Emergency Contact, Experience, and Goals'
+      });
+    }
+
+    // Phone number validation regex (supports various formats)
+    const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
+    const sriLankanPhoneRegex = /^(\+94|0)?[0-9]{9}$/;
+    
+    // Validate contact number
+    if (!phoneRegex.test(contactNumber.replace(/[\s\-\(\)]/g, '')) && !sriLankanPhoneRegex.test(contactNumber.replace(/[\s\-\(\)]/g, ''))) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid contact number format. Please enter a valid phone number.'
+      });
+    }
+
+    // Validate emergency contact number
+    if (!phoneRegex.test(emergencyContact.replace(/[\s\-\(\)]/g, '')) && !sriLankanPhoneRegex.test(emergencyContact.replace(/[\s\-\(\)]/g, ''))) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid emergency contact number format. Please enter a valid phone number.'
+      });
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid email format. Please enter a valid email address.'
       });
     }
     
@@ -295,6 +301,15 @@ const createEnrollment = async (req, res) => {
     const enrollmentData = {
       user: enrollmentUserId,
       program: programId,
+      enrollmentFormData: {
+        firstName,
+        lastName,
+        email,
+        contactNumber,
+        emergencyContact,
+        experience,
+        goals
+      },
       progress: {
         totalSessions: program.totalSessions || 10 // Default to 10 if not specified
       }
@@ -448,6 +463,62 @@ const cancelEnrollment = async (req, res) => {
   }
 };
 
+// @desc    Check if user is enrolled in a specific program
+// @route   GET /api/enrollments/check/:programId
+// @access  Private
+const checkEnrollment = async (req, res) => {
+  try {
+    const { programId } = req.params;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
+    }
+
+    if (!programId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Program ID is required'
+      });
+    }
+
+    // Check if user is enrolled in the program
+    const enrollment = await ProgramEnrollment.findOne({
+      user: userId,
+      program: programId
+    }).populate('program', 'title');
+
+    const isEnrolled = !!enrollment;
+    const enrollmentStatus = enrollment ? enrollment.status : null;
+    const paymentStatus = enrollment ? enrollment.paymentStatus : null;
+
+    res.status(200).json({
+      success: true,
+      data: {
+        isEnrolled,
+        enrollmentStatus,
+        paymentStatus,
+        enrollment: enrollment ? {
+          id: enrollment._id,
+          status: enrollment.status,
+          paymentStatus: enrollment.paymentStatus,
+          enrollmentDate: enrollment.enrollmentDate
+        } : null
+      }
+    });
+  } catch (error) {
+    console.error('Error checking enrollment:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error checking enrollment status',
+      error: error.message
+    });
+  }
+};
+
 // @desc    Get user's enrollments
 // @route   GET /api/enrollments/user/:userId
 // @access  Private
@@ -487,7 +558,7 @@ const getUserEnrollments = async (req, res) => {
       populate: [
         { 
           path: 'program', 
-          select: 'title description category specialization price startDate endDate imageUrl duration fee totalSessions',
+          select: 'title description category specialization price startDate endDate imageUrl duration fee totalSessions materials',
           populate: { 
             path: 'coach', 
             select: 'name',
@@ -764,7 +835,8 @@ const debugAllEnrollments = async (req, res) => {
 // @access  Private
 const processEnrollmentPayment = async (req, res) => {
   try {
-    const { enrollmentId, amount, status, paymentDate } = req.body;
+    const enrollmentId = req.params.id; // Get from URL parameter
+    const { amount, status, paymentDate } = req.body;
     
     // Import Payment model
     const Payment = (await import('../models/Payments.js')).default;
@@ -832,6 +904,55 @@ const processEnrollmentPayment = async (req, res) => {
   }
 };
 
+// @desc    Test email functionality
+// @route   POST /api/enrollments/test-email
+// @access  Private
+const testEmailFunctionality = async (req, res) => {
+  try {
+    // Create a test enrollment with mock data
+    const testUser = {
+      firstName: 'Test',
+      lastName: 'User',
+      email: 'test@example.com'
+    };
+    
+    const testProgram = {
+      title: 'Test Cricket Program',
+      category: 'Batting',
+      duration: '8 weeks'
+    };
+    
+    const testEnrollment = {
+      enrollmentDate: new Date(),
+      status: 'active',
+      enrollmentFormData: {
+        experience: 'beginner',
+        goals: 'Learn basic cricket skills',
+        emergencyContact: '+94123456789'
+      }
+    };
+    
+    // Send test email
+    const emailResult = await sendEnrollmentConfirmationEmail(
+      testUser,
+      testProgram,
+      testEnrollment
+    );
+    
+    res.status(200).json({
+      success: true,
+      message: 'Test email sent successfully',
+      emailResult: emailResult
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error sending test email',
+      error: error.message
+    });
+  }
+};
+
 export {
   getAllEnrollments,
   getEnrollment,
@@ -844,5 +965,8 @@ export {
   getProgramEnrollmentStats,
   activateEnrollment,
   debugAllEnrollments,
-  processEnrollmentPayment
+  processEnrollmentPayment,
+  checkEnrollment,
+  sendEnrollmentConfirmationEmail,
+  testEmailFunctionality
 };

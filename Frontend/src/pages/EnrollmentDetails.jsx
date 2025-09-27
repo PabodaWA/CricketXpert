@@ -645,26 +645,12 @@ export default function EnrollmentDetails() {
 
   // Calculate attendance-based progress
   const userInfo = JSON.parse(localStorage.getItem('userInfo'));
-  console.log('Current user info:', userInfo);
   
   const attendedSessions = sessions.filter(session => {
     const participant = session.participants?.find(p => p.user && p.user._id === userInfo._id);
     // Check both the attendance object and the direct attended field
     const isAttended = (participant?.attendance?.attended === true) || (participant?.attended === true);
     
-    // Enhanced debug logging
-    console.log('Session attendance check:', {
-      sessionId: session._id,
-      sessionTitle: session.title,
-      participants: session.participants?.length || 0,
-      participant: participant ? {
-        userId: participant.user?._id,
-        userName: `${participant.user?.firstName || ''} ${participant.user?.lastName || ''}`,
-        attended: participant.attended,
-        attendance: participant.attendance,
-        isAttended: isAttended
-      } : 'No participant found'
-    });
     
     return isAttended;
   }).length;
@@ -683,29 +669,6 @@ export default function EnrollmentDetails() {
   // Use the deduplicated sessions
   const finalUniqueSessions = uniqueSessions;
   
-  // Debug logging
-  console.log('=== SESSION DEBUG ===');
-  console.log('Raw sessions count:', sessions.length);
-  console.log('Raw sessions:', sessions);
-  console.log('Unique sessions count:', uniqueSessions.length);
-  console.log('Final unique sessions:', finalUniqueSessions);
-  console.log('Total sessions (program limit):', totalSessions);
-  
-  // Debug attendance data
-  console.log('=== ATTENDANCE DEBUG ===');
-  sessions.forEach((session, index) => {
-    console.log(`Session ${index + 1}:`, {
-      id: session._id,
-      title: session.title,
-      status: session.status,
-      participants: session.participants?.map(p => ({
-        userId: p.user?._id,
-        attended: p.attended,
-        attendance: p.attendance,
-        attendanceMarkedAt: p.attendanceMarkedAt
-      }))
-    });
-  });
   
   const bookedSessions = finalUniqueSessions.length;
   const canBookMore = bookedSessions < totalSessions;
@@ -788,17 +751,6 @@ export default function EnrollmentDetails() {
                 <p className="text-sm text-gray-600 mt-2">
                   {progressPercentage.toFixed(1)}% attendance rate
                 </p>
-                
-                {/* Debug Info - Remove in production */}
-                {process.env.NODE_ENV === 'development' && (
-                  <div className="mt-4 p-2 bg-yellow-50 rounded text-xs">
-                    <strong>Debug Info:</strong><br/>
-                    Sessions: {sessions.length}<br/>
-                    Attended: {attendedSessions}<br/>
-                    Completed: {completedSessions}<br/>
-                    Progress: {progressPercentage.toFixed(1)}%
-                  </div>
-                )}
               </div>
 
               {/* Program Description */}
@@ -808,6 +760,51 @@ export default function EnrollmentDetails() {
                   <p className="text-gray-700 leading-relaxed">
                     {enrollment.program.description}
                   </p>
+                </div>
+              )}
+
+              {/* Program Materials */}
+              {enrollment.program?.materials && enrollment.program.materials.length > 0 && (
+                <div className="mb-8">
+                  <h2 className="text-2xl font-semibold text-gray-900 mb-4">Program Materials</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {enrollment.program.materials.map((material, index) => (
+                      <div key={index} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <div className="flex items-center mb-3">
+                          <div className="text-2xl mr-3">
+                            {material.type === 'document' ? '📄' : 
+                             material.type === 'video' ? '🎥' : 
+                             material.type === 'image' ? '🖼️' : '📁'}
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-gray-900">{material.name}</h3>
+                            <p className="text-sm text-gray-600 capitalize">{material.type}</p>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          {material.url && (
+                            <a
+                              href={material.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
+                            >
+                              View
+                            </a>
+                          )}
+                          {material.downloadUrl && (
+                            <a
+                              href={material.downloadUrl}
+                              download
+                              className="inline-flex items-center px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors"
+                            >
+                              Download
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -859,7 +856,6 @@ export default function EnrollmentDetails() {
 
               {finalUniqueSessions.length > 0 ? (
                 <div className="space-y-4">
-                  {console.log('Rendering FORCE unique sessions:', finalUniqueSessions)}
                   {finalUniqueSessions.map((session) => {
                     // Get attendance data for the current user
                     const participant = session.participants?.find(p => 
