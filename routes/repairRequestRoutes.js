@@ -60,4 +60,7 @@ router.delete('/:id', repairController.deleteRepairRequest);
 // Submit feedback for a repair request
 router.post('/:id/feedback', repairController.submitFeedback);
 
+// Get repair revenue data with filtering
+router.get('/revenue/data', repairController.getRepairRevenue);
+
 export default router;

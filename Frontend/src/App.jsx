@@ -70,6 +70,7 @@ import Header from './components/Header';
 import Footer from './components/Footer';
 import NewTechnicianForm from './pages/NewTechnicianForm';
 import TestPage from './pages/TestPage';
+import RepairRevenue from './pages/RepairRevenue';
 
 // Wrapper to pass URL param
 function CustomerDashboardWrapper() {
@@ -152,6 +153,7 @@ export default function App() {
         <Route path="/manager" element={<ServiceManagerDashboard />} />
         <Route path="/technician" element={<TechnicianDashboard />} />
         <Route path="/new-technician" element={<NewTechnicianForm />} />
+        <Route path="/repair-revenue" element={<RepairRevenue />} />
         <Route path="/about" element={<AboutUs />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/terms" element={<TermsAndConditions />} />
