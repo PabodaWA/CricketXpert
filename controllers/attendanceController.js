@@ -21,6 +21,27 @@ const markAttendance = async (req, res) => {
       });
     }
 
+    // Check if session exists and validate date
+    const session = await Session.findById(sessionId);
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session not found'
+      });
+    }
+
+    // Validate that the session date has passed (prevent marking attendance for future sessions)
+    const sessionDate = new Date(session.scheduledDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to start of day for comparison
+    
+    if (sessionDate > today) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot mark attendance for future sessions. Please wait until the session date has passed.'
+      });
+    }
+
     // Validate attendance data
     for (const attendance of attendanceData) {
       if (!attendance.participantId || typeof attendance.attended !== 'boolean') {
@@ -241,6 +262,27 @@ const markSessionAttendance = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Attendance data is required and must be an array'
+      });
+    }
+
+    // Check if session exists and validate date
+    const session = await Session.findById(sessionId);
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session not found'
+      });
+    }
+
+    // Validate that the session date has passed (prevent marking attendance for future sessions)
+    const sessionDate = new Date(session.scheduledDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to start of day for comparison
+    
+    if (sessionDate > today) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot mark attendance for future sessions. Please wait until the session date has passed.'
       });
     }
     

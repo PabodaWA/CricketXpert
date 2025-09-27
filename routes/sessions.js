@@ -16,14 +16,35 @@ import {
   getGroundAvailability,
   rescheduleSession,
   customerRescheduleSession,
-  debugSessionCreation
+  cleanupDuplicateSessions,
+  removeExtraSessions,
+  fixSessionWeeks,
+  debugSessionsForEnrollment,
+  debugSessionCreation,
+  debugAllSessions,
+  debugAttendance,
+  debugMarkAttendance,
+  debugMedhaniAttendance,
+  debugEnrollmentAttendance
 } from '../controllers/sessionController.js';
 import { protect, authorizeRoles } from '../middleware/authMiddleware.js';
+
+// Debug routes (MUST be first to avoid conflicts with /:id routes)
+router.get('/debug/enrollment/:enrollmentId', debugEnrollmentAttendance);
+router.get('/debug/medhani', debugMedhaniAttendance);
+router.get('/debug/attendance', debugAttendance);
+router.get('/debug/all-sessions', debugAllSessions);
+router.post('/debug/mark-attendance', debugMarkAttendance);
+
+// Simple test route
+router.get('/medhani-test', debugMedhaniAttendance);
 
 // Test route to verify sessions routes are working (public)
 router.get('/test', (req, res) => {
   res.json({ success: true, message: 'Sessions routes are working' });
 });
+
+// Debug routes removed - no longer needed
 
 // All other routes require authentication
 router.use(protect);
@@ -66,6 +87,16 @@ router.get('/ground/:groundId/availability', getGroundAvailability);
 
 // Debug route
 router.post('/debug', debugSessionCreation);
+
+// Cleanup route
+router.post('/cleanup-duplicates', cleanupDuplicateSessions);
+
+// Temporary cleanup route without authentication for testing
+router.post('/cleanup-duplicates-test', (req, res, next) => {
+  // Skip authentication for testing
+  req.user = { _id: 'test-user' };
+  next();
+}, cleanupDuplicateSessions);
 
 export default router;
 

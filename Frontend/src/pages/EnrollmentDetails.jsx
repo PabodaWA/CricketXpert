@@ -39,6 +39,8 @@ export default function EnrollmentDetails() {
 
   useEffect(() => {
     if (enrollmentId) {
+      // Force refresh by clearing sessions first
+      setSessions([]);
       fetchEnrollmentDetails();
     }
   }, [enrollmentId]);
@@ -61,21 +63,51 @@ export default function EnrollmentDetails() {
         },
       };
 
-      // Fetch enrollment details
+      // Fetch enrollment details with cache-busting
       console.log('Fetching enrollment details for ID:', enrollmentId);
-      const enrollmentResponse = await axios.get(`http://localhost:5000/api/enrollments/${enrollmentId}`, config);
+      const enrollmentResponse = await axios.get(`http://localhost:5000/api/enrollments/${enrollmentId}?t=${Date.now()}`, config);
       console.log('Enrollment response:', enrollmentResponse.data);
       
       if (enrollmentResponse.data.success) {
         setEnrollment(enrollmentResponse.data.data);
         
-        // Fetch sessions for this enrollment
+        // Fetch sessions for this enrollment with cache-busting
         try {
           console.log('Fetching sessions for enrollment ID:', enrollmentId);
-          const sessionsResponse = await axios.get(`http://localhost:5000/api/sessions/enrollment/${enrollmentId}`, config);
+          const sessionsResponse = await axios.get(`http://localhost:5000/api/sessions/enrollment/${enrollmentId}?t=${Date.now()}`, config);
           console.log('Sessions response:', sessionsResponse.data);
           if (sessionsResponse.data.success) {
             console.log('Setting sessions:', sessionsResponse.data.data);
+            
+            // Debug: Check session data including reschedule info and weekly scheduling
+            console.log('=== SESSION DATA DEBUG ===');
+            sessionsResponse.data.data.forEach((session, index) => {
+              console.log(`Session ${index + 1}:`, {
+                id: session._id,
+                title: session.title,
+                sessionNumber: session.sessionNumber,
+                week: session.week,
+                scheduledDate: session.scheduledDate,
+                scheduledTime: session.scheduledTime,
+                groundSlot: session.groundSlot,
+                rescheduled: session.rescheduled,
+                rescheduledAt: session.rescheduledAt,
+                rescheduledFrom: session.rescheduledFrom,
+                participants: session.participants?.map(p => ({
+                  userId: p.user?._id,
+                  userName: `${p.user?.firstName || ''} ${p.user?.lastName || ''}`,
+                  attended: p.attended,
+                  attendance: p.attendance
+                }))
+              });
+            });
+            
+            // Check if any participant has attended = true
+            const hasAttendedParticipants = sessionsResponse.data.data.some(session => 
+              session.participants?.some(p => p.attended === true)
+            );
+            console.log('API Response - Has attended participants:', hasAttendedParticipants);
+            
             setSessions(sessionsResponse.data.data || []);
           }
         } catch (sessionErr) {
@@ -136,23 +168,49 @@ export default function EnrollmentDetails() {
 
   const fetchAvailableRescheduleDates = async () => {
     try {
-      // Get available dates for the next 7 days from today
-      const today = new Date();
-      const availableDates = [];
+      if (!selectedSession || !enrollment) return;
       
-      for (let i = 1; i <= 7; i++) {
-        const date = new Date(today);
-        date.setDate(today.getDate() + i);
-        availableDates.push({
-          date: date.toISOString().split('T')[0],
-          display: date.toLocaleDateString('en-US', { 
-            weekday: 'long', 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric' 
-          })
-        });
+      // Get available dates within the same week as the original session
+      // Calculate week boundaries based on enrollment date
+      const enrollmentDate = new Date(enrollment.createdAt);
+      const originalWeek = selectedSession.week;
+      
+      // Calculate the start and end of the specific week based on enrollment
+      const startOfWeek = new Date(enrollmentDate);
+      startOfWeek.setDate(enrollmentDate.getDate() + (originalWeek - 1) * 7); // Start of the specific week
+      
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6); // End of the specific week
+      
+      console.log('Original session week based on enrollment:', {
+        enrollmentDate: enrollmentDate.toISOString().split('T')[0],
+        originalWeek: originalWeek,
+        startOfWeek: startOfWeek.toISOString().split('T')[0],
+        endOfWeek: endOfWeek.toISOString().split('T')[0]
+      });
+      
+      const availableDates = [];
+      const currentDate = new Date(startOfWeek);
+      
+      // Generate dates for the entire week
+      while (currentDate <= endOfWeek) {
+        // Skip the original date (can't reschedule to the same date)
+        const originalDate = new Date(selectedSession.scheduledDate);
+        if (currentDate.toISOString().split('T')[0] !== originalDate.toISOString().split('T')[0]) {
+          availableDates.push({
+            date: currentDate.toISOString().split('T')[0],
+            display: currentDate.toLocaleDateString('en-US', { 
+              weekday: 'long', 
+              year: 'numeric', 
+              month: 'long', 
+              day: 'numeric' 
+            })
+          });
+        }
+        currentDate.setDate(currentDate.getDate() + 1);
       }
+      
+      console.log('Available reschedule dates:', availableDates);
       
       setRescheduleData(prev => ({
         ...prev,
@@ -391,11 +449,22 @@ export default function EnrollmentDetails() {
       
       const response = await axios.put('/api/sessions/reschedule', reschedulePayload, config);
       
+      console.log('Reschedule response:', response.data);
+      
       if (response.data.success) {
         alert('Session rescheduled successfully!');
         setShowRescheduleModal(false);
         setShowSessionDetails(false);
-        fetchEnrollmentDetails(); // Refresh the enrollment data
+        
+        // Clear sessions first to force refresh
+        setSessions([]);
+        
+        // Add a small delay before refreshing to ensure session is updated
+        setTimeout(() => {
+          console.log('Refreshing enrollment details after reschedule...');
+          console.log('Current sessions before refresh:', sessions);
+          fetchEnrollmentDetails();
+        }, 1000);
       } else {
         alert('Failed to reschedule session: ' + response.data.message);
       }
@@ -574,10 +643,71 @@ export default function EnrollmentDetails() {
     );
   }
 
+  // Calculate attendance-based progress
+  const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+  console.log('Current user info:', userInfo);
+  
+  const attendedSessions = sessions.filter(session => {
+    const participant = session.participants?.find(p => p.user && p.user._id === userInfo._id);
+    // Check both the attendance object and the direct attended field
+    const isAttended = (participant?.attendance?.attended === true) || (participant?.attended === true);
+    
+    // Enhanced debug logging
+    console.log('Session attendance check:', {
+      sessionId: session._id,
+      sessionTitle: session.title,
+      participants: session.participants?.length || 0,
+      participant: participant ? {
+        userId: participant.user?._id,
+        userName: `${participant.user?.firstName || ''} ${participant.user?.lastName || ''}`,
+        attended: participant.attended,
+        attendance: participant.attendance,
+        isAttended: isAttended
+      } : 'No participant found'
+    });
+    
+    return isAttended;
+  }).length;
+  
   const completedSessions = sessions.filter(session => session.status === 'completed').length;
-  const totalSessions = enrollment.program?.totalSessions || 10; // Use program's total sessions, not dynamic count
-  const progressPercentage = totalSessions > 0 ? (completedSessions / totalSessions) * 100 : 0;
-  const bookedSessions = sessions.length;
+  const totalSessions = enrollment.program?.totalSessions || enrollment.program?.duration || 10; // Use program duration as total sessions
+  
+  // Use attendance-based progress instead of just completed sessions
+  const progressPercentage = totalSessions > 0 ? (attendedSessions / totalSessions) * 100 : 0;
+  
+  // Remove duplicate sessions based on session ID (most reliable)
+  const uniqueSessions = sessions.filter((session, index, self) => 
+    index === self.findIndex(s => s._id === session._id)
+  );
+  
+  // Use the deduplicated sessions
+  const finalUniqueSessions = uniqueSessions;
+  
+  // Debug logging
+  console.log('=== SESSION DEBUG ===');
+  console.log('Raw sessions count:', sessions.length);
+  console.log('Raw sessions:', sessions);
+  console.log('Unique sessions count:', uniqueSessions.length);
+  console.log('Final unique sessions:', finalUniqueSessions);
+  console.log('Total sessions (program limit):', totalSessions);
+  
+  // Debug attendance data
+  console.log('=== ATTENDANCE DEBUG ===');
+  sessions.forEach((session, index) => {
+    console.log(`Session ${index + 1}:`, {
+      id: session._id,
+      title: session.title,
+      status: session.status,
+      participants: session.participants?.map(p => ({
+        userId: p.user?._id,
+        attended: p.attended,
+        attendance: p.attendance,
+        attendanceMarkedAt: p.attendanceMarkedAt
+      }))
+    });
+  });
+  
+  const bookedSessions = finalUniqueSessions.length;
   const canBookMore = bookedSessions < totalSessions;
 
   return (
@@ -594,6 +724,15 @@ export default function EnrollmentDetails() {
             >
               <span className="mr-2">←</span>
               Back to Profile
+            </button>
+            <button
+              onClick={() => {
+                setSessions([]);
+                fetchEnrollmentDetails();
+              }}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              🔄 Refresh Attendance
             </button>
           </div>
         </div>
@@ -637,7 +776,7 @@ export default function EnrollmentDetails() {
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-lg font-semibold text-gray-700">Progress</span>
                   <span className="text-lg font-bold text-blue-600">
-                    {bookedSessions} / {totalSessions} sessions booked
+                    {attendedSessions} / {totalSessions} sessions attended
                   </span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-4">
@@ -647,8 +786,19 @@ export default function EnrollmentDetails() {
                   ></div>
                 </div>
                 <p className="text-sm text-gray-600 mt-2">
-                  {progressPercentage.toFixed(1)}% complete
+                  {progressPercentage.toFixed(1)}% attendance rate
                 </p>
+                
+                {/* Debug Info - Remove in production */}
+                {process.env.NODE_ENV === 'development' && (
+                  <div className="mt-4 p-2 bg-yellow-50 rounded text-xs">
+                    <strong>Debug Info:</strong><br/>
+                    Sessions: {sessions.length}<br/>
+                    Attended: {attendedSessions}<br/>
+                    Completed: {completedSessions}<br/>
+                    Progress: {progressPercentage.toFixed(1)}%
+                  </div>
+                )}
               </div>
 
               {/* Program Description */}
@@ -707,56 +857,244 @@ export default function EnrollmentDetails() {
                 )}
               </div>
 
-              {sessions.length > 0 ? (
+              {finalUniqueSessions.length > 0 ? (
                 <div className="space-y-4">
-                  {console.log('Rendering sessions:', sessions)}
-                  {sessions.map((session) => (
-                    <div 
-                      key={session._id} 
-                      className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors cursor-pointer"
-                      onClick={() => handleSessionClick(session)}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-gray-900 mb-1">
-                            Session {session.sessionNumber || 'N/A'}
-                          </h3>
-                          <p className="text-gray-600 text-sm mb-2">
-                            {session.date ? new Date(session.date).toLocaleDateString() : 'Date TBD'}
-                          </p>
-                          {session.time && (
+                  {console.log('Rendering FORCE unique sessions:', finalUniqueSessions)}
+                  {finalUniqueSessions.map((session) => {
+                    // Get attendance data for the current user
+                    const participant = session.participants?.find(p => 
+                      p.user && p.user._id === JSON.parse(localStorage.getItem('userInfo'))._id
+                    );
+                    const userAttendance = participant?.attendance || (participant?.attended !== undefined ? {
+                      attended: participant.attended,
+                      status: participant.attended ? 'present' : 'absent',
+                      attendanceMarkedAt: participant.attendanceMarkedAt,
+                      performance: participant.performance,
+                      remarks: participant.remarks
+                    } : null);
+
+                    return (
+                      <div 
+                        key={session._id} 
+                        className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors cursor-pointer"
+                        onClick={() => handleSessionClick(session)}
+                      >
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-1">
+                              <h3 className="font-semibold text-gray-900">
+                                Session {session.sessionNumber || 'N/A'}
+                              </h3>
+                              {(() => {
+                                // Use backend attendance status if available
+                                const attendanceStatus = participant?.attendanceStatus;
+                                
+                                if (attendanceStatus === 'present' || attendanceStatus === 'absent') {
+                                  return (
+                                    <span className="text-xs text-blue-600 font-medium">
+                                      📋 Attendance Marked
+                                    </span>
+                                  );
+                                } else if (attendanceStatus === 'not_marked') {
+                                  return (
+                                    <span className="text-xs text-orange-600 font-medium">
+                                      ⏳ Not Marked
+                                    </span>
+                                  );
+                                }
+                                
+                                // Fallback to frontend logic if backend status not available
+                                const sessionDate = new Date(session.scheduledDate);
+                                const today = new Date();
+                                today.setHours(0, 0, 0, 0);
+                                const isPastSession = sessionDate < today;
+                                
+                                const hasCoachMarkedAttendance = userAttendance?.attendanceMarkedAt || 
+                                  (participant?.attended !== undefined && participant?.attendanceMarkedAt);
+                                
+                                if (isPastSession && hasCoachMarkedAttendance) {
+                                  return (
+                                    <span className="text-xs text-blue-600 font-medium">
+                                      📋 Attendance Marked
+                                    </span>
+                                  );
+                                } else {
+                                  return (
+                                    <span className="text-xs text-orange-600 font-medium">
+                                      ⏳ Not Marked
+                                    </span>
+                                  );
+                                }
+                              })()}
+                            </div>
                             <p className="text-gray-600 text-sm mb-2">
-                              Time: {session.time}
+                              {session.scheduledDate ? new Date(session.scheduledDate).toLocaleDateString() : 'Date TBD'}
                             </p>
-                          )}
-                          {session.location && (
-                            <p className="text-gray-600 text-sm mb-2">
-                              Location: {session.location}
-                            </p>
-                          )}
-                          {session.notes && (
-                            <p className="text-gray-600 text-sm">
-                              Notes: {session.notes}
-                            </p>
-                          )}
+                            {session.scheduledTime && (
+                              <p className="text-gray-600 text-sm mb-2">
+                                Time: {session.scheduledTime}
+                              </p>
+                            )}
+                            {session.ground && (
+                              <p className="text-gray-600 text-sm mb-2">
+                                Location: {session.ground.name || 'TBD'}
+                              </p>
+                            )}
+                            {session.notes && (
+                              <p className="text-gray-600 text-sm">
+                                Notes: {session.notes}
+                              </p>
+                            )}
+                            
+                            {/* Attendance Information */}
+                            {(() => {
+                              // Use backend attendance status if available
+                              const attendanceStatus = participant?.attendanceStatus;
+                              const isPastSession = participant?.isPastSession;
+                              const isUpcomingSession = participant?.isUpcomingSession;
+                              const hasAttendanceMarked = participant?.hasAttendanceMarked;
+                              
+                              // Show attendance information based on backend status
+                              if (attendanceStatus === 'present' || attendanceStatus === 'absent') {
+                                return (
+                                  <div className="mt-3 p-2 bg-blue-50 rounded-lg">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-sm font-medium text-blue-900">Attendance:</span>
+                                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                        attendanceStatus === 'present' 
+                                          ? 'bg-green-100 text-green-800' 
+                                          : 'bg-red-100 text-red-800'
+                                      }`}>
+                                        {attendanceStatus === 'present' ? '✅ Present' : '❌ Absent'}
+                                      </span>
+                                    </div>
+                                    {userAttendance.performance && (
+                                      <div className="mt-2 text-sm text-blue-800">
+                                        <div className="flex items-center">
+                                          <span className="font-medium">Performance Rating:</span>
+                                          <div className="ml-2 flex">
+                                            {[...Array(5)].map((_, i) => (
+                                              <span key={i} className={`text-lg ${
+                                                i < (userAttendance.performance.rating || 0) 
+                                                  ? 'text-yellow-400' 
+                                                  : 'text-gray-300'
+                                              }`}>
+                                                ⭐
+                                              </span>
+                                            ))}
+                                          </div>
+                                        </div>
+                                        {userAttendance.performance.notes && (
+                                          <p className="mt-1 text-xs">
+                                            <span className="font-medium">Notes:</span> {userAttendance.performance.notes}
+                                          </p>
+                                        )}
+                                      </div>
+                                    )}
+                                    {userAttendance.remarks && (
+                                      <p className="mt-1 text-xs text-blue-800">
+                                        <span className="font-medium">Coach Remarks:</span> {userAttendance.remarks}
+                                      </p>
+                                    )}
+                                    {userAttendance.attendanceMarkedAt && (
+                                      <p className="mt-1 text-xs text-blue-600">
+                                        Marked on: {new Date(userAttendance.attendanceMarkedAt).toLocaleString()}
+                                      </p>
+                                    )}
+                                  </div>
+                                );
+                              } else if (attendanceStatus === 'not_marked') {
+                                return (
+                                  <div className="mt-3 p-2 bg-orange-50 rounded-lg">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-sm font-medium text-orange-900">Attendance:</span>
+                                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                        ⏳ Not Marked
+                                      </span>
+                                    </div>
+                                    <p className="mt-1 text-xs text-orange-700">
+                                      {isUpcomingSession 
+                                        ? 'This session is scheduled for the future.'
+                                        : 'Coach has not marked attendance for this session yet.'
+                                      }
+                                    </p>
+                                  </div>
+                                );
+                              }
+                              return null;
+                            })()}
+                          </div>
+                          <div className="flex flex-col items-end space-y-2">
+                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                              session.status === 'completed' 
+                                ? 'bg-green-100 text-green-800' 
+                                : session.status === 'scheduled'
+                                ? 'bg-blue-100 text-blue-800'
+                                : session.status === 'cancelled'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {session.status === 'completed' ? '✅ Completed' : 
+                               session.status === 'scheduled' ? '📅 Scheduled' : 
+                               session.status === 'cancelled' ? '❌ Cancelled' :
+                               '📋 ' + session.status}
+                            </span>
+                            
+                            {/* Attendance Status Badge */}
+                            {(() => {
+                              // Use backend attendance status if available
+                              const attendanceStatus = participant?.attendanceStatus;
+                              
+                              if (attendanceStatus === 'present' || attendanceStatus === 'absent') {
+                                return (
+                                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                    attendanceStatus === 'present' 
+                                      ? 'bg-green-100 text-green-800' 
+                                      : 'bg-red-100 text-red-800'
+                                  }`}>
+                                    {attendanceStatus === 'present' ? '✅ Present' : '❌ Absent'}
+                                  </span>
+                                );
+                              } else if (attendanceStatus === 'not_marked') {
+                                return (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                    ⏳ Not Marked
+                                  </span>
+                                );
+                              }
+                              
+                              // Fallback to frontend logic if backend status not available
+                              const sessionDate = new Date(session.scheduledDate);
+                              const today = new Date();
+                              today.setHours(0, 0, 0, 0);
+                              const isPastSession = sessionDate < today;
+                              
+                              const hasCoachMarkedAttendance = userAttendance?.attendanceMarkedAt || 
+                                (participant?.attended !== undefined && participant?.attendanceMarkedAt);
+                              
+                              if (isPastSession && hasCoachMarkedAttendance) {
+                                return (
+                                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                    (userAttendance?.attended || participant?.attended) 
+                                      ? 'bg-green-100 text-green-800' 
+                                      : 'bg-red-100 text-red-800'
+                                  }`}>
+                                    {(userAttendance?.attended || participant?.attended) ? '✅ Present' : '❌ Absent'}
+                                  </span>
+                                );
+                              } else {
+                                return (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                    ⏳ Not Marked
+                                  </span>
+                                );
+                              }
+                            })()}
+                          </div>
                         </div>
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                          session.status === 'completed' 
-                            ? 'bg-green-100 text-green-800' 
-                            : session.status === 'scheduled'
-                            ? 'bg-blue-100 text-blue-800'
-                            : session.status === 'cancelled'
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {session.status === 'completed' ? '✅ Completed' : 
-                           session.status === 'scheduled' ? '📅 Scheduled' : 
-                           session.status === 'cancelled' ? '❌ Cancelled' :
-                           '📋 ' + session.status}
-                        </span>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-8">
@@ -849,11 +1187,15 @@ export default function EnrollmentDetails() {
                     <span className="font-medium text-gray-900">{totalSessions}</span>
                   </div>
                   <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Sessions Attended</span>
+                    <span className="font-medium text-green-600">{attendedSessions}</span>
+                  </div>
+                  <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Sessions Completed</span>
                     <span className="font-medium text-gray-900">{completedSessions}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Completion Rate</span>
+                    <span className="text-sm text-gray-600">Attendance Rate</span>
                     <span className="font-medium text-blue-600">{progressPercentage.toFixed(1)}%</span>
                   </div>
                 </div>
@@ -957,9 +1299,9 @@ export default function EnrollmentDetails() {
                 </button>
               </div>
               
-              {sessions.length > 0 ? (
+              {uniqueSessions.length > 0 ? (
                 <div className="space-y-4">
-                  {sessions.map((session) => (
+                  {uniqueSessions.map((session) => (
                     <div key={session._id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
@@ -969,9 +1311,9 @@ export default function EnrollmentDetails() {
                           <p className="text-gray-600 text-sm mb-2">
                             {session.scheduledDate ? new Date(session.scheduledDate).toLocaleDateString() : 'Date TBD'}
                           </p>
-                          {session.scheduledTime && (
+                          {(session.startTime || session.scheduledTime) && (
                             <p className="text-gray-600 text-sm mb-2">
-                              Time: {session.scheduledTime}
+                              Time: {session.startTime || session.scheduledTime}
                             </p>
                           )}
                           {session.ground && (
@@ -1056,9 +1398,9 @@ export default function EnrollmentDetails() {
                 </div>
               </div>
               
-              {sessions.length > 0 ? (
+              {finalUniqueSessions.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {sessions.map((session) => (
+                  {finalUniqueSessions.map((session) => (
                     <div key={session._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                       <div className="flex items-center justify-between mb-2">
                         <h3 className="font-semibold text-gray-900">
@@ -1079,16 +1421,27 @@ export default function EnrollmentDetails() {
                         </span>
                       </div>
                       
-                      <div className="space-y-1 text-sm text-gray-600">
+                        <div className="space-y-1 text-sm text-gray-600">
+                        <p><strong>Week:</strong> Week {session.week || session.sessionNumber || 'N/A'}</p>
                         <p><strong>Date:</strong> {session.scheduledDate ? new Date(session.scheduledDate).toLocaleDateString() : 'TBD'}</p>
-                        {session.scheduledTime && (
-                          <p><strong>Time:</strong> {session.scheduledTime}</p>
+                        {(session.startTime || session.scheduledTime) && (
+                          <p><strong>Time:</strong> {session.startTime || session.scheduledTime}</p>
                         )}
                         {session.ground && (
                           <p><strong>Location:</strong> {session.ground.name || 'TBD'}</p>
                         )}
                         {session.duration && (
                           <p><strong>Duration:</strong> {session.duration} minutes</p>
+                        )}
+                        {session.rescheduled && (
+                          <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
+                            <p className="text-yellow-800 font-medium">🔄 Rescheduled</p>
+                            {session.rescheduledFrom && (
+                              <p className="text-yellow-700">
+                                From: {new Date(session.rescheduledFrom.date).toLocaleDateString()} at {session.rescheduledFrom.time}
+                              </p>
+                            )}
+                          </div>
                         )}
                       </div>
                       
@@ -1194,7 +1547,7 @@ export default function EnrollmentDetails() {
                     <div>
                       <label className="text-sm font-medium text-gray-600">Time</label>
                       <p className="text-gray-900">
-                        {selectedSession.scheduledTime || 'Time TBD'}
+                        {selectedSession.startTime || selectedSession.scheduledTime || 'Time TBD'}
                       </p>
                     </div>
                     <div>
@@ -1203,7 +1556,7 @@ export default function EnrollmentDetails() {
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-600">Week</label>
-                      <p className="text-gray-900">Week {selectedSession.week || 'N/A'}</p>
+                      <p className="text-gray-900">Week {selectedSession.week || selectedSession.sessionNumber || 'N/A'}</p>
                     </div>
                   </div>
                 </div>
@@ -1235,6 +1588,34 @@ export default function EnrollmentDetails() {
                   </div>
                 )}
 
+                {/* Reschedule Information */}
+                {selectedSession.rescheduled && (
+                  <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                    <h3 className="text-lg font-semibold text-orange-900 mb-2">🔄 Rescheduled Session</h3>
+                    <div className="space-y-2">
+                      <p className="text-orange-800">
+                        <strong>Rescheduled on:</strong> {selectedSession.rescheduledAt ? new Date(selectedSession.rescheduledAt).toLocaleDateString() : 'Unknown'}
+                      </p>
+                      {selectedSession.rescheduledFrom && (
+                        <div className="bg-orange-100 p-3 rounded border border-orange-300">
+                          <p className="text-orange-900 font-medium">Previous Schedule:</p>
+                          <p className="text-orange-800">
+                            <strong>Date:</strong> {new Date(selectedSession.rescheduledFrom.date).toLocaleDateString()}
+                          </p>
+                          {selectedSession.rescheduledFrom.time && (
+                            <p className="text-orange-800">
+                              <strong>Time:</strong> {selectedSession.rescheduledFrom.time}
+                            </p>
+                          )}
+                          <p className="text-orange-800">
+                            <strong>Ground Slot:</strong> {selectedSession.rescheduledFrom.groundSlot}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Session Notes */}
                 {selectedSession.notes && (
                   <div className="bg-yellow-50 p-4 rounded-lg">
@@ -1242,6 +1623,115 @@ export default function EnrollmentDetails() {
                     <p className="text-gray-700">{selectedSession.notes}</p>
                   </div>
                 )}
+
+                {/* Attendance Information */}
+                {(() => {
+                  const participant = selectedSession.participants?.find(p => 
+                    p.user && p.user._id === JSON.parse(localStorage.getItem('userInfo'))._id
+                  );
+                  const userAttendance = participant?.attendance || (participant?.attended !== undefined ? {
+                    attended: participant.attended,
+                    status: participant.attended ? 'present' : 'absent',
+                    attendanceMarkedAt: participant.attendanceMarkedAt,
+                    performance: participant.performance,
+                    remarks: participant.remarks
+                  } : null);
+
+                  // Use backend attendance status if available
+                  const attendanceStatus = participant?.attendanceStatus;
+                  const isPastSession = participant?.isPastSession;
+                  const isUpcomingSession = participant?.isUpcomingSession;
+                  const hasAttendanceMarked = participant?.hasAttendanceMarked;
+                  
+                  if (attendanceStatus === 'present' || attendanceStatus === 'absent') {
+                    return (
+                      <div className="bg-blue-50 p-4 rounded-lg">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Attendance</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-sm font-medium text-gray-600">Status</label>
+                            <p className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                              attendanceStatus === 'present' 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-red-100 text-red-800'
+                            }`}>
+                              {attendanceStatus === 'present' ? '✅ Present' : '❌ Absent'}
+                            </p>
+                          </div>
+                          {userAttendance.attendanceMarkedAt && (
+                            <div>
+                              <label className="text-sm font-medium text-gray-600">Marked On</label>
+                              <p className="text-gray-900">
+                                {new Date(userAttendance.attendanceMarkedAt).toLocaleString()}
+                              </p>
+                            </div>
+                          )}
+                          {userAttendance.performance && (
+                            <div>
+                              <label className="text-sm font-medium text-gray-600">Performance Rating</label>
+                              <div className="flex items-center">
+                                <div className="flex">
+                                  {[...Array(5)].map((_, i) => (
+                                    <span key={i} className={`text-lg ${
+                                      i < (userAttendance.performance.rating || 0) 
+                                        ? 'text-yellow-400' 
+                                        : 'text-gray-300'
+                                    }`}>
+                                      ⭐
+                                    </span>
+                                  ))}
+                                </div>
+                                <span className="ml-2 text-sm text-gray-600">
+                                  ({userAttendance.performance.rating}/5)
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                          {userAttendance.remarks && (
+                            <div className="md:col-span-2">
+                              <label className="text-sm font-medium text-gray-600">Coach Remarks</label>
+                              <p className="text-gray-900 bg-white p-2 rounded border">
+                                {userAttendance.remarks}
+                              </p>
+                            </div>
+                          )}
+                          {userAttendance.performance?.notes && (
+                            <div className="md:col-span-2">
+                              <label className="text-sm font-medium text-gray-600">Performance Notes</label>
+                              <p className="text-gray-900 bg-white p-2 rounded border">
+                                {userAttendance.performance.notes}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  } else if (attendanceStatus === 'not_marked') {
+                    return (
+                      <div className="bg-orange-50 p-4 rounded-lg">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Attendance</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-sm font-medium text-gray-600">Status</label>
+                            <p className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">
+                              ⏳ Not Marked
+                            </p>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-600">Note</label>
+                            <p className="text-orange-700 text-sm">
+                              {isUpcomingSession 
+                                ? 'This session is scheduled for the future.'
+                                : 'Coach has not marked attendance for this session yet.'
+                              }
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
 
                 {/* Coach Information */}
               </div>
@@ -1302,8 +1792,9 @@ export default function EnrollmentDetails() {
                       <h4 className="font-semibold text-yellow-800">Rescheduling Rules</h4>
                       <ul className="text-sm text-yellow-700 mt-2 space-y-1">
                         <li>• You can only reschedule sessions that are more than 24 hours away</li>
-                        <li>• Rescheduling must be done within the same week</li>
-                        <li>• New time slot must be available</li>
+                        <li>• <strong>Week Restriction:</strong> Session {selectedSession.sessionNumber} can only be rescheduled within Week {selectedSession.week}</li>
+                        <li>• <strong>Coach Availability:</strong> Only times when your coach is available will be shown</li>
+                        <li>• <strong>Ground Slots:</strong> Only free ground slots can be selected</li>
                         <li>• You can only reschedule once per session</li>
                       </ul>
                     </div>
