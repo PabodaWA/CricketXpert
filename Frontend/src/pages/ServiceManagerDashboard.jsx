@@ -466,6 +466,20 @@ const ServiceManagerDashboard = () => {
             </button>
             <button
               onClick={() => {
+                navigate('/repair-revenue');
+                setShowSidebar(false);
+              }}
+              className="w-full text-left px-4 py-3 rounded-lg font-medium text-gray-700 hover:text-white transition-colors flex items-center space-x-3"
+              onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#42ADF5'; }}
+              onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+              </svg>
+              <span>Repair Revenue</span>
+            </button>
+            <button
+              onClick={() => {
                 navigate('/new-technician');
                 setShowSidebar(false);
               }}
