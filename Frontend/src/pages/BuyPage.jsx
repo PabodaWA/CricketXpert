@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { getCurrentUserId } from '../utils/getCurrentUser';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 
@@ -8,13 +10,26 @@ const BuyPage = () => {
   const navigate = useNavigate();
   const { product } = location.state || {};
   const [quantity, setQuantity] = useState(1);
+  const [cartToken, setCartToken] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  // Get current logged-in user ID
+  const userId = getCurrentUserId();
 
   useEffect(() => {
     if (!product) {
       // If no product data is passed, redirect back to products page
       navigate('/products');
+    } else {
+      // Initialize cart token
+      let token = localStorage.getItem('cartToken');
+      if (!token) {
+        token = `${userId || 'guest'}-${Date.now()}-${Math.random().toString(36).slice(2,10)}`;
+        localStorage.setItem('cartToken', token);
+      }
+      setCartToken(token);
     }
-  }, [product, navigate]);
+  }, [product, navigate, userId]);
 
   const handleQuantityChange = (change) => {
     const newQuantity = quantity + change;
@@ -23,35 +38,72 @@ const BuyPage = () => {
     }
   };
 
-  const handleNextToDelivery = () => {
-    if (!product) return;
+  const handleNextToDelivery = async () => {
+    if (!product || !cartToken) return;
     
-    // Create a cart-like structure for the single product
-    const cart = [{
-      productId: product._id,
-      quantity: quantity
-    }];
+    setLoading(true);
+    try {
+      // Add product to cart in localStorage
+      const currentCart = JSON.parse(localStorage.getItem('cricketCart') || '[]');
+      const existingItemIndex = currentCart.findIndex(item => item.productId === product._id);
+      
+      let updatedCart;
+      if (existingItemIndex >= 0) {
+        // Update existing item quantity
+        updatedCart = [...currentCart];
+        updatedCart[existingItemIndex].quantity = quantity;
+      } else {
+        // Add new item
+        updatedCart = [...currentCart, {
+          productId: product._id,
+          quantity: quantity
+        }];
+      }
+      
+      localStorage.setItem('cricketCart', JSON.stringify(updatedCart));
+      
+      // Sync to Cart_Pending backend
+      await axios.post('http://localhost:5000/api/cart-pending', {
+        cartToken: cartToken,
+        productId: product._id,
+        title: product.name,
+        price: product.price,
+        quantity: quantity
+      });
+      
+      // Create a cart-like structure for the single product (for delivery page)
+      const cart = [{
+        productId: product._id,
+        quantity: quantity
+      }];
 
-    // Calculate totals
-    const subtotal = product.price * quantity;
-    const deliveryFee = 450;
-    const total = subtotal + deliveryFee;
+      // Calculate totals
+      const subtotal = product.price * quantity;
+      const deliveryFee = 450;
+      const total = subtotal + deliveryFee;
 
-    const totalData = {
-      subtotal,
-      deliveryFee,
-      total
-    };
+      const totalData = {
+        subtotal,
+        deliveryFee,
+        total
+      };
 
-    // Navigate to delivery page with the product data
-    navigate('/delivery', { 
-      state: { 
-        cart, 
-        totalData,
-        singleProduct: product,
-        quantity 
-      } 
-    });
+      // Navigate to delivery page with the product data and cartToken
+      navigate('/delivery', { 
+        state: { 
+          cart, 
+          totalData,
+          singleProduct: product,
+          quantity,
+          cartToken
+        } 
+      });
+    } catch (error) {
+      console.error('Error adding product to cart:', error);
+      alert('Error adding product to cart. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (!product) {
@@ -176,9 +228,10 @@ const BuyPage = () => {
             {/* Next Button */}
             <button
               onClick={handleNextToDelivery}
-              className="w-full bg-[#42ADF5] text-white py-4 rounded-lg hover:bg-[#2C8ED1] transition-colors font-semibold text-lg"
+              disabled={loading}
+              className="w-full bg-[#42ADF5] text-white py-4 rounded-lg hover:bg-[#2C8ED1] transition-colors font-semibold text-lg disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              Next: Delivery
+              {loading ? 'Adding to Cart...' : 'Next: Delivery'}
             </button>
 
             {/* Back to Products Button */}
