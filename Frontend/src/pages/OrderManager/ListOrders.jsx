@@ -189,6 +189,12 @@ export default function ListOrders() {
         cancelled: orders.filter(order => order.status === 'cancelled').length
     };
 
+    // Calculate total amount of all orders
+    const totalAmount = orders.reduce((sum, order) => {
+        const amount = order.amount ?? order.total ?? 0;
+        return sum + amount;
+    }, 0);
+
     return (
         <div className="space-y-6">
             <div className="bg-white p-6 rounded-2xl shadow-lg">
@@ -281,6 +287,20 @@ export default function ListOrders() {
                             <p className="text-2xl font-bold text-red-700">{orderStats.cancelled}</p>
                         </div>
                         <XCircle className="text-red-500" size={24} />
+                    </div>
+                </div>
+            </div>
+
+            {/* Total Amount Section */}
+            <div className="bg-gradient-to-r from-[#072679] to-[#0a3a9e] p-6 rounded-2xl shadow-lg text-white">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h2 className="text-2xl font-bold mb-2">Total Amount of Orders</h2>
+                        <p className="text-blue-100">Sum of all order amounts in the system</p>
+                    </div>
+                    <div className="text-right">
+                        <div className="text-4xl font-bold">LKR {totalAmount.toFixed(2)}</div>
+                        <div className="text-blue-100 text-sm">Across {orderStats.total} orders</div>
                     </div>
                 </div>
             </div>
