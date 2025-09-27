@@ -14,6 +14,7 @@ const ChatAlt2Icon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-
 const PlusCircleIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const LogoutIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>;
 const PayrollIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
+const ChartBarIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>;
 
 export default function AdminLayout() {
     const [showSidebar, setShowSidebar] = useState(false);
@@ -74,6 +75,9 @@ export default function AdminLayout() {
                         </a>
                         <Link to="/admin/payroll" className={`flex items-center px-4 py-2 rounded-lg font-medium transition-colors ${isActive('/admin/payroll') ? 'bg-secondary text-white' : 'text-text-body hover:bg-gray-100'}`}>
                            <PayrollIcon /> Payroll Management
+                        </Link>
+                        <Link to="/admin/revenue-analytics" className={`flex items-center px-4 py-2 rounded-lg font-medium transition-colors ${isActive('/admin/revenue-analytics') ? 'bg-secondary text-white' : 'text-text-body hover:bg-gray-100'}`}>
+                           <ChartBarIcon /> Revenue Analytics
                         </Link>
                         <a href="/admin/inventory" className="flex items-center px-4 py-2 rounded-lg font-medium text-text-body hover:bg-gray-100">
                            <PlusCircleIcon /> Inventory

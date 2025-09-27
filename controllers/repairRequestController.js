@@ -760,7 +760,61 @@ const deleteRepairRequest = async (req, res) => {
 };
 
 /**
- * 13 Submit Feedback
+ * 13 Get Repair Revenue Data
+ * - Returns repair requests with cost estimates for revenue calculation
+ * - Supports filtering by month and year
+ */
+const getRepairRevenue = async (req, res) => {
+  try {
+    const { month, year, status } = req.query;
+    
+    // Build filter object
+    let filter = {
+      costEstimate: { $exists: true, $gt: 0 } // Only requests with cost estimates
+    };
+    
+    // Add date filter if month/year provided
+    if (month && year) {
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 0, 23, 59, 59);
+      filter.createdAt = { $gte: startDate, $lte: endDate };
+    } else if (year) {
+      const startDate = new Date(year, 0, 1);
+      const endDate = new Date(year, 11, 31, 23, 59, 59);
+      filter.createdAt = { $gte: startDate, $lte: endDate };
+    }
+    
+    // Add status filter if provided
+    if (status) {
+      filter.status = status;
+    }
+    
+    const requests = await RepairRequest.find(filter)
+      .populate('customerId', 'username email')
+      .populate({ path: 'assignedTechnician', populate: { path: 'technicianId', select: 'username email' } })
+      .sort({ createdAt: -1 });
+    
+    // Calculate totals
+    const totalRevenue = requests.reduce((sum, request) => sum + (request.costEstimate || 0), 0);
+    const totalRequests = requests.length;
+    const averageEstimate = totalRequests > 0 ? totalRevenue / totalRequests : 0;
+    
+    res.json({
+      requests,
+      summary: {
+        totalRevenue,
+        totalRequests,
+        averageEstimate: Math.round(averageEstimate)
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching repair revenue data:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+/**
+ * 14 Submit Feedback
  * - Customer submits feedback for a completed repair request.
  * - Creates a feedback record and notifies service manager.
  */
@@ -865,6 +919,7 @@ export default {
   assignTechnician,
   updateProgress,
   downloadAndEmailReport,
+  getRepairRevenue,
   submitFeedback
 };
  

@@ -19,6 +19,7 @@ import UserManagement from './pages/UserManagement.jsx';
 import AllPayments from './pages/Allpayments.jsx'; 
 import Inventorys from './pages/Inventory.jsx';
 import PayrollManagement from './pages/PayrollManagement.jsx'; 
+import RevenueAnalytics from './pages/RevenueAnalytics.jsx';
 import MyOrders from './pages/MyOrders.jsx';
 
 // --- New E-commerce Pages ---
@@ -70,6 +71,7 @@ import Header from './components/Header';
 import Footer from './components/Footer';
 import NewTechnicianForm from './pages/NewTechnicianForm';
 import TestPage from './pages/TestPage';
+import RepairRevenue from './pages/RepairRevenue';
 
 // Wrapper to pass URL param
 function CustomerDashboardWrapper() {
@@ -152,6 +154,7 @@ export default function App() {
         <Route path="/manager" element={<ServiceManagerDashboard />} />
         <Route path="/technician" element={<TechnicianDashboard />} />
         <Route path="/new-technician" element={<NewTechnicianForm />} />
+        <Route path="/repair-revenue" element={<RepairRevenue />} />
         <Route path="/about" element={<AboutUs />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/terms" element={<TermsAndConditions />} />
@@ -171,6 +174,7 @@ export default function App() {
                 <Route path="users" element={<UserManagement />} />
                 <Route path="payments" element={<AllPayments />} />
                 <Route path="payroll" element={<PayrollManagement />} />
+                <Route path="revenue-analytics" element={<RevenueAnalytics />} />
                 <Route path="inventory" element={<Inventorys />} />
                 <Route path="profile" element={<Profile />} />
                 <Route path="edit-account" element={<EditAccount />} />
