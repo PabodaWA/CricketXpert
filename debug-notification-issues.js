@@ -241,3 +241,4 @@ console.log('- debugBellIconState() - Check bell icon state');
 console.log('- debugCustomerPageState() - Check customer page state');
 console.log('- testMarkAsRead() - Test mark as read with first notification');
 console.log('\nRun debugAllNotificationIssues() to start debugging!');
+
