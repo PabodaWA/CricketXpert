@@ -26,6 +26,7 @@ import syncRoutes from './routes/sync.js';
 
 // --- Repair Service Routes ---
 import repairRoutes from './routes/repairRequestRoutes.js';
+import repairNotificationRoutes from './routes/repairNotificationRoutes.js';
 import feedbackRoutes from './routes/feedbackRoutes.js';
 import technicianRoutes from './routes/technicianRoutes.js';
 import userRoutes from './routes/userRoutes.js';
@@ -74,6 +75,7 @@ app.use('/api/sync', syncRoutes);
 
 // --- Repair Service API Routes ---
 app.use('/api/repairs', repairRoutes);
+app.use('/api/repair-notifications', repairNotificationRoutes);
 app.use('/api/feedbacks', feedbackRoutes);
 app.use('/api/technicians', technicianRoutes);
 app.use('/api/users', userRoutes);
