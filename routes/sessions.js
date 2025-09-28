@@ -1,4 +1,5 @@
 import express from 'express';
+import { protect, authorizeRoles } from '../middleware/authMiddleware.js';
 const router = express.Router();
 import {
   getAllSessions,
@@ -15,6 +16,7 @@ import {
   getSessionsByEnrollment,
   getGroundAvailability,
   rescheduleSession,
+  reassignSessionCoach,
   customerRescheduleSession,
   cleanupDuplicateSessions,
   removeExtraSessions,
@@ -30,7 +32,6 @@ import {
   cleanupFutureAttendance,
   downloadSessionPDF
 } from '../controllers/sessionController.js';
-import { protect, authorizeRoles } from '../middleware/authMiddleware.js';
 
 // Debug routes (MUST be first to avoid conflicts with /:id routes)
 router.get('/debug/enrollment/:enrollmentId', debugEnrollmentAttendance);
@@ -62,6 +63,10 @@ router.put('/reschedule', (req, res, next) => {
 
 // General session routes
 router.get('/', getAllSessions);
+router.get('/:id/download-pdf', (req, res, next) => {
+  console.log('Download PDF route hit with ID:', req.params.id);
+  next();
+}, downloadSessionPDF);
 router.get('/:id', getSession);
 
 // Coach only routes
@@ -71,6 +76,7 @@ router.delete('/:id', /* authorize('coach', 'admin'), */ deleteSession);
 
 // Manager/Admin only routes
 router.put('/:id/reschedule', /* authorize('manager', 'admin'), */ rescheduleSession);
+router.put('/:id/reassign-coach', protect, authorizeRoles('coaching_manager', 'admin'), reassignSessionCoach);
 
 // Coach attendance management
 router.put('/:id/attendance', /* authorize('coach', 'admin'), */ markAttendance);
@@ -89,9 +95,6 @@ router.get('/enrollment/:enrollmentId', getSessionsByEnrollment);
 
 // Ground availability
 router.get('/ground/:groundId/availability', getGroundAvailability);
-
-// PDF download route
-router.get('/:id/download-pdf', downloadSessionPDF);
 
 // Debug route
 router.post('/debug', debugSessionCreation);

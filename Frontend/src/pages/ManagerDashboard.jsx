@@ -27,7 +27,9 @@ import {
   Award,
   Bell,
   Menu,
-  X
+  X,
+  UserCheck,
+  UserX
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -75,9 +77,7 @@ const ManagerDashboard = () => {
     url: ''
   });
   const [rescheduleForm, setRescheduleForm] = useState({
-    newDate: '',
-    newStartTime: '',
-    newEndTime: '',
+    newCoachId: '',
     reason: ''
   });
   const [coachForm, setCoachForm] = useState({
@@ -104,10 +104,25 @@ const ManagerDashboard = () => {
       setLoading(true);
       setError(null);
       
+      // Get authentication token from localStorage
+      const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+      
+      if (!userInfo || !userInfo.token) {
+        console.warn('No authentication token found, redirecting to login');
+        navigate('/login');
+        return;
+      }
+      
+      const config = {
+        headers: {
+          Authorization: `Bearer ${userInfo.token}`,
+        },
+      };
+      
       // Try to fetch from API, but fallback to mock data if API is not available
       try {
         // Fetch programs first (this should work)
-        const programsRes = await axios.get('http://localhost:5000/api/programs');
+        const programsRes = await axios.get('http://localhost:5000/api/programs', config);
         const programsData = programsRes.data.data?.docs || programsRes.data.data || programsRes.data || [];
         setPrograms(programsData);
         console.log('Programs fetched successfully:', programsData.length);
@@ -115,20 +130,59 @@ const ManagerDashboard = () => {
 
         // Try to fetch coaches and sessions, but don't fail if they don't work
         try {
-          const coachesRes = await axios.get('http://localhost:5000/api/coaches');
+          const coachesRes = await axios.get('http://localhost:5000/api/coaches', config);
           const coachesData = coachesRes.data.data?.docs || coachesRes.data.data || coachesRes.data || [];
           setCoaches(coachesData);
           console.log('Coaches fetched successfully:', coachesData.length);
+          console.log('Coaches data structure:', coachesData);
         } catch (coachError) {
-          console.warn('Coaches API not available, using empty array:', coachError);
-          setCoaches([]);
+          console.warn('Coaches API not available, using mock data:', coachError);
+          // Use mock coaches for development
+          const mockCoaches = [
+            {
+              _id: 'coach1',
+              userId: {
+                firstName: 'John',
+                lastName: 'Smith',
+                email: 'john.smith@example.com'
+              },
+              specializations: ['Batting', 'Bowling'],
+              experience: 5,
+              isActive: true
+            },
+            {
+              _id: 'coach2',
+              userId: {
+                firstName: 'Sarah',
+                lastName: 'Johnson',
+                email: 'sarah.johnson@example.com'
+              },
+              specializations: ['Fielding', 'Wicket Keeping'],
+              experience: 8,
+              isActive: true
+            },
+            {
+              _id: 'coach3',
+              userId: {
+                firstName: 'Mike',
+                lastName: 'Davis',
+                email: 'mike.davis@example.com'
+              },
+              specializations: ['Bowling', 'Fitness'],
+              experience: 6,
+              isActive: true
+            }
+          ];
+          setCoaches(mockCoaches);
         }
 
         try {
-          const sessionsRes = await axios.get('http://localhost:5000/api/sessions');
+          // Fetch all sessions by setting a high limit
+          const sessionsRes = await axios.get('http://localhost:5000/api/sessions?limit=100', config);
           const sessionsData = sessionsRes.data.data?.docs || sessionsRes.data.data || sessionsRes.data || [];
           setSessions(sessionsData);
           console.log('Sessions fetched successfully:', sessionsData.length);
+          console.log('Sessions data:', sessionsData);
         } catch (sessionError) {
           console.warn('Sessions API not available, using empty array:', sessionError);
           setSessions([]);
@@ -450,28 +504,51 @@ const ManagerDashboard = () => {
 
   const handleRescheduleSession = async (e) => {
     e.preventDefault();
+    
+    if (!rescheduleForm.newCoachId) {
+      alert('Please select a coach to reassign this session to.');
+      return;
+    }
+    
     try {
-      await axios.put(`/api/sessions/${selectedSession._id}/reschedule`, rescheduleForm);
+      // Get authentication token
+      const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+      if (!userInfo || !userInfo.token) {
+        alert('Authentication required. Please login again.');
+        return;
+      }
+      
+      const config = {
+        headers: {
+          Authorization: `Bearer ${userInfo.token}`,
+        },
+      };
+      
+      // Call API to reassign session to new coach
+      await axios.put(`http://localhost:5000/api/sessions/${selectedSession._id}/reassign-coach`, {
+        newCoachId: rescheduleForm.newCoachId,
+        reason: rescheduleForm.reason
+      }, config);
       await fetchDashboardData(); // Refresh data
       setShowRescheduleModal(false);
       setSelectedSession(null);
-      setRescheduleForm({ newDate: '', newStartTime: '', newEndTime: '', reason: '' });
+      setRescheduleForm({ newCoachId: '', reason: '' });
+      alert('Session coach reassigned successfully!');
     } catch (error) {
-      console.error('Error rescheduling session:', error);
+      console.error('Error reassigning session coach:', error);
       // For development, update local state even if API fails
+      const newCoach = coaches.find(c => c._id === rescheduleForm.newCoachId);
       const updatedSession = {
         ...selectedSession,
-        scheduledDate: new Date(rescheduleForm.newDate).toISOString(),
-        startTime: rescheduleForm.newStartTime,
-        endTime: rescheduleForm.newEndTime,
+        coach: newCoach,
         status: 'rescheduled',
-        notes: rescheduleForm.reason ? `Rescheduled: ${rescheduleForm.reason}` : 'Session rescheduled by manager'
+        notes: rescheduleForm.reason ? `Coach reassigned: ${rescheduleForm.reason}` : 'Session coach reassigned by manager'
       };
       setSessions(sessions.map(s => s._id === selectedSession._id ? updatedSession : s));
       setShowRescheduleModal(false);
       setSelectedSession(null);
-      setRescheduleForm({ newDate: '', newStartTime: '', newEndTime: '', reason: '' });
-      alert('Session rescheduled locally (API not available)');
+      setRescheduleForm({ newCoachId: '', reason: '' });
+      alert('Session coach reassigned locally (API not available)');
     }
   };
 
@@ -499,6 +576,30 @@ const ManagerDashboard = () => {
     } catch (error) {
       console.error('Error refreshing data:', error);
       alert('Error refreshing data. Please try again.');
+    }
+  };
+
+  const handleSessionsRefresh = async () => {
+    try {
+      const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+      if (!userInfo || !userInfo.token) {
+        console.warn('No authentication token found');
+        return;
+      }
+      
+      const config = {
+        headers: {
+          Authorization: `Bearer ${userInfo.token}`,
+        },
+      };
+      
+      // Fetch all sessions with high limit
+      const sessionsRes = await axios.get('http://localhost:5000/api/sessions?limit=100', config);
+      const sessionsData = sessionsRes.data.data?.docs || sessionsRes.data.data || sessionsRes.data || [];
+      setSessions(sessionsData);
+      console.log('Sessions refreshed successfully:', sessionsData.length);
+    } catch (error) {
+      console.error('Error refreshing sessions:', error);
     }
   };
 
@@ -921,10 +1022,13 @@ const ManagerDashboard = () => {
           {activeTab === 'sessions' && (
             <SessionsTab 
               sessions={sessions} 
+              coaches={coaches}
+              programs={programs}
               onReschedule={(session) => {
                 setSelectedSession(session);
                 setShowRescheduleModal(true);
               }}
+              onSessionsRefresh={handleSessionsRefresh}
             />
           )}
           {activeTab === 'reports' && <ReportsTab coaches={coaches} programs={programs} sessions={sessions} />}
@@ -984,8 +1088,9 @@ const ManagerDashboard = () => {
           onClose={() => {
             setShowRescheduleModal(false);
             setSelectedSession(null);
-            setRescheduleForm({ newDate: '', newStartTime: '', newEndTime: '', reason: '' });
+            setRescheduleForm({ newCoachId: '', reason: '' });
           }}
+          coaches={coaches}
         />
       )}
 
@@ -2059,13 +2164,22 @@ const CoachesTab = ({ coaches, programs, onRefresh, onViewDetails }) => {
   );
 };
 
-// Sessions Tab Component
-const SessionsTab = ({ sessions, onReschedule }) => {
+// Enhanced Sessions Tab Component
+const SessionsTab = ({ sessions, onReschedule, coaches, programs, onSessionsRefresh }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [coachFilter, setCoachFilter] = useState('all');
+  const [programFilter, setProgramFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('scheduledDate');
+  const [sortOrder, setSortOrder] = useState('asc');
+
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       weekday: 'short',
       month: 'short',
-      day: 'numeric'
+      day: 'numeric',
+      year: 'numeric'
     });
   };
 
@@ -2077,28 +2191,355 @@ const SessionsTab = ({ sessions, onReschedule }) => {
     });
   };
 
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'scheduled': return 'bg-blue-100 text-blue-800';
+      case 'in-progress': return 'bg-yellow-100 text-yellow-800';
+      case 'completed': return 'bg-green-100 text-green-800';
+      case 'cancelled': return 'bg-red-100 text-red-800';
+      case 'rescheduled': return 'bg-orange-100 text-orange-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getDateFilter = (session) => {
+    const sessionDate = new Date(session.scheduledDate);
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const nextWeek = new Date(today);
+    nextWeek.setDate(nextWeek.getDate() + 7);
+
+    if (dateFilter === 'today') {
+      return sessionDate.toDateString() === today.toDateString();
+    } else if (dateFilter === 'tomorrow') {
+      return sessionDate.toDateString() === tomorrow.toDateString();
+    } else if (dateFilter === 'thisWeek') {
+      return sessionDate >= today && sessionDate <= nextWeek;
+    } else if (dateFilter === 'past') {
+      return sessionDate < today;
+    } else if (dateFilter === 'future') {
+      return sessionDate > today;
+    }
+    return true;
+  };
+
+  const filteredSessions = sessions.filter(session => {
+    const matchesSearch = session.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         session.program?.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         session.coach?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // Handle attendance-based filtering
+    let matchesStatus = true;
+    if (statusFilter === 'attendance-marked') {
+      // Only consider past sessions for attendance marking
+      const sessionDate = new Date(session.scheduledDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      if (sessionDate <= today) {
+        // Check if any participant has attendance marked (only for past sessions)
+        const hasAttendanceMarked = session.participants?.some(participant => 
+          participant.attended !== undefined || participant.attendanceMarkedAt
+        );
+        matchesStatus = hasAttendanceMarked;
+      } else {
+        // Future sessions cannot have attendance marked
+        matchesStatus = false;
+      }
+    } else if (statusFilter === 'attendance-not-marked') {
+      // Only consider past sessions for attendance not marked
+      const sessionDate = new Date(session.scheduledDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      if (sessionDate <= today) {
+        // Check if no participant has attendance marked (only for past sessions)
+        const hasAttendanceMarked = session.participants?.some(participant => 
+          participant.attended !== undefined || participant.attendanceMarkedAt
+        );
+        matchesStatus = !hasAttendanceMarked;
+      } else {
+        // Future sessions are not eligible for attendance marking
+        matchesStatus = false;
+      }
+    } else if (statusFilter === 'future-sessions') {
+      // Show only future sessions
+      const sessionDate = new Date(session.scheduledDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      matchesStatus = sessionDate > today;
+    } else {
+      // Regular status filtering
+      matchesStatus = statusFilter === 'all' || session.status === statusFilter;
+    }
+    
+    const matchesCoach = coachFilter === 'all' || session.coach?._id === coachFilter;
+    const matchesProgram = programFilter === 'all' || session.program?._id === programFilter;
+    const matchesDate = getDateFilter(session);
+
+    return matchesSearch && matchesStatus && matchesCoach && matchesProgram && matchesDate;
+  });
+
+  const sortedSessions = [...filteredSessions].sort((a, b) => {
+    let aValue, bValue;
+    
+    switch (sortBy) {
+      case 'title':
+        aValue = a.title.toLowerCase();
+        bValue = b.title.toLowerCase();
+        break;
+      case 'program':
+        aValue = a.program?.title?.toLowerCase() || '';
+        bValue = b.program?.title?.toLowerCase() || '';
+        break;
+      case 'coach':
+        aValue = a.coach?.name?.toLowerCase() || '';
+        bValue = b.coach?.name?.toLowerCase() || '';
+        break;
+      case 'status':
+        aValue = a.status;
+        bValue = b.status;
+        break;
+      case 'scheduledDate':
+      default:
+        aValue = new Date(a.scheduledDate);
+        bValue = new Date(b.scheduledDate);
+        break;
+    }
+
+    if (sortOrder === 'asc') {
+      return aValue > bValue ? 1 : -1;
+    } else {
+      return aValue < bValue ? 1 : -1;
+    }
+  });
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const sessionStats = {
+    total: sessions.length,
+    scheduled: sessions.filter(s => s.status === 'scheduled').length,
+    inProgress: sessions.filter(s => s.status === 'in-progress').length,
+    completed: sessions.filter(s => s.status === 'completed').length,
+    cancelled: sessions.filter(s => s.status === 'cancelled').length,
+    attendanceMarked: sessions.filter(s => {
+      const sessionDate = new Date(s.scheduledDate);
+      return sessionDate <= today && s.participants?.some(participant => 
+        participant.attended !== undefined || participant.attendanceMarkedAt
+      );
+    }).length,
+    attendanceNotMarked: sessions.filter(s => {
+      const sessionDate = new Date(s.scheduledDate);
+      return sessionDate <= today && !s.participants?.some(participant => 
+        participant.attended !== undefined || participant.attendanceMarkedAt
+      );
+    }).length
+  };
+
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Sessions</h2>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">All Sessions</h2>
+          <p className="text-gray-600">Manage and monitor all coaching sessions</p>
+        </div>
+        <div className="flex items-center space-x-4">
+          <button
+            onClick={onSessionsRefresh}
+            className="flex items-center px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh Sessions
+          </button>
+        </div>
       </div>
 
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+        <div className="bg-white rounded-lg shadow p-4">
+          <div className="flex items-center">
+            <Calendar className="h-8 w-8 text-blue-600" />
+            <div className="ml-3">
+              <p className="text-sm font-medium text-gray-500">Total Sessions</p>
+              <p className="text-2xl font-bold text-gray-900">{sessionStats.total}</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-4">
+          <div className="flex items-center">
+            <Clock className="h-8 w-8 text-blue-600" />
+            <div className="ml-3">
+              <p className="text-sm font-medium text-gray-500">Scheduled</p>
+              <p className="text-2xl font-bold text-blue-600">{sessionStats.scheduled}</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-4">
+          <div className="flex items-center">
+            <Star className="h-8 w-8 text-yellow-600" />
+            <div className="ml-3">
+              <p className="text-sm font-medium text-gray-500">In Progress</p>
+              <p className="text-2xl font-bold text-yellow-600">{sessionStats.inProgress}</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-4">
+          <div className="flex items-center">
+            <Award className="h-8 w-8 text-green-600" />
+            <div className="ml-3">
+              <p className="text-sm font-medium text-gray-500">Completed</p>
+              <p className="text-2xl font-bold text-green-600">{sessionStats.completed}</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-4">
+          <div className="flex items-center">
+            <UserCheck className="h-8 w-8 text-green-600" />
+            <div className="ml-3">
+              <p className="text-sm font-medium text-gray-500">Attendance Marked</p>
+              <p className="text-2xl font-bold text-green-600">{sessionStats.attendanceMarked}</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-4">
+          <div className="flex items-center">
+            <UserX className="h-8 w-8 text-orange-600" />
+            <div className="ml-3">
+              <p className="text-sm font-medium text-gray-500">Attendance Not Marked</p>
+              <p className="text-2xl font-bold text-orange-600">{sessionStats.attendanceNotMarked}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search sessions..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All Status</option>
+              <option value="scheduled">Scheduled</option>
+              <option value="attendance-marked">Attendance Marked</option>
+              <option value="future-sessions">Future Session</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Coach</label>
+            <select
+              value={coachFilter}
+              onChange={(e) => setCoachFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All Coaches</option>
+              {coaches.map(coach => (
+                <option key={coach._id} value={coach._id}>
+                  {coach.name || `${coach.userId?.firstName} ${coach.userId?.lastName}`}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Program</label>
+            <select
+              value={programFilter}
+              onChange={(e) => setProgramFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All Programs</option>
+              {programs.map(program => (
+                <option key={program._id} value={program._id}>
+                  {program.title}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+            <select
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All Dates</option>
+              <option value="today">Today</option>
+              <option value="tomorrow">Tomorrow</option>
+              <option value="thisWeek">This Week</option>
+              <option value="past">Past Sessions</option>
+              <option value="future">Future Sessions</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Sort By</label>
+            <div className="flex space-x-2">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="scheduledDate">Date</option>
+                <option value="title">Title</option>
+                <option value="program">Program</option>
+                <option value="coach">Coach</option>
+                <option value="status">Status</option>
+              </select>
+              <button
+                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                title={`Sort ${sortOrder === 'asc' ? 'Descending' : 'Ascending'}`}
+              >
+                {sortOrder === 'asc' ? '↑' : '↓'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Sessions Table */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Session
+                  Session Details
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Program
+                  Program & Coach
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Date & Time
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Participants
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Ground
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
@@ -2109,51 +2550,137 @@ const SessionsTab = ({ sessions, onReschedule }) => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {sessions.map((session) => (
-                <tr key={session._id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{session.title}</div>
-                    <div className="text-sm text-gray-500">Session {session.sessionNumber}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{session.program?.title}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{formatDate(session.scheduledDate)}</div>
-                    <div className="text-sm text-gray-500">
-                      {formatTime(session.startTime)} - {formatTime(session.endTime)}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {session.participants?.length || 0}/{session.maxParticipants}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      session.status === 'scheduled' ? 'bg-blue-100 text-blue-800' :
-                      session.status === 'in-progress' ? 'bg-yellow-100 text-yellow-800' :
-                      session.status === 'completed' ? 'bg-green-100 text-green-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {session.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <button
-                      onClick={() => onReschedule(session)}
-                      className="text-orange-600 hover:text-orange-900"
-                      title="Reschedule Session"
-                    >
-                      <RefreshCw className="h-4 w-4" />
-                    </button>
+              {sortedSessions.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="px-6 py-12 text-center">
+                    <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No Sessions Found</h3>
+                    <p className="text-gray-500">
+                      {sessions.length === 0 
+                        ? 'No sessions have been created yet.' 
+                        : 'No sessions match your current filters.'}
+                    </p>
                   </td>
                 </tr>
-              ))}
+              ) : (
+                sortedSessions.map((session) => (
+                  <tr key={session._id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{session.title}</div>
+                      <div className="text-sm text-gray-500">
+                        Session {session.sessionNumber} • Week {session.week}
+                      </div>
+                      {session.rescheduled && (
+                        <div className="text-xs text-orange-600 font-medium">
+                          Rescheduled
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{session.program?.title}</div>
+                      <div className="text-sm text-gray-500">
+                        {session.coach?.name || `${session.coach?.userId?.firstName} ${session.coach?.userId?.lastName}`}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{formatDate(session.scheduledDate)}</div>
+                      <div className="text-sm text-gray-500">
+                        {formatTime(session.startTime)} - {formatTime(session.endTime)}
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        Duration: {session.duration} min
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      {/* Customer Names */}
+                      {session.participants && session.participants.length > 0 ? (
+                        <div className="space-y-1">
+                          {session.participants.slice(0, 3).map((participant, index) => (
+                            <div key={index} className="text-xs text-gray-700 bg-gray-50 px-2 py-1 rounded">
+                              {participant.user?.firstName} {participant.user?.lastName}
+                              {participant.attended !== undefined && (
+                                <span className={`ml-2 text-xs ${participant.attended ? 'text-green-600' : 'text-red-600'}`}>
+                                  {participant.attended ? '✓' : '✗'}
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                          {session.participants.length > 3 && (
+                            <div className="text-xs text-gray-500">
+                              +{session.participants.length - 3} more
+                            </div>
+                          )}
+                          <div className="text-xs text-gray-500 mt-1">
+                            {session.participants?.filter(p => p.attended).length || 0} attended
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-sm text-gray-500">No participants</div>
+                      )}
+                      <div className="text-xs mt-1">
+                        {(() => {
+                          const sessionDate = new Date(session.scheduledDate);
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0);
+                          
+                          if (sessionDate > today) {
+                            return <span className="text-gray-500 font-medium">📅 Future Session</span>;
+                          } else if (session.participants?.some(p => p.attended !== undefined || p.attendanceMarkedAt)) {
+                            return <span className="text-green-600 font-medium">✓ Attendance Marked</span>;
+                          } else {
+                            return <span className="text-orange-600 font-medium">⚠ Not Marked</span>;
+                          }
+                        })()}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{session.ground?.name}</div>
+                      <div className="text-sm text-gray-500">Slot {session.groundSlot}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(session.status)}`}>
+                        {session.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => onReschedule(session)}
+                          className="text-orange-600 hover:text-orange-900"
+                          title="Reassign Session Coach"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                        </button>
+                        <button
+                          className="text-blue-600 hover:text-blue-900"
+                          title="View Details"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* Results Summary */}
+      {sortedSessions.length > 0 && (
+        <div className="bg-gray-50 rounded-lg p-4">
+          <p className="text-sm text-gray-600">
+            Showing {sortedSessions.length} of {sessions.length} sessions
+            {searchTerm && ` matching "${searchTerm}"`}
+            {statusFilter !== 'all' && (
+              statusFilter === 'attendance-marked' ? ' with attendance marked' :
+              statusFilter === 'future-sessions' ? ' (future sessions)' :
+              ` with status "${statusFilter}"`
+            )}
+          </p>
+        </div>
+      )}
     </div>
   );
 };
@@ -2507,12 +3034,12 @@ const AssignCoachModal = ({ program, coaches, onAssign, onClose }) => {
 };
 
 // Reschedule Modal Component
-const RescheduleModal = ({ session, form, setForm, onSubmit, onClose }) => {
+const RescheduleModal = ({ session, form, setForm, onSubmit, onClose, coaches }) => {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg max-w-md w-full">
         <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-          <h2 className="text-xl font-semibold text-gray-900">Reschedule Session</h2>
+          <h2 className="text-xl font-semibold text-gray-900">Reassign Session Coach</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -2532,47 +3059,61 @@ const RescheduleModal = ({ session, form, setForm, onSubmit, onClose }) => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">New Date</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Current Coach</label>
             <input
-              type="date"
-              value={form.newDate}
-              onChange={(e) => setForm({...form, newDate: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
+              type="text"
+              value={session.coach?.userId ? `${session.coach.userId.firstName} ${session.coach.userId.lastName}` : 'Unknown Coach'}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100"
+              disabled
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
-              <input
-                type="time"
-                value={form.newStartTime}
-                onChange={(e) => setForm({...form, newStartTime: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Reassign to Coach</label>
+            <div className="flex space-x-2">
+              <select
+                value={form.newCoachId}
+                onChange={(e) => setForm({...form, newCoachId: e.target.value})}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
-              />
+              >
+                <option value="">Select a coach</option>
+                {coaches && coaches.length > 0 ? (
+                  coaches.map(coach => (
+                    <option key={coach._id} value={coach._id}>
+                      {coach.userId?.firstName} {coach.userId?.lastName}
+                      {coach.specializations?.length > 0 && ` (${coach.specializations.slice(0, 2).join(', ')})`}
+                    </option>
+                  ))
+                ) : (
+                  <option value="" disabled>No coaches available</option>
+                )}
+              </select>
+              <button
+                type="button"
+                onClick={() => {
+                  console.log('Refreshing coaches...');
+                  window.location.reload();
+                }}
+                className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
+                title="Refresh coaches data"
+              >
+                🔄
+              </button>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">End Time</label>
-              <input
-                type="time"
-                value={form.newEndTime}
-                onChange={(e) => setForm({...form, newEndTime: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-            </div>
+            {coaches && coaches.length === 0 && (
+              <p className="text-sm text-red-600 mt-1">No coaches found. Click refresh button to reload coaches.</p>
+            )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Reason</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Reason for Coach Reassignment</label>
             <textarea
               value={form.reason}
               onChange={(e) => setForm({...form, reason: e.target.value})}
               rows={3}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Reason for rescheduling..."
+              placeholder="Reason for reassigning this session to a different coach..."
             />
           </div>
 
@@ -2588,7 +3129,7 @@ const RescheduleModal = ({ session, form, setForm, onSubmit, onClose }) => {
               type="submit"
               className="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700"
             >
-              Reschedule Session
+              Reassign Coach
             </button>
           </div>
         </form>
