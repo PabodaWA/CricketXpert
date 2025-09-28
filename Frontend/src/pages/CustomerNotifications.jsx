@@ -522,10 +522,6 @@ const CustomerNotifications = () => {
                               clearNotification(index);
                             }
                           }}
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                          }}
                           className="ml-4 text-gray-400 hover:text-red-500 transition-colors"
                           title="Remove notification"
                         >
