@@ -5,6 +5,7 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import CoachAvailability from '../components/CoachAvailability';
 import WeeklySessionBooking from '../components/WeeklySessionBooking';
+import CertificateDownload from '../components/CertificateDownload';
 
 export default function EnrollmentDetails() {
   const { enrollmentId } = useParams();
@@ -1215,11 +1216,24 @@ export default function EnrollmentDetails() {
               )}
 
               {enrollment.status === 'completed' && (
-                <div className="text-center py-4 bg-green-50 rounded-lg">
+                <div className="text-center py-4 bg-green-50 rounded-lg mb-4">
                   <div className="text-green-600 text-2xl mb-2">🎓</div>
                   <p className="text-green-800 font-medium">Program Completed!</p>
                   <p className="text-green-600 text-sm">Congratulations on finishing the program!</p>
                 </div>
+              )}
+
+              {/* Certificate Download Section */}
+              {(enrollment.status === 'completed' || enrollment.status === 'active') && (
+                <CertificateDownload 
+                  enrollmentId={enrollmentId}
+                  enrollmentStatus={enrollment.status}
+                  onCertificateGenerated={(certificate) => {
+                    console.log('Certificate generated:', certificate);
+                    // Optionally refresh enrollment data
+                    fetchEnrollmentDetails();
+                  }}
+                />
               )}
             </div>
           </div>
@@ -1735,14 +1749,45 @@ export default function EnrollmentDetails() {
               {/* Action Buttons */}
               <div className="flex justify-between items-center mt-8 pt-6 border-t">
                 <div className="flex space-x-3">
-                  {selectedSession.status === 'scheduled' && (
-                    <button
-                      onClick={() => handleReschedule(selectedSession)}
-                      className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
-                    >
-                      📅 Reschedule Session
-                    </button>
-                  )}
+                  {selectedSession.status === 'scheduled' && (() => {
+                    // Check if attendance has been marked - only check for actual attendance records
+                    const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+                    const participant = selectedSession.participants?.find(p => p.user && p.user._id === userInfo._id);
+                    
+                    // Debug logging
+                    console.log('Reschedule check - Participant data:', participant);
+                    console.log('Attendance status:', participant?.attendanceStatus);
+                    console.log('Attended value:', participant?.attended);
+                    console.log('Attendance marked at:', participant?.attendanceMarkedAt);
+                    
+                    // Only disable if attendance is actually marked (present/absent), not just if attended field exists
+                    // Check for explicit attendance status or attendance marked timestamp
+                    const hasAttendanceMarked = participant?.attendanceStatus === 'present' || 
+                                              participant?.attendanceStatus === 'absent' ||
+                                              participant?.attendanceMarkedAt !== undefined;
+                    
+                    console.log('Has attendance marked:', hasAttendanceMarked);
+                    
+                    if (hasAttendanceMarked) {
+                      return (
+                        <button
+                          disabled
+                          className="px-4 py-2 bg-gray-400 text-white rounded-lg cursor-not-allowed opacity-60"
+                        >
+                          📅 Cannot Reschedule (Attendance Marked)
+                        </button>
+                      );
+                    }
+                    
+                    return (
+                      <button
+                        onClick={() => handleReschedule(selectedSession)}
+                        className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                      >
+                        📅 Reschedule Session
+                      </button>
+                    );
+                  })()}
                 </div>
                 <button
                   onClick={closeModals}

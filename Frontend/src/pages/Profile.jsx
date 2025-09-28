@@ -5,6 +5,7 @@ import SessionBooking from '../components/SessionBooking';
 import SessionManager from '../components/SessionManager';
 import SessionCalendar from '../components/SessionCalendar';
 import PaymentEnrollment from '../components/PaymentEnrollment';
+import CertificateDownload from '../components/CertificateDownload';
 
 export default function Profile() {
     const [user, setUser] = useState(null);
@@ -501,6 +502,22 @@ export default function Profile() {
 
                                            
                                         </div>
+
+                                        {/* Certificate Download Section - Always show for active/completed enrollments */}
+                                        {(enrollment.status === 'completed' || enrollment.status === 'active') && (
+                                            <div className="mt-4">
+                                                {console.log('Rendering CertificateDownload for enrollment:', enrollment._id, 'status:', enrollment.status)}
+                                                <CertificateDownload 
+                                                    enrollmentId={enrollment._id}
+                                                    enrollmentStatus={enrollment.status}
+                                                    onCertificateGenerated={(certificate) => {
+                                                        console.log('Certificate generated:', certificate);
+                                                        // Optionally refresh enrollments data
+                                                        fetchEnrollments();
+                                                    }}
+                                                />
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             ))}
