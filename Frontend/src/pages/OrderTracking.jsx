@@ -303,7 +303,7 @@ const OrderTracking = () => {
                   </div>
                   <p><strong>Status:</strong> {order.status}</p>
                   {order.status === 'completed' && (
-                    <p className="text-green-600 font-medium">✅ Order delivered successfully!</p>
+                    <p className="text-green-600 font-medium">✅ Order payment successfully!</p>
                   )}
                   {order.status === 'cancelled' && (
                     <p className="text-red-600 font-medium">❌ Order has been cancelled</p>
@@ -337,21 +337,6 @@ const OrderTracking = () => {
           </div>
         )}
 
-        {/* Help Section */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mt-6">
-          <h3 className="text-lg font-semibold text-[#072679] mb-3">Need Help?</h3>
-          <p className="text-[#36516C] mb-3">
-            If you're having trouble tracking your order or have any questions, please contact our customer support.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <button className="bg-[#42ADF5] text-white px-6 py-2 rounded-lg hover:bg-[#2C8ED1] transition-colors">
-              Contact Support
-            </button>
-            <button className="border border-[#42ADF5] text-[#42ADF5] px-6 py-2 rounded-lg hover:bg-[#42ADF5] hover:text-white transition-colors">
-              View All Orders
-            </button>
-          </div>
-        </div>
       </div>
       </div>
       <Footer />
