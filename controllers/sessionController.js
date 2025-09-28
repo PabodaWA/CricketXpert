@@ -3,6 +3,7 @@ import CoachingProgram from '../models/CoachingProgram.js';
 import ProgramEnrollment from '../models/ProgramEnrollment.js';
 import Ground from '../models/Ground.js';
 import Coach from '../models/Coach.js';
+import { generateSessionDetailsPDF } from '../utils/sessionPDFGenerator.js';
 
 // Helper function for manual pagination
 const paginateHelper = async (Model, filter, options) => {
@@ -2454,6 +2455,87 @@ const debugAttendance = async (req, res) => {
   }
 };
 
+// @desc    Download session details as PDF
+// @route   GET /api/sessions/:id/download-pdf
+// @access  Private
+const downloadSessionPDF = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    // Get session with all necessary populated data
+    const session = await Session.findById(id)
+      .populate('program', 'title description coach')
+      .populate('participants.user', 'firstName lastName email')
+      .populate('ground', 'name location facilities')
+      .populate({
+        path: 'program.coach',
+        select: 'userId',
+        populate: {
+          path: 'userId',
+          select: 'firstName lastName'
+        }
+      });
+
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session not found'
+      });
+    }
+
+    // Check if user has access to this session
+    const isParticipant = session.participants.some(p => p.user && p.user._id.toString() === userId);
+    const isCoach = session.program.coach && session.program.coach.userId && 
+                   session.program.coach.userId._id.toString() === userId;
+    
+    if (!isParticipant && req.user.role !== 'admin' && !isCoach) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to download this session details'
+      });
+    }
+
+    // Get enrollment data for the user with properly populated coach information
+    const enrollment = await ProgramEnrollment.findOne({
+      program: session.program._id,
+      user: userId
+    }).populate({
+      path: 'program',
+      select: 'title description coach',
+      populate: {
+        path: 'coach',
+        select: 'userId',
+        populate: {
+          path: 'userId',
+          select: 'firstName lastName email'
+        }
+      }
+    });
+
+    // Get user data
+    const User = (await import('../models/User.js')).default;
+    const user = await User.findById(userId).select('firstName lastName email');
+
+    // Generate PDF
+    const pdfBuffer = await generateSessionDetailsPDF(session, enrollment, user);
+
+    // Set response headers for PDF download
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="session-${session.sessionNumber || session._id}-details.pdf"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+
+    res.send(pdfBuffer);
+  } catch (error) {
+    console.error('Error generating session PDF:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error generating session PDF',
+      error: error.message
+    });
+  }
+};
+
 
 export {
   getAllSessions,
@@ -2482,5 +2564,6 @@ export {
   debugMedhaniAttendance,
   debugEnrollmentAttendance,
   debugCleanupFutureAttendance,
-  cleanupFutureAttendance
+  cleanupFutureAttendance,
+  downloadSessionPDF
 };

@@ -167,6 +167,38 @@ export default function EnrollmentDetails() {
     fetchAvailableRescheduleDates();
   };
 
+  const handleDownloadSessionPDF = async (session) => {
+    try {
+      const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+      if (!userInfo || !userInfo.token) {
+        alert('Please log in to download session details');
+        return;
+      }
+
+      const config = {
+        headers: {
+          Authorization: `Bearer ${userInfo.token}`,
+        },
+        responseType: 'blob'
+      };
+
+      const response = await axios.get(`/api/sessions/${session._id}/download-pdf`, config);
+      
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `session-${session.sessionNumber || session._id}-details.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading session PDF:', error);
+      alert('Failed to download session details. Please try again.');
+    }
+  };
+
   const fetchAvailableRescheduleDates = async () => {
     try {
       if (!selectedSession || !enrollment) return;
@@ -1788,6 +1820,15 @@ export default function EnrollmentDetails() {
                       </button>
                     );
                   })()}
+                  
+                  {/* PDF Download Button */}
+                  <button
+                    onClick={() => handleDownloadSessionPDF(selectedSession)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                  >
+                    <span>📄</span>
+                    <span>Download PDF</span>
+                  </button>
                 </div>
                 <button
                   onClick={closeModals}

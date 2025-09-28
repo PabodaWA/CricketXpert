@@ -27,7 +27,8 @@ import {
   debugMedhaniAttendance,
   debugEnrollmentAttendance,
   debugCleanupFutureAttendance,
-  cleanupFutureAttendance
+  cleanupFutureAttendance,
+  downloadSessionPDF
 } from '../controllers/sessionController.js';
 import { protect, authorizeRoles } from '../middleware/authMiddleware.js';
 
@@ -88,6 +89,9 @@ router.get('/enrollment/:enrollmentId', getSessionsByEnrollment);
 
 // Ground availability
 router.get('/ground/:groundId/availability', getGroundAvailability);
+
+// PDF download route
+router.get('/:id/download-pdf', downloadSessionPDF);
 
 // Debug route
 router.post('/debug', debugSessionCreation);
