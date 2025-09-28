@@ -3,6 +3,7 @@ import Technician from '../models/Technician.js';
 import User from '../models/User.js';
 import { sendEmail } from '../utils/notification.js';
 import reportGenerator from '../utils/reportGenerator.js';
+import repairNotificationController from './repairNotificationController.js';
 const { pipeRepairReportToResponse, sendRepairReportEmail } = reportGenerator;
 
 
@@ -51,6 +52,19 @@ const createRepairRequest = async (req, res) => {
     console.log('🔍 DESCRIPTION LENGTH:', repairData.description?.length);
     
     const repairRequest = await RepairRequest.create(repairData);
+    
+    // Create repair submission notification
+    try {
+      await repairNotificationController.createRepairSubmissionNotification(
+        customerId,
+        repairRequest._id,
+        repairData
+      );
+      console.log('✅ Repair submission notification created successfully');
+    } catch (notificationError) {
+      console.error('❌ Failed to create repair submission notification:', notificationError);
+      // Don't fail the repair request creation if notification fails
+    }
     
     // Temporary debug to see what was saved
     console.log('🔍 SAVED TO DATABASE:', {
@@ -426,6 +440,28 @@ const updateRequestStatus = async (req, res) => {
 
     await request.save();
 
+    // Create repair status notification
+    try {
+      await repairNotificationController.createRepairStatusNotification(
+        request.customerId._id,
+        request._id,
+        status,
+        {
+          equipmentType: request.equipmentType,
+          damageType: request.damageType,
+          status: request.status,
+          repairProgress: request.repairProgress,
+          costEstimate: request.costEstimate,
+          timeEstimate: request.timeEstimate,
+          rejectionReason: request.rejectionReason
+        }
+      );
+      console.log('✅ Repair status notification created successfully');
+    } catch (notificationError) {
+      console.error('❌ Failed to create repair status notification:', notificationError);
+      // Don't fail the status update if notification fails
+    }
+
     // Send email to customer
     let emailBody = `Hello ${request.customerId.username},\n\nYour repair request status has been updated.\n\nRequest ID: REP-${request._id.toString().slice(-8).toUpperCase()}\nStatus: ${status}\nCurrent Stage: ${request.currentStage}\n`;
     if (status.toLowerCase() === 'approved') {
@@ -657,9 +693,30 @@ const updateProgress = async (req, res) => {
     // Save updated repair request
     await request.save();
 
-    // Determine if this is a milestone update
+    // Create repair progress notification for milestones
     const milestones = [0, 25, 50, 75, 100];
     const isMilestone = milestones.includes(repairProgress);
+    
+    if (isMilestone) {
+      try {
+        await repairNotificationController.createRepairStatusNotification(
+          request.customerId._id,
+          request._id,
+          request.status,
+          {
+            equipmentType: request.equipmentType,
+            damageType: request.damageType,
+            status: request.status,
+            repairProgress: request.repairProgress
+          }
+        );
+        console.log('✅ Repair progress notification created successfully');
+      } catch (notificationError) {
+        console.error('❌ Failed to create repair progress notification:', notificationError);
+        // Don't fail the progress update if notification fails
+      }
+    }
+
     const milestoneMessages = {
       0: '🔧 Repair Started',
       25: '⚡ Repair In Progress',

@@ -189,6 +189,11 @@ const RepairRequestForm = () => {
       const created = response?.data?.repairRequest;
       const ok = (response?.status === 201) || !!created;
       if (ok) {
+        // Dispatch custom event to notify components that a repair request was submitted
+        window.dispatchEvent(new CustomEvent('repairRequestSubmitted', {
+          detail: { repairRequest: created }
+        }));
+        
         navigate(`/dashboard/${currentUser.id}`);
       } else {
         setApiError(response?.data?.error || response?.data?.message || 'Failed to submit repair request.');

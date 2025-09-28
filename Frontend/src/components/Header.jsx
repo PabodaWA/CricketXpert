@@ -162,7 +162,7 @@ const Header = () => {
                 </span>
               </button>
 
-              {/* Notification Dropdown */}
+              {/* All Notifications Dropdown */}
               <NotificationDropdown />
 
               {/* Profile Icon */}
