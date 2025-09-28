@@ -39,6 +39,8 @@ const MyOrders = () => {
         return 'bg-yellow-100 text-yellow-800';
       case 'completed':
         return 'bg-green-100 text-green-800';
+      case 'delivered':
+        return 'bg-emerald-100 text-emerald-800';
       case 'cancelled':
         return 'bg-red-100 text-red-800';
       case 'cart_pending':
@@ -55,6 +57,8 @@ const MyOrders = () => {
       case 'processing':
         return <Clock className="w-4 h-4" />;
       case 'completed':
+        return <CheckCircle className="w-4 h-4" />;
+      case 'delivered':
         return <CheckCircle className="w-4 h-4" />;
       case 'cancelled':
         return <XCircle className="w-4 h-4" />;
@@ -128,6 +132,34 @@ const MyOrders = () => {
       console.error('Error cancelling order:', error);
       alert('Failed to cancel order. Please try again.');
     }
+  };
+
+  const formatDeliveryInfo = (order) => {
+    if (order.status === 'completed' && order.deliveryDate) {
+      const deliveryDate = new Date(order.deliveryDate);
+      const remainingDays = order.remainingDays || 0;
+      
+      if (remainingDays > 0) {
+        return {
+          text: `Expected delivery: ${deliveryDate.toLocaleDateString()}`,
+          countdown: `${remainingDays} day${remainingDays !== 1 ? 's' : ''} remaining`,
+          color: 'text-blue-600'
+        };
+      } else if (remainingDays === 0) {
+        return {
+          text: `Expected delivery: ${deliveryDate.toLocaleDateString()}`,
+          countdown: 'Delivery expected today',
+          color: 'text-orange-600'
+        };
+      }
+    } else if (order.status === 'delivered') {
+      return {
+        text: 'Order delivered successfully',
+        countdown: 'Delivered',
+        color: 'text-green-600'
+      };
+    }
+    return null;
   };
 
   if (loading) {
@@ -238,6 +270,16 @@ const MyOrders = () => {
                         <p className="text-sm mt-1" style={{ color: '#36516C' }}>
                           Ordered on: {new Date(order.date || order.createdAt).toLocaleDateString()}
                         </p>
+                        {formatDeliveryInfo(order) && (
+                          <div className="mt-2 p-2 bg-gray-50 rounded-lg">
+                            <p className="text-sm font-medium" style={{ color: '#36516C' }}>
+                              {formatDeliveryInfo(order).text}
+                            </p>
+                            <p className={`text-sm font-semibold ${formatDeliveryInfo(order).color}`}>
+                              {formatDeliveryInfo(order).countdown}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

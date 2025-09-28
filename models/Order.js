@@ -32,12 +32,21 @@ const orderSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['cart_pending', 'created', 'processing', 'completed', 'cancelled', 'Processing', 'Out for Delivery', 'Delivered', 'Cancelled'],
+    enum: ['cart_pending', 'created', 'processing', 'completed', 'delivered', 'cancelled', 'Processing', 'Out for Delivery', 'Delivered', 'Cancelled'],
     default: 'cart_pending'
   },
   date: {
     type: Date,
     default: Date.now
+  },
+  deliveryDate: {
+    type: Date,
+    required: false
+  },
+  remainingDays: {
+    type: Number,
+    required: false,
+    default: 0
   },
   paymentId: {
     type: mongoose.Schema.Types.ObjectId,

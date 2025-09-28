@@ -14,7 +14,9 @@ import {
   completeCartOrder,
   deleteCartOrder,
   downloadOrder,
-  cancelOrder
+  cancelOrder,
+  checkAndUpdateDeliveredOrders,
+  updateRemainingDaysForAllOrders
 } from '../controllers/orderController.js';
 
 // Regular order routes
@@ -36,5 +38,21 @@ router.delete('/cart/:customerId', deleteCartOrder);
 // Utility routes
 router.post("/calculate-total", calculateOrderTotal);
 router.get("/status/:status", getOrdersByStatus);
+
+// Delivery tracking routes
+router.post("/check-delivered", checkAndUpdateDeliveredOrders);
+router.post("/update-remaining-days", updateRemainingDaysForAllOrders);
+
+// Combined delivery check endpoint
+router.post("/delivery-check", async (req, res) => {
+  try {
+    await updateRemainingDaysForAllOrders();
+    await checkAndUpdateDeliveredOrders();
+    res.json({ success: true, message: 'Delivery status check completed successfully' });
+  } catch (error) {
+    console.error('Error in delivery check:', error);
+    res.status(500).json({ success: false, message: 'Error during delivery check' });
+  }
+});
 
 export default router;
