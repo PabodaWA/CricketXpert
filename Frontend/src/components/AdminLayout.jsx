@@ -97,6 +97,9 @@ export default function AdminLayout() {
                         <a href="#" className="flex items-center px-4 py-2 rounded-lg font-medium text-text-body hover:bg-gray-100">
                            <ChatAlt2Icon /> Feedbacks
                         </a>
+                        <Link to="/admin/contact-messages" className={`flex items-center px-4 py-2 rounded-lg font-medium transition-colors ${isActive('/admin/contact-messages') ? 'bg-secondary text-white' : 'text-text-body hover:bg-gray-100'}`}>
+                           <ChatAlt2Icon /> Contact Messages
+                        </Link>
                          
                     </nav>
 

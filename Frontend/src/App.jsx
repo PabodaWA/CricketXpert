@@ -183,6 +183,7 @@ export default function App() {
                 <Route path="profile" element={<Profile />} />
                 <Route path="edit-account" element={<EditAccount />} />
                 <Route path="orders" element={<ListOrders />} />
+                <Route path="contact-messages" element={<AdminMessages />} />
             </Route>
         </Route>
         
