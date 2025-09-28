@@ -2591,14 +2591,33 @@ const SessionsTab = ({ sessions, onReschedule, coaches, programs, onSessionsRefr
                         Duration: {session.duration} min
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {session.participants?.length || 0}/{session.maxParticipants}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {session.participants?.filter(p => p.attended).length || 0} attended
-                      </div>
-                      <div className="text-xs">
+                    <td className="px-6 py-4">
+                      {/* Customer Names */}
+                      {session.participants && session.participants.length > 0 ? (
+                        <div className="space-y-1">
+                          {session.participants.slice(0, 3).map((participant, index) => (
+                            <div key={index} className="text-xs text-gray-700 bg-gray-50 px-2 py-1 rounded">
+                              {participant.user?.firstName} {participant.user?.lastName}
+                              {participant.attended !== undefined && (
+                                <span className={`ml-2 text-xs ${participant.attended ? 'text-green-600' : 'text-red-600'}`}>
+                                  {participant.attended ? '✓' : '✗'}
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                          {session.participants.length > 3 && (
+                            <div className="text-xs text-gray-500">
+                              +{session.participants.length - 3} more
+                            </div>
+                          )}
+                          <div className="text-xs text-gray-500 mt-1">
+                            {session.participants?.filter(p => p.attended).length || 0} attended
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-sm text-gray-500">No participants</div>
+                      )}
+                      <div className="text-xs mt-1">
                         {(() => {
                           const sessionDate = new Date(session.scheduledDate);
                           const today = new Date();

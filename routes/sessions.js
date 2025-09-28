@@ -29,7 +29,8 @@ import {
   debugMedhaniAttendance,
   debugEnrollmentAttendance,
   debugCleanupFutureAttendance,
-  cleanupFutureAttendance
+  cleanupFutureAttendance,
+  downloadSessionPDF
 } from '../controllers/sessionController.js';
 
 // Debug routes (MUST be first to avoid conflicts with /:id routes)
@@ -62,6 +63,10 @@ router.put('/reschedule', (req, res, next) => {
 
 // General session routes
 router.get('/', getAllSessions);
+router.get('/:id/download-pdf', (req, res, next) => {
+  console.log('Download PDF route hit with ID:', req.params.id);
+  next();
+}, downloadSessionPDF);
 router.get('/:id', getSession);
 
 // Coach only routes

@@ -183,7 +183,7 @@ export default function EnrollmentDetails() {
         responseType: 'blob'
       };
 
-      const response = await axios.get(`/api/sessions/${session._id}/download-pdf`, config);
+      const response = await axios.get(`http://localhost:5000/api/sessions/${session._id}/download-pdf`, config);
       
       // Create download link
       const url = window.URL.createObjectURL(new Blob([response.data]));

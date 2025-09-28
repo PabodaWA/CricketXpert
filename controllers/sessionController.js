@@ -2,6 +2,7 @@ import Session from '../models/Session.js';
 import CoachingProgram from '../models/CoachingProgram.js';
 import ProgramEnrollment from '../models/ProgramEnrollment.js';
 import Ground from '../models/Ground.js';
+import { generateSessionDetailsPDF } from '../utils/sessionPDFGenerator.js';
 
 // Helper function for manual pagination
 const paginateHelper = async (Model, filter, options) => {
@@ -80,7 +81,7 @@ const getAllSessions = async (req, res) => {
         { path: 'ground', select: 'name location facilities' },
         { 
           path: 'participants.user', 
-          select: 'name email' 
+          select: 'firstName lastName email' 
         },
         {
           path: 'participants.enrollment',
@@ -2462,6 +2463,100 @@ const debugAttendance = async (req, res) => {
 };
 
 
+// @desc    Download session details as PDF
+// @route   GET /api/sessions/:id/download-pdf
+// @access  Private
+const downloadSessionPDF = async (req, res) => {
+  try {
+    const sessionId = req.params.id;
+    const userId = req.user._id;
+
+    // Find the session with all necessary populated data
+    const session = await Session.findById(sessionId)
+      .populate('program', 'title description')
+      .populate({
+        path: 'coach',
+        select: 'userId',
+        populate: {
+          path: 'userId',
+          select: 'firstName lastName email'
+        }
+      })
+      .populate('ground', 'name location facilities')
+      .populate({
+        path: 'participants.user',
+        select: 'firstName lastName email'
+      })
+      .populate({
+        path: 'participants.enrollment',
+        select: 'status progress'
+      });
+
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session not found'
+      });
+    }
+
+    // Check if user is a participant in this session
+    const isParticipant = session.participants.some(participant => 
+      participant.user && participant.user._id.toString() === userId.toString()
+    );
+
+    if (!isParticipant && req.user.role !== 'admin' && req.user.role !== 'coach') {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to download this session details'
+      });
+    }
+
+    // Get enrollment data for the user
+    const enrollment = await ProgramEnrollment.findOne({
+      user: userId,
+      program: session.program._id
+    }).populate({
+      path: 'program',
+      populate: {
+        path: 'coach',
+        populate: {
+          path: 'userId',
+          select: 'firstName lastName'
+        }
+      }
+    });
+
+    // Get user data
+    const User = (await import('../models/User.js')).default;
+    const user = await User.findById(userId).select('firstName lastName email');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Generate PDF
+    const pdfBuffer = await generateSessionDetailsPDF(session, enrollment, user);
+
+    // Set response headers for PDF download
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="session-${session.sessionNumber || sessionId}-details.pdf"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+
+    res.send(pdfBuffer);
+
+  } catch (error) {
+    console.error('Error downloading session PDF:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error downloading session details',
+      error: error.message
+    });
+  }
+};
+
 // @desc    Reassign session to different coach
 // @route   PUT /api/sessions/:id/reassign-coach
 // @access  Private (Manager only)
@@ -2561,5 +2656,6 @@ export {
   debugMedhaniAttendance,
   debugEnrollmentAttendance,
   debugCleanupFutureAttendance,
-  cleanupFutureAttendance
+  cleanupFutureAttendance,
+  downloadSessionPDF
 };
