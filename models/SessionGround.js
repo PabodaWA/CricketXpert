@@ -290,19 +290,19 @@ sessionGroundSchema.statics.createRecurringBookings = async function(bookingData
   return await this.insertMany(bookings);
 };
 
-// Static method to get available slots from Practice ground A for coaching programs
+// Static method to get available slots from Practice Ground A for coaching programs
 sessionGroundSchema.statics.getPracticeGroundASlots = async function(date, duration = 60) {
   const Ground = mongoose.model('Ground');
   
-  // Find the Practice ground A
-  const practiceGround = await Ground.findOne({ name: 'Practice ground A' });
+  // Find the Practice Ground A
+  const practiceGround = await Ground.findOne({ name: 'Practice Ground A' });
   if (!practiceGround) {
-    throw new Error('Practice ground A not found');
+    throw new Error('Practice Ground A not found');
   }
 
   const searchDate = new Date(date);
   
-  // Get all bookings for Practice ground A on the specified date
+  // Get all bookings for Practice Ground A on the specified date
   const bookings = await this.find({
     ground: practiceGround._id,
     bookingDate: {
@@ -368,14 +368,14 @@ sessionGroundSchema.statics.getPracticeGroundASlots = async function(date, durat
   };
 };
 
-// Static method to book a slot on Practice ground A for coaching programs
+// Static method to book a slot on Practice Ground A for coaching programs
 sessionGroundSchema.statics.bookPracticeGroundASlot = async function(bookingData) {
   const Ground = mongoose.model('Ground');
   
-  // Find the Practice ground A
-  const practiceGround = await Ground.findOne({ name: 'Practice ground A' });
+  // Find the Practice Ground A
+  const practiceGround = await Ground.findOne({ name: 'Practice Ground A' });
   if (!practiceGround) {
-    throw new Error('Practice ground A not found');
+    throw new Error('Practice Ground A not found');
   }
 
   // Check if slot is available
@@ -408,10 +408,10 @@ sessionGroundSchema.statics.bookPracticeGroundASlot = async function(bookingData
 sessionGroundSchema.statics.getCoachingProgramAvailability = async function(startDate, endDate, duration = 60) {
   const Ground = mongoose.model('Ground');
   
-  // Find the Practice ground A
-  const practiceGround = await Ground.findOne({ name: 'Practice ground A' });
+  // Find the Practice Ground A
+  const practiceGround = await Ground.findOne({ name: 'Practice Ground A' });
   if (!practiceGround) {
-    throw new Error('Practice ground A not found');
+    throw new Error('Practice Ground A not found');
   }
 
   const start = new Date(startDate);

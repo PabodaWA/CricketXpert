@@ -1388,17 +1388,15 @@ const createDirectSession = async (req, res) => {
     // Calculate the week number (each session gets its own week)
     const weekNumber = nextSessionNumber;
     
-    // Calculate the session date based on enrollment date + week number
-    // Session 1 = week 1 from enrollment, Session 2 = week 2 from enrollment, etc.
-    const enrollmentDate = new Date(enrollment.createdAt);
-    const sessionDate = new Date(enrollmentDate);
-    sessionDate.setDate(enrollmentDate.getDate() + (weekNumber - 1) * 7); // Add 7 days for each week from enrollment
+    // Use the user-selected date instead of calculating from enrollment date
+    // This gives users more flexibility in when they want to book their sessions
+    const sessionDate = new Date(scheduledDate);
     
     console.log('Session scheduling:', {
       sessionNumber: nextSessionNumber,
       weekNumber: weekNumber,
-      originalDate: scheduledDate,
-      calculatedDate: sessionDate.toISOString().split('T')[0]
+      userSelectedDate: scheduledDate,
+      sessionDate: sessionDate.toISOString().split('T')[0]
     });
     
     // Create session directly
@@ -1406,9 +1404,10 @@ const createDirectSession = async (req, res) => {
       program: enrollment.program._id,
       coach: enrollment.program.coach._id,
       title: `Session ${nextSessionNumber} - ${enrollment.program.title}`,
+      description: `Session ${nextSessionNumber} for ${enrollment.program.title}`,
       sessionNumber: nextSessionNumber,
       week: weekNumber, // Each session gets its own week
-      scheduledDate: sessionDate, // Use the calculated date
+      scheduledDate: sessionDate, // Use the user-selected date
       startTime: startTime,
       endTime: endTime,
       duration: duration || 60,
@@ -1423,10 +1422,32 @@ const createDirectSession = async (req, res) => {
       notes: notes || '',
       bookingDeadline: new Date(sessionDate.getTime() - 24 * 60 * 60 * 1000), // 24 hours before session
       maxParticipants: 10,
-      isRecurring: false
+      isRecurring: false,
+      objectives: ['Skill development', 'Practice'],
+      materials: []
     };
     
     console.log('Creating session with data:', JSON.stringify(sessionData, null, 2));
+    
+    // Validate session data before creating
+    const validationErrors = [];
+    if (!sessionData.program) validationErrors.push('Program is required');
+    if (!sessionData.coach) validationErrors.push('Coach is required');
+    if (!sessionData.title) validationErrors.push('Title is required');
+    if (!sessionData.scheduledDate) validationErrors.push('Scheduled date is required');
+    if (!sessionData.startTime) validationErrors.push('Start time is required');
+    if (!sessionData.endTime) validationErrors.push('End time is required');
+    if (!sessionData.ground) validationErrors.push('Ground is required');
+    if (!sessionData.groundSlot) validationErrors.push('Ground slot is required');
+    
+    if (validationErrors.length > 0) {
+      console.error('Session validation errors:', validationErrors);
+      return res.status(400).json({
+        success: false,
+        message: 'Session validation failed',
+        errors: validationErrors
+      });
+    }
     
     const session = new Session(sessionData);
     

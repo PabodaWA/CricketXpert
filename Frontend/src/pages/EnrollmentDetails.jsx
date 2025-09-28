@@ -570,16 +570,22 @@ export default function EnrollmentDetails() {
         },
       };
 
+      // Validate required fields
+      if (!bookingForm.requestedDate || !bookingForm.requestedTime) {
+        alert('Please select a date and time for your session');
+        return;
+      }
+
       const sessionData = {
         enrollmentId: enrollmentId,
         scheduledDate: bookingForm.requestedDate,
         scheduledTime: bookingForm.requestedTime,
-        duration: parseInt(bookingForm.duration),
-        notes: bookingForm.notes,
+        duration: parseInt(bookingForm.duration) || 60,
+        notes: bookingForm.notes || '',
         sessionNumber: selectedTimeSlot?.sessionNumber || 1,
         week: selectedTimeSlot?.week || 1,
         ground: selectedTimeSlot?.ground?._id,
-        groundSlot: selectedTimeSlot?.groundSlot?.slotNumber
+        groundSlot: selectedTimeSlot?.groundSlot?.slotNumber || 1
       };
 
       console.log('Submitting session data:', sessionData);
@@ -592,6 +598,7 @@ export default function EnrollmentDetails() {
       if (response.data.success) {
         alert('Session booked successfully! Your session has been scheduled.');
         setShowBookingModal(false);
+        setSelectedTimeSlot(null);
         setBookingForm({
           requestedDate: '',
           requestedTime: '',
@@ -622,6 +629,11 @@ export default function EnrollmentDetails() {
         alert('Enrollment not found');
       } else if (err.response?.data?.message) {
         alert(`Error: ${err.response.data.message}`);
+      } else if (err.response?.data?.errors) {
+        const errorMessages = Array.isArray(err.response.data.errors) 
+          ? err.response.data.errors.join(', ')
+          : err.response.data.errors;
+        alert(`Validation Error: ${errorMessages}`);
       } else {
         alert(`Error booking session: ${err.message}`);
       }
