@@ -199,6 +199,11 @@ const CustomerNotifications = () => {
   const deleteRepairNotification = async (notificationId) => {
     if (window.confirm('Are you sure you want to delete this notification?')) {
       try {
+        // Immediately remove from UI for better user experience
+        setRepairNotifications(prev => 
+          prev.filter(notif => notif._id !== notificationId)
+        );
+
         const userInfo = JSON.parse(localStorage.getItem('userInfo'));
         const token = userInfo?.token || localStorage.getItem('token');
         
@@ -210,13 +215,15 @@ const CustomerNotifications = () => {
           }
         });
 
-        if (response.ok) {
-          setRepairNotifications(prev => 
-            prev.filter(notif => notif._id !== notificationId)
-          );
+        if (!response.ok) {
+          // If deletion failed on server, reload notifications to restore the correct state
+          console.error('Failed to delete repair notification on server');
+          loadRepairNotifications();
         }
       } catch (error) {
         console.error('Error deleting repair notification:', error);
+        // If there was an error, reload notifications to restore the correct state
+        loadRepairNotifications();
       }
     }
   };
@@ -507,6 +514,7 @@ const CustomerNotifications = () => {
                         </div>
                         <button
                           onClick={(e) => {
+                            e.preventDefault();
                             e.stopPropagation();
                             if (notification.source === 'repair') {
                               deleteRepairNotification(notification._id);

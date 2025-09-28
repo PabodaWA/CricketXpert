@@ -26,3 +26,4 @@ router.delete('/customer/:customerId/clear-all', protect, repairNotificationCont
 router.post('/', protect, repairNotificationController.createRepairNotification);
 
 export default router;
+
