@@ -2,8 +2,6 @@ import Session from '../models/Session.js';
 import CoachingProgram from '../models/CoachingProgram.js';
 import ProgramEnrollment from '../models/ProgramEnrollment.js';
 import Ground from '../models/Ground.js';
-import Coach from '../models/Coach.js';
-import { generateSessionDetailsPDF } from '../utils/sessionPDFGenerator.js';
 
 // Helper function for manual pagination
 const paginateHelper = async (Model, filter, options) => {
@@ -71,7 +69,14 @@ const getAllSessions = async (req, res) => {
       sort,
       populate: [
         { path: 'program', select: 'title category specialization' },
-        { path: 'coach', select: 'name email' },
+        { 
+          path: 'coach', 
+          select: 'userId',
+          populate: {
+            path: 'userId',
+            select: 'firstName lastName email'
+          }
+        },
         { path: 'ground', select: 'name location facilities' },
         { 
           path: 'participants.user', 
@@ -106,7 +111,14 @@ const getSession = async (req, res) => {
   try {
     const session = await Session.findById(req.params.id)
       .populate('program', 'title description category specialization')
-      .populate('coach', 'name email specializations')
+      .populate({
+        path: 'coach',
+        select: 'userId',
+        populate: {
+          path: 'userId',
+          select: 'firstName lastName email'
+        }
+      })
       .populate('ground', 'name location facilities equipment')
       .populate('participants.user', 'name email phone')
       .populate('participants.enrollment', 'status progress');
@@ -205,7 +217,14 @@ const createSession = async (req, res) => {
     
     const populatedSession = await Session.findById(session._id)
       .populate('program', 'title')
-      .populate('coach', 'name email')
+      .populate({
+        path: 'coach',
+        select: 'userId',
+        populate: {
+          path: 'userId',
+          select: 'firstName lastName email'
+        }
+      })
       .populate('ground', 'name location');
 
     res.status(201).json({
@@ -289,7 +308,14 @@ const updateSession = async (req, res) => {
       req.body,
       { new: true, runValidators: true }
     ).populate('program', 'title')
-     .populate('coach', 'name email')
+     .populate({
+       path: 'coach',
+       select: 'userId',
+       populate: {
+         path: 'userId',
+         select: 'firstName lastName email'
+       }
+     })
      .populate('ground', 'name location');
 
     res.status(200).json({
@@ -849,7 +875,14 @@ const rescheduleSession = async (req, res) => {
       },
       { new: true, runValidators: true }
     ).populate('program', 'title')
-     .populate('coach', 'name email')
+     .populate({
+       path: 'coach',
+       select: 'userId',
+       populate: {
+         path: 'userId',
+         select: 'firstName lastName email'
+       }
+     })
      .populate('ground', 'name location');
 
     res.status(200).json({
@@ -1354,38 +1387,11 @@ const createDirectSession = async (req, res) => {
     // Calculate the week number (each session gets its own week)
     const weekNumber = nextSessionNumber;
     
-    // Use the user's selected date instead of recalculating
-    const sessionDate = new Date(scheduledDate);
-    
-    console.log('Using user selected date:', {
-      originalDate: scheduledDate,
-      parsedDate: sessionDate.toISOString().split('T')[0],
-      dayOfWeek: sessionDate.getDay(),
-      dayName: ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][sessionDate.getDay()]
-    });
-    
-    // Verify the coach is available on the selected day
-    const coach = await Coach.findById(enrollment.program.coach._id);
-    const coachAvailability = coach.availability || [];
-    const availableDays = coachAvailability.map(avail => avail.day.toLowerCase());
-    
-    const dayOfWeek = sessionDate.getDay();
-    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    const currentDayName = dayNames[dayOfWeek].toLowerCase();
-    
-    console.log('Coach availability check:', {
-      availableDays: availableDays,
-      selectedDay: currentDayName,
-      isAvailable: availableDays.includes(currentDayName)
-    });
-    
-    // Check if coach is available on the selected day
-    if (!availableDays.includes(currentDayName)) {
-      return res.status(400).json({
-        success: false,
-        message: `Coach is not available on ${currentDayName}. Available days: ${availableDays.join(', ')}`
-      });
-    }
+    // Calculate the session date based on enrollment date + week number
+    // Session 1 = week 1 from enrollment, Session 2 = week 2 from enrollment, etc.
+    const enrollmentDate = new Date(enrollment.createdAt);
+    const sessionDate = new Date(enrollmentDate);
+    sessionDate.setDate(enrollmentDate.getDate() + (weekNumber - 1) * 7); // Add 7 days for each week from enrollment
     
     console.log('Session scheduling:', {
       sessionNumber: nextSessionNumber,
@@ -2455,28 +2461,23 @@ const debugAttendance = async (req, res) => {
   }
 };
 
-// @desc    Download session details as PDF
-// @route   GET /api/sessions/:id/download-pdf
-// @access  Private
-const downloadSessionPDF = async (req, res) => {
+
+// @desc    Reassign session to different coach
+// @route   PUT /api/sessions/:id/reassign-coach
+// @access  Private (Manager only)
+const reassignSessionCoach = async (req, res) => {
   try {
-    const { id } = req.params;
-    const userId = req.user.id;
+    const { newCoachId, reason } = req.body;
+    const sessionId = req.params.id;
 
-    // Get session with all necessary populated data
-    const session = await Session.findById(id)
-      .populate('program', 'title description coach')
-      .populate('participants.user', 'firstName lastName email')
-      .populate('ground', 'name location facilities')
-      .populate({
-        path: 'program.coach',
-        select: 'userId',
-        populate: {
-          path: 'userId',
-          select: 'firstName lastName'
-        }
+    if (!newCoachId) {
+      return res.status(400).json({
+        success: false,
+        message: 'New coach ID is required'
       });
+    }
 
+    const session = await Session.findById(sessionId);
     if (!session) {
       return res.status(404).json({
         success: false,
@@ -2484,58 +2485,53 @@ const downloadSessionPDF = async (req, res) => {
       });
     }
 
-    // Check if user has access to this session
-    const isParticipant = session.participants.some(p => p.user && p.user._id.toString() === userId);
-    const isCoach = session.program.coach && session.program.coach.userId && 
-                   session.program.coach.userId._id.toString() === userId;
+    // Get the new coach details
+    const Coach = (await import('../models/Coach.js')).default;
+    const newCoach = await Coach.findById(newCoachId).populate('userId', 'firstName lastName email');
     
-    if (!isParticipant && req.user.role !== 'admin' && !isCoach) {
-      return res.status(403).json({
+    if (!newCoach) {
+      return res.status(404).json({
         success: false,
-        message: 'Not authorized to download this session details'
+        message: 'New coach not found'
       });
     }
 
-    // Get enrollment data for the user with properly populated coach information
-    const enrollment = await ProgramEnrollment.findOne({
-      program: session.program._id,
-      user: userId
-    }).populate({
-      path: 'program',
-      select: 'title description coach',
-      populate: {
-        path: 'coach',
-        select: 'userId',
-        populate: {
-          path: 'userId',
-          select: 'firstName lastName email'
-        }
-      }
+    // Update session with new coach
+    const updatedSession = await Session.findByIdAndUpdate(
+      sessionId,
+      {
+        coach: newCoachId,
+        status: 'rescheduled',
+        notes: reason ? `Coach reassigned: ${reason}` : 'Session coach reassigned by manager',
+        updatedAt: new Date()
+      },
+      { new: true, runValidators: true }
+    ).populate('program', 'title')
+     .populate({
+       path: 'coach',
+       select: 'userId',
+       populate: {
+         path: 'userId',
+         select: 'firstName lastName email'
+       }
+     })
+     .populate('ground', 'name location');
+
+    res.status(200).json({
+      success: true,
+      data: updatedSession,
+      message: `Session successfully reassigned to ${newCoach.userId.firstName} ${newCoach.userId.lastName}`
     });
 
-    // Get user data
-    const User = (await import('../models/User.js')).default;
-    const user = await User.findById(userId).select('firstName lastName email');
-
-    // Generate PDF
-    const pdfBuffer = await generateSessionDetailsPDF(session, enrollment, user);
-
-    // Set response headers for PDF download
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="session-${session.sessionNumber || session._id}-details.pdf"`);
-    res.setHeader('Content-Length', pdfBuffer.length);
-
-    res.send(pdfBuffer);
   } catch (error) {
-    console.error('Error generating session PDF:', error);
+    console.error('Error reassigning session coach:', error);
     res.status(500).json({
       success: false,
-      message: 'Error generating session PDF',
+      message: 'Error reassigning session coach',
       error: error.message
     });
   }
 };
-
 
 export {
   getAllSessions,
@@ -2552,6 +2548,7 @@ export {
   getSessionsByEnrollment,
   getGroundAvailability,
   rescheduleSession,
+  reassignSessionCoach,
   customerRescheduleSession,
   cleanupDuplicateSessions,
   removeExtraSessions,
@@ -2564,6 +2561,5 @@ export {
   debugMedhaniAttendance,
   debugEnrollmentAttendance,
   debugCleanupFutureAttendance,
-  cleanupFutureAttendance,
-  downloadSessionPDF
+  cleanupFutureAttendance
 };
