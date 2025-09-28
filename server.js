@@ -33,6 +33,7 @@ import playerRoutes from './routes/players.js';
 import attendanceRoutes from './routes/attendanceRoutes.js';
 import payrollRoutes from './routes/payrollRoutes.js';
 import analyticsRoutes from './routes/analyticsRoutes.js';
+import certificateRoutes from './routes/certificateRoutes.js';
 
 // --- Initial Configuration ---
 // Load environment variables from .env file
@@ -80,6 +81,7 @@ app.use('/api/players', playerRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/payroll', payrollRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/certificates', certificateRoutes);
 
 // A simple test route to check if the server is working
 app.get('/api/test', (req, res) => {

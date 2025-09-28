@@ -15,6 +15,7 @@ import HomePage from './components/HomePage.jsx';
 import Profile from './pages/Profile.jsx';
 import EditAccount from './pages/EditAccount.jsx';
 import CustomerNotifications from './pages/CustomerNotifications.jsx';
+import CustomerCalendar from './pages/CustomerCalendar.jsx';
 import ForgotPassword from './pages/ForgotPassword.jsx';
 import UserManagement from './pages/UserManagement.jsx'; 
 import AllPayments from './pages/Allpayments.jsx'; 
@@ -118,6 +119,7 @@ export default function App() {
                 <Route path="profile" element={<Profile />} />
                 <Route path="edit-account" element={<EditAccount />} />
                 <Route path="my-orders" element={<MyOrders />} />
+                <Route path="calendar" element={<CustomerCalendar />} />
                 <Route path="notifications" element={<CustomerNotifications />} />
             </Route>
         </Route>
@@ -181,6 +183,7 @@ export default function App() {
                 <Route path="profile" element={<Profile />} />
                 <Route path="edit-account" element={<EditAccount />} />
                 <Route path="orders" element={<ListOrders />} />
+                <Route path="contact-messages" element={<AdminMessages />} />
             </Route>
         </Route>
         

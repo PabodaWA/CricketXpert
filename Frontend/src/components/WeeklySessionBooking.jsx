@@ -49,18 +49,37 @@ export default function WeeklySessionBooking({ coachId, onSessionSelect, enrollm
       
       console.log('Fetching availability for week:', selectedWeek);
       
-      // Generate all dates in the selected week
+      // First, get coach's general availability to know which days they're available
+      const coachResponse = await axios.get(`http://localhost:5000/api/coaches/${coachId}/availability`);
+      
+      if (!coachResponse.data.success) {
+        throw new Error('Failed to get coach availability');
+      }
+      
+      const coachAvailability = coachResponse.data.data.generalAvailability || [];
+      const availableDays = coachAvailability.map(avail => avail.day.toLowerCase());
+      
+      console.log('Coach available days:', availableDays);
+      
+      // Generate dates in the selected week, but only for coach's available days
       const weekDates = [];
       const startDate = new Date(selectedWeek.weekStartDate);
       const endDate = new Date(selectedWeek.weekEndDate);
       
       for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
-        weekDates.push(new Date(date).toISOString().split('T')[0]);
+        const dayOfWeek = date.getDay();
+        const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const currentDayName = dayNames[dayOfWeek].toLowerCase();
+        
+        // Only include dates where the coach is available
+        if (availableDays.includes(currentDayName)) {
+          weekDates.push(new Date(date).toISOString().split('T')[0]);
+        }
       }
       
-      console.log('Week dates:', weekDates);
+      console.log('Available week dates (coach available days only):', weekDates);
       
-      // Fetch availability for each date in the week
+      // Fetch availability for each available date
       const allSlots = [];
       for (const date of weekDates) {
         try {
@@ -323,6 +342,13 @@ export default function WeeklySessionBooking({ coachId, onSessionSelect, enrollm
             </p>
             <p className="text-sm text-yellow-700 mt-1">
               <strong>⏰ Session Duration:</strong> 2 hours
+            </p>
+          </div>
+
+          {/* Coach Available Days Info */}
+          <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+            <p className="text-sm text-blue-800">
+              <strong>📅 Coach Available Days:</strong> The coach is available on specific days of the week. Only those days will show available time slots.
             </p>
           </div>
 

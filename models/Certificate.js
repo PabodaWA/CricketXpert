@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const certificateSchema = new mongoose.Schema({
   user: {
@@ -8,7 +8,7 @@ const certificateSchema = new mongoose.Schema({
   },
   enrollment: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Enrollment',
+    ref: 'ProgramEnrollment',
     required: true
   },
   program: {
@@ -195,4 +195,4 @@ certificateSchema.methods.incrementDownload = async function() {
   return this;
 };
 
-module.exports = mongoose.model('Certificate', certificateSchema);
+export default mongoose.model('Certificate', certificateSchema);

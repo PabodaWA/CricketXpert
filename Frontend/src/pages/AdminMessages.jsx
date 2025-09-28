@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import Header from '../components/Header';
-import Footer from '../components/Footer';
 import { Brand } from '../brand';
 
 const AdminMessages = () => {
@@ -127,129 +125,88 @@ const AdminMessages = () => {
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden" style={{ backgroundColor: Brand.light }}>
-      <Header />
-      {/* Enhanced Background Pattern */}
-      <div className="absolute inset-0 opacity-5">
-        <div className="absolute top-0 left-0 w-full h-full" style={{
-          backgroundImage: `radial-gradient(circle at 25% 25%, ${Brand.secondary} 2px, transparent 2px),
-                           radial-gradient(circle at 75% 75%, ${Brand.primary} 2px, transparent 2px),
-                           linear-gradient(45deg, transparent 40%, ${Brand.accent}20 50%, transparent 60%)`,
-          backgroundSize: '50px 50px, 50px 50px, 100px 100px'
-        }}></div>
-      </div>
-      
-      
-      {/* Hero Section - Admin Messages */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-left">
-            <div className="space-y-8 max-w-4xl">
-              <div className="relative">
-                <h1 className="text-5xl lg:text-6xl font-bold mb-4" style={{ color: '#000000' }}>
-                  Admin Messages
-                </h1>
-                <div className="w-20 h-1 bg-gradient-to-r from-blue-500 to-transparent"></div>
-              </div>
-              <p className="text-xl leading-relaxed" style={{ color: '#36516C' }}>
-                View and manage customer messages. Stay connected with your customers and respond to their inquiries, feedback, and support requests efficiently.
-              </p>
-            </div>
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Contact Messages</h1>
+            <p className="text-gray-600 mt-1">View and manage customer messages and inquiries</p>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-500">Total Messages:</span>
+            <span className="bg-blue-100 text-blue-800 text-sm font-medium px-2.5 py-0.5 rounded-full">
+              {messages.length}
+            </span>
           </div>
         </div>
-      </section>
-
-      <div className="max-w-4xl mx-auto px-6 py-12 relative z-10">
+      </div>
 
 
-        {/* Messages List */}
-        <div className={`transform transition-all duration-700 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`} style={{ transitionDelay: '300ms' }}>
-          <div className="space-y-6">
+      {/* Messages List */}
+      <div className="bg-white rounded-lg shadow-sm">
+        <div className="p-6">
+          <div className="space-y-4">
             {filteredMessages.map((message, index) => (
               <div 
                 key={message.id}
-                className="bg-white rounded-3xl shadow-xl p-8 hover:shadow-2xl transition-all duration-300 transform hover:scale-[1.01] border-l-4"
-                style={{ 
-                  borderLeftColor: getStatusColor(message.status),
-                  transitionDelay: `${index * 100}ms`
-                }}
+                className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200"
               >
-                <div className="flex flex-col lg:flex-row gap-6">
+                <div className="flex items-start justify-between">
                   {/* Message Content */}
                   <div className="flex-1">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center space-x-4">
-                        <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg" style={{ backgroundColor: Brand.primary + '20' }}>
-                          <span className="text-lg font-bold" style={{ color: Brand.primary }}>
-                            {message.name.split(' ').map(n => n[0]).join('')}
-                          </span>
-                        </div>
-                        <div>
-                          <h3 className="text-xl font-bold" style={{ color: Brand.primary }}>{message.name}</h3>
-                          <p className="text-sm" style={{ color: Brand.body }}>{message.timestamp}</p>
-                        </div>
+                    <div className="flex items-center space-x-3 mb-3">
+                      <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                        <span className="text-sm font-semibold text-blue-600">
+                          {message.name.split(' ').map(n => n[0]).join('')}
+                        </span>
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-gray-900">{message.name}</h3>
+                        <p className="text-sm text-gray-500">{message.timestamp}</p>
                       </div>
                     </div>
 
-                    <div className="space-y-3 mb-6">
-                      <div className="flex items-center space-x-3">
-                        <svg className="w-5 h-5" style={{ color: Brand.secondary }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="space-y-2 mb-3">
+                      <div className="flex items-center space-x-2">
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                         </svg>
-                        <span style={{ color: Brand.body }}>{message.email}</span>
+                        <span className="text-sm text-gray-600">{message.email}</span>
                       </div>
-                      <div className="flex items-center space-x-3">
-                        <svg className="w-5 h-5" style={{ color: Brand.accent }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="flex items-center space-x-2">
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                         </svg>
-                        <span style={{ color: Brand.body }}>{message.phone}</span>
+                        <span className="text-sm text-gray-600">{message.phone}</span>
                       </div>
                     </div>
 
-                    <div className="bg-gradient-to-r p-6 rounded-2xl shadow-md" style={{ 
-                      background: `linear-gradient(135deg, ${Brand.primary}08, ${Brand.secondary}05)`,
-                      border: `1px solid ${Brand.primary}20`
-                    }}>
-                      <p className="text-lg leading-relaxed" style={{ color: Brand.body }}>
+                    <div className="bg-gray-50 p-3 rounded-md">
+                      <p className="text-sm text-gray-700 leading-relaxed">
                         {message.message}
                       </p>
                     </div>
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex flex-col space-y-3 lg:w-48">
+                  <div className="flex flex-col space-y-2 ml-4">
                     <button
                       onClick={() => handleViewDetails(message)}
-                      className="w-full px-6 py-3 rounded-xl font-semibold transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl"
-                      style={{ 
-                        backgroundColor: Brand.primary + '20',
-                        color: Brand.primary
-                      }}
+                      className="px-3 py-1 text-xs font-medium text-blue-600 bg-blue-100 rounded-md hover:bg-blue-200 transition-colors"
                     >
                       View Details
                     </button>
                     <button
                       onClick={() => {
-                        console.log('Delete button clicked for message:', message.id, message.name);
                         if (window.confirm('Are you sure you want to delete this message?')) {
-                          console.log('Deleting message with ID:', message.id);
-                          setMessages(prev => {
-                            const filtered = prev.filter(msg => msg.id !== message.id);
-                            console.log('Messages after deletion:', filtered.length);
-                            return filtered;
-                          });
-                          // Also remove from localStorage
+                          setMessages(prev => prev.filter(msg => msg.id !== message.id));
                           const savedMessages = JSON.parse(localStorage.getItem('adminMessages') || '[]');
                           const updatedMessages = savedMessages.filter(msg => msg.id !== message.id);
                           localStorage.setItem('adminMessages', JSON.stringify(updatedMessages));
-                          console.log('Updated localStorage messages:', updatedMessages.length);
                         }
                       }}
-                      className="w-full px-6 py-3 rounded-xl font-semibold transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl"
-                      style={{ 
-                        backgroundColor: '#EF444420',
-                        color: '#EF4444'
-                      }}
+                      className="px-3 py-1 text-xs font-medium text-red-600 bg-red-100 rounded-md hover:bg-red-200 transition-colors"
                     >
                       Delete
                     </button>
@@ -261,13 +218,13 @@ const AdminMessages = () => {
 
           {filteredMessages.length === 0 && (
             <div className="text-center py-12">
-              <div className="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6" style={{ backgroundColor: Brand.primary + '20' }}>
-                <svg className="w-12 h-12" style={{ color: Brand.primary }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               </div>
-              <h3 className="text-2xl font-bold mb-2" style={{ color: Brand.primary }}>No Messages Found</h3>
-              <p style={{ color: Brand.body }}>No customer messages available at this time.</p>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No Messages Found</h3>
+              <p className="text-gray-500">No customer messages available at this time.</p>
             </div>
           )}
         </div>
@@ -276,93 +233,72 @@ const AdminMessages = () => {
       {/* Message Details Modal */}
       {showDetails && selectedMessage && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               {/* Modal Header */}
               <div className="flex items-center justify-between mb-6 border-b pb-4">
-                <h2 className="text-2xl font-semibold" style={{ color: Brand.primary }}>Message Details</h2>
+                <h2 className="text-xl font-semibold text-gray-900">Message Details</h2>
                 <button
                   onClick={closeDetails}
-                  className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 transition-colors duration-200"
+                  className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded-md transition-colors"
                 >
-                  <svg className="w-5 h-5" style={{ color: Brand.body }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
 
               {/* Customer Information */}
-              <div className="p-4 mb-4" style={{ 
-                backgroundColor: Brand.primary + '05',
-                border: `1px solid ${Brand.primary}15`
-              }}>
+              <div className="bg-gray-50 p-4 mb-4 rounded-lg">
                 <div className="flex items-center space-x-3 mb-3">
-                  <div className="w-12 h-12 flex items-center justify-center" style={{ backgroundColor: Brand.primary + '15' }}>
-                    <span className="text-sm font-semibold" style={{ color: Brand.primary }}>
+                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                    <span className="text-sm font-semibold text-blue-600">
                       {selectedMessage.name.split(' ').map(n => n[0]).join('')}
                     </span>
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold" style={{ color: Brand.primary }}>{selectedMessage.name}</h3>
-                    <p className="text-xs" style={{ color: Brand.body }}>{selectedMessage.timestamp}</p>
+                    <h3 className="text-lg font-semibold text-gray-900">{selectedMessage.name}</h3>
+                    <p className="text-sm text-gray-500">{selectedMessage.timestamp}</p>
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <div className="flex items-center space-x-2">
-                    <svg className="w-4 h-4" style={{ color: Brand.secondary }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
-                    <span className="text-sm" style={{ color: Brand.body }}>{selectedMessage.email}</span>
+                    <span className="text-sm text-gray-600">{selectedMessage.email}</span>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <svg className="w-4 h-4" style={{ color: Brand.accent }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                     </svg>
-                    <span className="text-sm" style={{ color: Brand.body }}>{selectedMessage.phone}</span>
+                    <span className="text-sm text-gray-600">{selectedMessage.phone}</span>
                   </div>
                 </div>
               </div>
 
               {/* Message Content */}
-              <div className="p-4 mb-4" style={{ 
-                backgroundColor: Brand.secondary + '05',
-                border: `1px solid ${Brand.secondary}15`
-              }}>
-                <h4 className="text-sm font-semibold mb-2" style={{ color: Brand.primary }}>Message Content</h4>
-                <p className="text-sm leading-relaxed" style={{ color: Brand.body }}>
+              <div className="bg-blue-50 p-4 mb-4 rounded-lg">
+                <h4 className="text-sm font-semibold mb-2 text-gray-900">Message Content</h4>
+                <p className="text-sm leading-relaxed text-gray-700">
                   {selectedMessage.message}
                 </p>
               </div>
 
               {/* Message Status */}
-              <div className="p-4 mb-4" style={{ 
-                backgroundColor: Brand.accent + '05',
-                border: `1px solid ${Brand.accent}15`
-              }}>
-                <h4 className="text-sm font-semibold mb-2" style={{ color: Brand.primary }}>Message Information</h4>
+              <div className="bg-green-50 p-4 mb-4 rounded-lg">
+                <h4 className="text-sm font-semibold mb-2 text-gray-900">Message Information</h4>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <p className="text-xs font-medium mb-1" style={{ color: Brand.body }}>Status</p>
-                    <span 
-                      className="px-2 py-1 text-xs font-medium"
-                      style={{ 
-                        backgroundColor: getStatusColor(selectedMessage.status) + '15',
-                        color: getStatusColor(selectedMessage.status)
-                      }}
-                    >
+                    <p className="text-xs font-medium mb-1 text-gray-600">Status</p>
+                    <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
                       {selectedMessage.status.replace('-', ' ').toUpperCase()}
                     </span>
                   </div>
                   <div>
-                    <p className="text-xs font-medium mb-1" style={{ color: Brand.body }}>Priority</p>
-                    <span 
-                      className="px-2 py-1 text-xs font-medium"
-                      style={{ 
-                        backgroundColor: getPriorityColor(selectedMessage.priority) + '15',
-                        color: getPriorityColor(selectedMessage.priority)
-                      }}
-                    >
+                    <p className="text-xs font-medium mb-1 text-gray-600">Priority</p>
+                    <span className="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
                       {selectedMessage.priority.toUpperCase()}
                     </span>
                   </div>
@@ -373,14 +309,12 @@ const AdminMessages = () => {
               <div className="flex flex-col sm:flex-row gap-3">
                 <button
                   onClick={closeDetails}
-                  className="flex-1 px-4 py-2 text-sm font-medium text-white transition-all duration-200 hover:shadow-md"
-                  style={{ backgroundColor: Brand.primary }}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
                 >
                   Close
                 </button>
                 <button
-                  className="flex-1 px-4 py-2 text-sm font-medium text-white transition-all duration-200 hover:shadow-md"
-                  style={{ backgroundColor: Brand.secondary }}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 transition-colors"
                 >
                   Reply to Customer
                 </button>
@@ -389,39 +323,6 @@ const AdminMessages = () => {
           </div>
         </div>
       )}
-      
-      {/* Custom CSS for animations */}
-      <style jsx>{`
-        @keyframes gradient {
-          0% {
-            background-position: 0% 50%;
-          }
-          50% {
-            background-position: 100% 50%;
-          }
-          100% {
-            background-position: 0% 50%;
-          }
-        }
-        
-        @keyframes float {
-          0%, 100% {
-            transform: translateY(0px);
-          }
-          50% {
-            transform: translateY(-10px);
-          }
-        }
-        
-        .animate-float {
-          animation: float 3s ease-in-out infinite;
-        }
-        
-        .animate-gradient {
-          animation: gradient 3s ease infinite;
-        }
-      `}</style>
-      <Footer />
     </div>
   );
 };
