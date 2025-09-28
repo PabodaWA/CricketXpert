@@ -43,3 +43,4 @@ repairNotificationSchema.index({ customerId: 1, createdAt: -1 });
 repairNotificationSchema.index({ customerId: 1, isRead: 1 });
 
 export default mongoose.model('RepairNotification', repairNotificationSchema);
+

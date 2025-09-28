@@ -64,11 +64,6 @@ const NotificationDropdown = () => {
           console.log('🔔 Repair notifications loaded:', data);
           const notifications = data.notifications || [];
           setRepairNotifications(notifications);
-          
-          // Update total unread count
-          const orderUnread = notification ? 1 : 0;
-          const repairUnread = notifications.filter(n => !n.isRead).length;
-          setTotalUnreadCount(orderUnread + repairUnread);
         } else {
           const errorText = await response.text();
           console.error('🔔 Failed to load repair notifications:', response.status, response.statusText);
@@ -131,11 +126,18 @@ const NotificationDropdown = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Update total unread count whenever notification or repairNotifications change
+  useEffect(() => {
+    const orderUnread = (notification && hasUnread) ? 1 : 0;
+    const repairUnread = repairNotifications.filter(n => !n.isRead).length;
+    setTotalUnreadCount(orderUnread + repairUnread);
+  }, [notification, repairNotifications, hasUnread]);
+
   const handleToggle = () => {
     setIsOpen(!isOpen);
     if (!isOpen) {
-      // Mark order notification as read when opening
-      if (notification) {
+      // Mark order notification as read when opening dropdown (but don't clear it)
+      if (notification && hasUnread) {
         setHasUnread(false);
       }
       // Load fresh repair notifications when opening
@@ -168,11 +170,6 @@ const NotificationDropdown = () => {
         console.log('🔔 Repair notifications loaded (toggle):', data);
         const notifications = data.notifications || [];
         setRepairNotifications(notifications);
-        
-        // Update total unread count
-        const orderUnread = notification ? 1 : 0;
-        const repairUnread = notifications.filter(n => !n.isRead).length;
-        setTotalUnreadCount(orderUnread + repairUnread);
       } else {
         console.error('🔔 Failed to load repair notifications (toggle):', response.status, response.statusText);
       }
@@ -210,35 +207,17 @@ const NotificationDropdown = () => {
       if (response.ok) {
         const data = await response.json();
         console.log('🔔 Mark as read response data:', data);
-        
-        setRepairNotifications(prev => {
-          const updated = prev.map(notif => 
-            notif._id === notificationId 
-              ? { ...notif, isRead: true }
-              : notif
-          );
-          // Update total unread count
-          const orderUnread = notification ? 1 : 0;
-          const repairUnread = updated.filter(n => !n.isRead).length;
-          setTotalUnreadCount(orderUnread + repairUnread);
-          console.log('🔔 Updated notifications:', updated);
-          console.log('🔔 New unread count:', orderUnread + repairUnread);
-          return updated;
-        });
         console.log('🔔 Notification marked as read successfully');
-        
-        // Force a small delay and then refresh to ensure state is updated
-        setTimeout(() => {
-          console.log('🔔 Force refreshing notifications after mark as read...');
-          loadRepairNotifications();
-        }, 500);
+        return true;
       } else {
         const errorText = await response.text();
         console.error('🔔 Failed to mark notification as read:', response.status, response.statusText);
         console.error('🔔 Error response:', errorText);
+        throw new Error(`Failed to mark notification as read: ${response.status}`);
       }
     } catch (error) {
       console.error('🔔 Error marking repair notification as read:', error);
+      throw error;
     }
   };
 
@@ -296,9 +275,7 @@ const NotificationDropdown = () => {
 
   // Calculate total unread count
   const getTotalUnreadCount = () => {
-    const orderUnread = notification ? 1 : 0;
-    const repairUnread = repairNotifications.filter(n => !n.isRead).length;
-    return orderUnread + repairUnread;
+    return totalUnreadCount;
   };
 
   return (
@@ -386,10 +363,30 @@ const NotificationDropdown = () => {
                     className={`border rounded-lg p-4 ${getRepairNotificationColor(repairNotif.type)} ${
                       !repairNotif.isRead ? 'ring-2 ring-blue-200' : ''
                     }`}
-                    onClick={() => {
+                    onClick={async () => {
                       console.log('🔔 Repair notification clicked:', repairNotif._id, 'isRead:', repairNotif.isRead);
                       if (!repairNotif.isRead) {
-                        markRepairNotificationAsRead(repairNotif._id);
+                        // Prevent multiple clicks by immediately updating local state
+                        setRepairNotifications(prev => 
+                          prev.map(notif => 
+                            notif._id === repairNotif._id 
+                              ? { ...notif, isRead: true }
+                              : notif
+                          )
+                        );
+                        // Then call the API
+                        try {
+                          await markRepairNotificationAsRead(repairNotif._id);
+                        } catch (error) {
+                          // Revert state if API call fails
+                          setRepairNotifications(prev => 
+                            prev.map(notif => 
+                              notif._id === repairNotif._id 
+                                ? { ...notif, isRead: false }
+                                : notif
+                            )
+                          );
+                        }
                       }
                     }}
                   >

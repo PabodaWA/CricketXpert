@@ -319,3 +319,4 @@ console.log('- testEnrollmentOnly() - Test enrollment notifications only');
 console.log('- testBellOnly() - Test bell icon display only');
 console.log('- testPageOnly() - Test customer notifications page only');
 console.log('\nRun testAllNotifications() to start comprehensive testing!');
+
