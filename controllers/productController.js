@@ -135,10 +135,7 @@ const searchProducts = async (req, res) => {
     const { query, category, brand, minPrice, maxPrice, page = 1, limit = 10 } = req.query;
     let searchQuery = { is_active: true };
     if (query) {
-      searchQuery.$or = [
-        { name: { $regex: query, $options: 'i' } },
-        { description: { $regex: query, $options: 'i' } }
-      ];
+      searchQuery.name = { $regex: query, $options: 'i' };
     }
     if (category) searchQuery.category = category;
     if (brand) searchQuery.brand = brand;
