@@ -80,11 +80,6 @@ export const sendEstimate = (requestId, estimateData) => {
   return axios.post(`${BASE_URL}/${requestId}/estimate`, estimateData);
 };
 
-// Submit customer feedback
-export const submitFeedback = (requestId, feedbackData) => {
-  return axios.post(`${BASE_URL}/${requestId}/feedback`, feedbackData);
-};
-
 // Get all technicians
 export const getAllTechnicians = () => {
   return axios.get('http://localhost:5000/api/technicians');
