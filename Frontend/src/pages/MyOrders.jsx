@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Package, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { Package, Clock, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import { getCurrentUserId } from '../utils/getCurrentUser';
 
 const MyOrders = () => {
@@ -45,6 +45,8 @@ const MyOrders = () => {
         return 'bg-red-100 text-red-800';
       case 'cart_pending':
         return 'bg-gray-100 text-gray-800';
+      case 'delayed':
+        return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -64,6 +66,8 @@ const MyOrders = () => {
         return <XCircle className="w-4 h-4" />;
       case 'cart_pending':
         return <Clock className="w-4 h-4" />;
+      case 'delayed':
+        return <AlertTriangle className="w-4 h-4" />;
       default:
         return <Package className="w-4 h-4" />;
     }
@@ -152,6 +156,13 @@ const MyOrders = () => {
           color: 'text-orange-600'
         };
       }
+    } else if (order.status === 'delayed' && order.deliveryDate) {
+      const deliveryDate = new Date(order.deliveryDate);
+      return {
+        text: `Expected delivery: ${deliveryDate.toLocaleDateString()}`,
+        countdown: 'Delivery delayed',
+        color: 'text-red-600'
+      };
     } else if (order.status === 'delivered') {
       return {
         text: 'Order delivered successfully',
@@ -249,7 +260,7 @@ const MyOrders = () => {
                             >
                               Download
                             </button>
-                            {order.status !== 'cancelled' && order.status !== 'completed' && (
+                            {order.status !== 'cancelled' && order.status !== 'completed' && order.status !== 'delayed' && (
                               <button 
                                 onClick={() => handleCancelOrder(order._id)}
                                 className="block w-full mt-2 border border-[#dc3545] text-[#dc3545] px-4 py-2 rounded text-sm hover:bg-[#dc3545] hover:text-white transition-colors"

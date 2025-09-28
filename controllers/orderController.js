@@ -301,7 +301,7 @@ const updateOrder = async (req, res) => {
 const updateOrderStatus = async (req, res) => {
   try {
     const { status } = req.body;
-    const validStatuses = ['created', 'processing', 'completed', 'delivered', 'cancelled', 'cart_pending'];
+    const validStatuses = ['created', 'processing', 'completed', 'delivered', 'cancelled', 'cart_pending', 'delayed'];
 
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ message: 'Invalid order status' });
@@ -334,7 +334,7 @@ const updateOrderStatus = async (req, res) => {
 const updateOrder = async (req, res) => {
   try {
     const { address, amount, status, items } = req.body;
-    const validStatuses = ['created', 'processing', 'completed', 'delivered', 'cancelled', 'cart_pending'];
+    const validStatuses = ['created', 'processing', 'completed', 'delivered', 'cancelled', 'cart_pending', 'delayed'];
 
     const order = await Order.findById(req.params.id);
     if (!order) return res.status(404).json({ message: 'Order not found' });
@@ -396,6 +396,11 @@ const updateOrder = async (req, res) => {
         console.error('❌ Failed to send order confirmation emails:', emailError);
         // Continue with response even if emails fail
       }
+    }
+
+    // Log when order is marked as delayed
+    if (status === 'delayed' && previousStatus !== 'delayed') {
+      console.log(`⚠️ Order ${order._id} has been marked as delayed`);
     }
 
     res.json(order);
