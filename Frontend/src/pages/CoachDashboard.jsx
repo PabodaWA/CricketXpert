@@ -536,25 +536,32 @@ const CoachDashboard = () => {
 
   // Group customers by their coaching programs
   const getCustomersByProgram = () => {
+    // Use the customers data that's already grouped by program from the API
+    if (!customers || customers.length === 0) {
+      return [];
+    }
+    
+    // Create a simple grouping by program
     const programGroups = {};
     
-    // Group customers by their enrolled programs
-    enrolledPrograms.forEach(enrollment => {
-      const programId = enrollment.program._id;
-      const program = enrollment.program;
-      
-      if (!programGroups[programId]) {
-        programGroups[programId] = {
-          program: program,
-          customers: []
-        };
-      }
-      
-      // Find the customer data for this enrollment
-      const customer = customers.find(c => c._id === enrollment.user._id);
-      if (customer) {
-        programGroups[programId].customers.push(customer);
-      }
+    customers.forEach(customer => {
+      // Each customer has enrolledPrograms array
+      customer.enrolledPrograms.forEach(programId => {
+        if (!programGroups[programId]) {
+          // Find the program details from enrolledPrograms
+          const enrollment = enrolledPrograms.find(ep => ep.program && ep.program._id === programId);
+          if (enrollment) {
+            programGroups[programId] = {
+              program: enrollment.program,
+              customers: []
+            };
+          }
+        }
+        
+        if (programGroups[programId]) {
+          programGroups[programId].customers.push(customer);
+        }
+      });
     });
     
     // Convert to array and filter by search term
@@ -737,7 +744,7 @@ const CoachDashboard = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
-      <div className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} fixed inset-y-0 left-0 z-50 w-64 bg-blue-900 text-white transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0`}>
+      <div className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} fixed inset-y-0 left-0 z-50 w-64 bg-blue-900 text-white transition-transform duration-300 ease-in-out lg:translate-x-0`}>
         <div className="flex items-center justify-between h-16 px-6 border-b border-blue-800">
           <h1 className="text-xl font-bold">Coach Dashboard</h1>
           <button
@@ -818,7 +825,7 @@ const CoachDashboard = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col lg:ml-0">
+      <div className="flex-1 flex flex-col lg:ml-64">
         {/* Mobile Header */}
         <div className="lg:hidden bg-white shadow-sm border-b border-gray-200 px-4 py-3">
           <div className="flex items-center justify-between">
@@ -1107,7 +1114,7 @@ const CoachDashboard = () => {
                       {programGroup.customers.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                           {programGroup.customers.map((customer) => {
-                    const enrollment = enrolledPrograms.find(ep => ep.user._id === customer._id);
+                    const enrollment = enrolledPrograms.find(ep => ep.user && ep.user._id === customer._id);
                     return (
                       <CustomerCard 
                         key={customer._id} 

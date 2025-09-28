@@ -42,6 +42,7 @@ const ManagerDashboard = () => {
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [programDeletionStatus, setProgramDeletionStatus] = useState({});
   
   // Modal states
   const [showProgramModal, setShowProgramModal] = useState(false);
@@ -310,6 +311,10 @@ const ManagerDashboard = () => {
       setError('Failed to load dashboard data');
     } finally {
       setLoading(false);
+      // Check deletion status for all programs after loading
+      setTimeout(() => {
+        checkAllProgramDeletionStatus();
+      }, 1000);
     }
   };
 
@@ -407,18 +412,101 @@ const ManagerDashboard = () => {
     }
   };
 
-  const handleDeleteProgram = async (programId) => {
-    if (!window.confirm('Are you sure you want to delete this program?')) return;
+  // Function to check deletion status for all programs
+  const checkAllProgramDeletionStatus = async () => {
+    const statusMap = {};
     
+    for (const program of programs) {
+      try {
+        const response = await axios.get(`http://localhost:5000/api/programs/${program._id}/can-delete`);
+        statusMap[program._id] = {
+          canDelete: response.data.canDelete,
+          reason: response.data.reason,
+          details: response.data.details
+        };
+      } catch (error) {
+        console.error(`Error checking deletion status for program ${program._id}:`, error);
+        statusMap[program._id] = {
+          canDelete: false,
+          reason: 'Error checking deletion status',
+          details: null
+        };
+      }
+    }
+    
+    setProgramDeletionStatus(statusMap);
+  };
+
+  const handleDeleteProgram = async (programId) => {
     try {
+      // First check if the program can be deleted
+      const canDeleteResponse = await axios.get(`http://localhost:5000/api/programs/${programId}/can-delete`);
+      
+      if (!canDeleteResponse.data.canDelete) {
+        // Show detailed error message
+        const reason = canDeleteResponse.data.reason;
+        const details = canDeleteResponse.data.details;
+        
+        let errorMessage = `Cannot delete program: ${reason}`;
+        
+        if (details && details.invalidEnrollments) {
+          errorMessage += '\n\nEnrollments that need attention:';
+          details.invalidEnrollments.forEach(enrollment => {
+            errorMessage += `\n- ${enrollment.user.firstName} ${enrollment.user.lastName}: ${enrollment.progressPercentage}% progress`;
+          });
+        }
+        
+        if (details && details.futureSessions) {
+          errorMessage += `\n\nFuture sessions found:`;
+          details.futureSessions.forEach(session => {
+            errorMessage += `\n- ${session.title} on ${new Date(session.scheduledDate).toLocaleDateString()}`;
+          });
+        }
+        
+        alert(errorMessage);
+        return;
+      }
+      
+      // If we reach here, the program can be deleted
+      if (!window.confirm('Are you sure you want to delete this program? This will also delete all related enrollments and sessions.')) return;
+      
       await axios.delete(`http://localhost:5000/api/programs/${programId}`);
       setPrograms(programs.filter(p => p._id !== programId));
+      // Update deletion status
+      const newStatus = { ...programDeletionStatus };
+      delete newStatus[programId];
+      setProgramDeletionStatus(newStatus);
       alert('Program deleted successfully!');
     } catch (error) {
       console.error('Error deleting program:', error);
-      // For development, remove from local state even if API fails
-      setPrograms(programs.filter(p => p._id !== programId));
-      alert('Program deleted locally (API not available)');
+      
+      // Handle specific error responses
+      if (error.response && error.response.data && error.response.data.message) {
+        const errorMessage = error.response.data.message;
+        const details = error.response.data.details;
+        
+        let fullErrorMessage = errorMessage;
+        
+        if (details && details.invalidEnrollments) {
+          fullErrorMessage += '\n\nEnrollments that need attention:';
+          details.invalidEnrollments.forEach(enrollment => {
+            fullErrorMessage += `\n- ${enrollment.user.firstName} ${enrollment.user.lastName}: ${enrollment.progressPercentage}% progress`;
+          });
+        }
+        
+        if (details && details.futureSessions) {
+          fullErrorMessage += `\n\nFuture sessions found:`;
+          details.futureSessions.forEach(session => {
+            fullErrorMessage += `\n- ${session.title} on ${new Date(session.scheduledDate).toLocaleDateString()}`;
+          });
+        }
+        
+        alert(fullErrorMessage);
+      } else {
+        // For development, remove from local state even if API fails
+        setPrograms(programs.filter(p => p._id !== programId));
+        alert('Program deleted locally (API not available)');
+      }
     }
   };
 
@@ -931,7 +1019,7 @@ const ManagerDashboard = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-blue-900 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0`}>
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-blue-900 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out lg:translate-x-0`}>
         <div className="flex flex-col h-full">
           {/* Brand */}
           <div className="flex items-center justify-between h-16 px-6 bg-blue-800">
@@ -996,7 +1084,7 @@ const ManagerDashboard = () => {
       )}
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col lg:ml-0">
+      <div className="flex-1 flex flex-col lg:ml-64">
 
         {/* Content Area */}
         <div className="flex-1 p-4 lg:p-6">
@@ -1006,6 +1094,7 @@ const ManagerDashboard = () => {
             <ProgramsTab 
               programs={programs} 
               coaches={coaches}
+              programDeletionStatus={programDeletionStatus}
               onEdit={openProgramModal}
               onDelete={handleDeleteProgram}
               onAddMaterial={(program) => {
@@ -1431,7 +1520,7 @@ const OverviewTab = ({ coaches, programs, sessions }) => {
 };
 
 // Programs Tab Component
-const ProgramsTab = ({ programs, coaches, onEdit, onDelete, onAddMaterial, onAssignCoach }) => {
+const ProgramsTab = ({ programs, coaches, programDeletionStatus, onEdit, onDelete, onAddMaterial, onAssignCoach }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [filterDifficulty, setFilterDifficulty] = useState('');
@@ -1669,6 +1758,29 @@ const ProgramsTab = ({ programs, coaches, onEdit, onDelete, onAddMaterial, onAss
                 </div>
               </div>
 
+              {/* Deletion Status Indicator */}
+              {programDeletionStatus[program._id] && (
+                <div className={`mb-4 p-2 rounded-md text-sm ${
+                  programDeletionStatus[program._id].canDelete
+                    ? 'bg-green-50 text-green-700 border border-green-200'
+                    : 'bg-red-50 text-red-700 border border-red-200'
+                }`}>
+                  <div className="flex items-center">
+                    {programDeletionStatus[program._id].canDelete ? (
+                      <>
+                        <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                        <span>Ready for deletion</span>
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-2 h-2 bg-red-500 rounded-full mr-2"></div>
+                        <span>Cannot delete: {programDeletionStatus[program._id].reason}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Materials Count */}
               {program.materials && program.materials.length > 0 && (
                 <div className="flex items-center text-sm text-gray-600 mb-4">
@@ -1704,8 +1816,17 @@ const ProgramsTab = ({ programs, coaches, onEdit, onDelete, onAddMaterial, onAss
                 </div>
                 <button
                   onClick={() => onDelete(program._id)}
-                  className="text-red-600 hover:text-red-900 p-1"
-                  title="Delete Program"
+                  className={`p-1 ${
+                    programDeletionStatus[program._id]?.canDelete === false
+                      ? 'text-gray-400 cursor-not-allowed'
+                      : 'text-red-600 hover:text-red-900'
+                  }`}
+                  title={
+                    programDeletionStatus[program._id]?.canDelete === false
+                      ? `Cannot delete: ${programDeletionStatus[program._id]?.reason}`
+                      : 'Delete Program'
+                  }
+                  disabled={programDeletionStatus[program._id]?.canDelete === false}
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>

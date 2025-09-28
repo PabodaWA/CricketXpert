@@ -1893,6 +1893,18 @@ const getEnrolledCustomers = async (req, res) => {
     // Group by program and calculate attendance statistics
     const customersByProgram = {};
     enrollments.forEach(enrollment => {
+      // Check if program exists and has _id
+      if (!enrollment.program || !enrollment.program._id) {
+        console.log('Skipping enrollment with missing program:', enrollment._id);
+        return;
+      }
+      
+      // Check if user exists and has _id
+      if (!enrollment.user || !enrollment.user._id) {
+        console.log('Skipping enrollment with missing user:', enrollment._id);
+        return;
+      }
+      
       const programId = enrollment.program._id.toString();
       if (!customersByProgram[programId]) {
         customersByProgram[programId] = {

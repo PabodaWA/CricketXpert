@@ -6,6 +6,7 @@ import {
   createCoachingProgram,
   updateCoachingProgram,
   deleteCoachingProgram,
+  canDeleteProgram,
   getProgramsByCoach,
   addMaterial,
   getProgramStats
@@ -26,6 +27,7 @@ router.get('/coach/:coachId', getProgramsByCoach);
 router.post('/', /* authorize('coach', 'admin'), */ createCoachingProgram);
 router.put('/:id', /* authorize('coach', 'admin'), */ updateCoachingProgram);
 router.delete('/:id', /* authorize('coach', 'admin'), */ deleteCoachingProgram);
+router.get('/:id/can-delete', /* authorize('coach', 'admin'), */ canDeleteProgram);
 router.post('/:id/materials', /* authorize('coach', 'admin'), */ addMaterial);
 
 // Admin/Coach only routes

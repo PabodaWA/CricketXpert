@@ -340,24 +340,119 @@ const deleteCoachingProgram = async (req, res) => {
     //   });
     // }
 
-    // Check if there are active enrollments
-    const activeEnrollments = await ProgramEnrollment.countDocuments({
-      program: req.params.id,
-      status: { $in: ['active', 'pending'] }
-    });
+    // Get all enrollments for this program
+    const enrollments = await ProgramEnrollment.find({
+      program: req.params.id
+    }).populate('user', 'firstName lastName email');
 
-    if (activeEnrollments > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot delete program with active enrollments'
+    // Check if there are any enrollments
+    if (enrollments.length === 0) {
+      // No enrollments - safe to delete
+      await CoachingProgram.findByIdAndDelete(req.params.id);
+      
+      // Remove from coach's assignedPrograms
+      const Coach = (await import('../models/Coach.js')).default;
+      await Coach.findByIdAndUpdate(program.coach, {
+        $pull: { assignedPrograms: req.params.id }
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: 'Coaching program deleted successfully'
       });
     }
 
+    // Check enrollment progress conditions
+    const invalidEnrollments = [];
+    
+    for (const enrollment of enrollments) {
+      const progressPercentage = enrollment.progress.progressPercentage || 0;
+      
+      // Check if enrollment progress is NOT 0% or 100%
+      if (progressPercentage !== 0 && progressPercentage !== 100) {
+        invalidEnrollments.push({
+          user: enrollment.user,
+          progressPercentage: progressPercentage,
+          reason: 'Enrollment progress must be 0% or 100%'
+        });
+      }
+    }
+
+    if (invalidEnrollments.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot delete program: Some enrollments do not meet progress requirements',
+        details: {
+          requirement: 'Enrollment progress must be 0% or 100%',
+          invalidEnrollments: invalidEnrollments
+        }
+      });
+    }
+
+    // Check if all sessions for all enrolled users are past sessions
+    const Session = (await import('../models/Session.js')).default;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    for (const enrollment of enrollments) {
+      // Get all sessions for this enrollment
+      const sessions = await Session.find({
+        'participants.enrollment': enrollment._id
+      });
+
+      // Check if any session is not in the past
+      const futureSessions = sessions.filter(session => {
+        const sessionDate = new Date(session.scheduledDate);
+        sessionDate.setHours(0, 0, 0, 0);
+        return sessionDate >= today;
+      });
+
+      if (futureSessions.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot delete program: Some enrolled users have future sessions',
+          details: {
+            requirement: 'All sessions for all enrolled users must be in the past',
+            user: enrollment.user,
+            futureSessionsCount: futureSessions.length,
+            futureSessions: futureSessions.map(session => ({
+              sessionId: session._id,
+              scheduledDate: session.scheduledDate,
+              title: session.title
+            }))
+          }
+        });
+      }
+    }
+
+    // All conditions met - proceed with deletion
+    // First, delete all related sessions
+    await Session.deleteMany({
+      program: req.params.id
+    });
+
+    // Delete all enrollments
+    await ProgramEnrollment.deleteMany({
+      program: req.params.id
+    });
+
+    // Delete the program
     await CoachingProgram.findByIdAndDelete(req.params.id);
+
+    // Remove from coach's assignedPrograms
+    const Coach = (await import('../models/Coach.js')).default;
+    await Coach.findByIdAndUpdate(program.coach, {
+      $pull: { assignedPrograms: req.params.id }
+    });
 
     res.status(200).json({
       success: true,
-      message: 'Coaching program deleted successfully'
+      message: 'Coaching program and all related data deleted successfully',
+      deletedData: {
+        program: req.params.id,
+        enrollments: enrollments.length,
+        sessions: 'All related sessions deleted'
+      }
     });
   } catch (error) {
     res.status(500).json({
@@ -471,6 +566,120 @@ const addMaterial = async (req, res) => {
   }
 };
 
+// @desc    Check if program can be deleted
+// @route   GET /api/programs/:id/can-delete
+// @access  Private (Coach/Admin only)
+const canDeleteProgram = async (req, res) => {
+  try {
+    const program = await CoachingProgram.findById(req.params.id);
+
+    if (!program) {
+      return res.status(404).json({
+        success: false,
+        message: 'Coaching program not found'
+      });
+    }
+
+    // Get all enrollments for this program
+    const enrollments = await ProgramEnrollment.find({
+      program: req.params.id
+    }).populate('user', 'firstName lastName email');
+
+    // If no enrollments, can delete
+    if (enrollments.length === 0) {
+      return res.status(200).json({
+        success: true,
+        canDelete: true,
+        reason: 'No enrollments found'
+      });
+    }
+
+    // Check enrollment progress conditions
+    const invalidEnrollments = [];
+    
+    for (const enrollment of enrollments) {
+      const progressPercentage = enrollment.progress.progressPercentage || 0;
+      
+      // Check if enrollment progress is NOT 0% or 100%
+      if (progressPercentage !== 0 && progressPercentage !== 100) {
+        invalidEnrollments.push({
+          user: enrollment.user,
+          progressPercentage: progressPercentage,
+          reason: 'Enrollment progress must be 0% or 100%'
+        });
+      }
+    }
+
+    if (invalidEnrollments.length > 0) {
+      return res.status(200).json({
+        success: true,
+        canDelete: false,
+        reason: 'Some enrollments do not meet progress requirements',
+        details: {
+          requirement: 'Enrollment progress must be 0% or 100%',
+          invalidEnrollments: invalidEnrollments
+        }
+      });
+    }
+
+    // Check if all sessions for all enrolled users are past sessions
+    const Session = (await import('../models/Session.js')).default;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    for (const enrollment of enrollments) {
+      // Get all sessions for this enrollment
+      const sessions = await Session.find({
+        'participants.enrollment': enrollment._id
+      });
+
+      // Check if any session is not in the past
+      const futureSessions = sessions.filter(session => {
+        const sessionDate = new Date(session.scheduledDate);
+        sessionDate.setHours(0, 0, 0, 0);
+        return sessionDate >= today;
+      });
+
+      if (futureSessions.length > 0) {
+        return res.status(200).json({
+          success: true,
+          canDelete: false,
+          reason: 'Some enrolled users have future sessions',
+          details: {
+            requirement: 'All sessions for all enrolled users must be in the past',
+            user: enrollment.user,
+            futureSessionsCount: futureSessions.length,
+            futureSessions: futureSessions.map(session => ({
+              sessionId: session._id,
+              scheduledDate: session.scheduledDate,
+              title: session.title
+            }))
+          }
+        });
+      }
+    }
+
+    // All conditions met
+    return res.status(200).json({
+      success: true,
+      canDelete: true,
+      reason: 'All conditions met for deletion',
+      details: {
+        enrollments: enrollments.length,
+        allProgressValid: true,
+        allSessionsPast: true
+      }
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error checking if program can be deleted',
+      error: error.message
+    });
+  }
+};
+
 // @desc    Get program statistics
 // @route   GET /api/programs/:id/stats
 // @access  Private (Coach only)
@@ -546,6 +755,7 @@ export {
   createCoachingProgram,
   updateCoachingProgram,
   deleteCoachingProgram,
+  canDeleteProgram,
   getProgramsByCoach,
   addMaterial,
   getProgramStats
