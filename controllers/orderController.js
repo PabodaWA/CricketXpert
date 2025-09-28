@@ -15,6 +15,9 @@ const createOrder = async (req, res) => {
     if (order.status === 'completed') {
       await reduceProductStock(order.items);
       
+      // Update delivery information for completed orders
+      await updateOrderDeliveryInfo(order);
+      
       // Send email notifications for completed orders
       try {
         console.log('📧 Sending order confirmation emails for completed order...');
@@ -128,6 +131,9 @@ const completeCartOrder = async (req, res) => {
     
     // Reduce stock quantities for all products in the order
     await reduceProductStock(order.items);
+    
+    // Update delivery information for completed orders
+    await updateOrderDeliveryInfo(order);
     
     // Get populated order with customer details for email
     const populatedOrder = await Order.findById(order._id)
@@ -295,7 +301,7 @@ const updateOrder = async (req, res) => {
 const updateOrderStatus = async (req, res) => {
   try {
     const { status } = req.body;
-    const validStatuses = ['created', 'processing', 'completed', 'cancelled', 'cart_pending'];
+    const validStatuses = ['created', 'processing', 'completed', 'delivered', 'cancelled', 'cart_pending', 'delayed'];
 
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ message: 'Invalid order status' });
@@ -328,7 +334,7 @@ const updateOrderStatus = async (req, res) => {
 const updateOrder = async (req, res) => {
   try {
     const { address, amount, status, items } = req.body;
-    const validStatuses = ['created', 'processing', 'completed', 'cancelled', 'cart_pending'];
+    const validStatuses = ['created', 'processing', 'completed', 'delivered', 'cancelled', 'cart_pending', 'delayed'];
 
     const order = await Order.findById(req.params.id);
     if (!order) return res.status(404).json({ message: 'Order not found' });
@@ -351,6 +357,8 @@ const updateOrder = async (req, res) => {
       if (status === 'completed' && previousStatus !== 'completed') {
         // Order is being completed - reduce stock
         await reduceProductStock(order.items);
+        // Update delivery information for completed orders
+        await updateOrderDeliveryInfo(order);
       } else if (status === 'cancelled' && previousStatus !== 'cancelled') {
         // Order is being cancelled - restore stock if it was previously paid/created
         if (previousStatus === 'created' || previousStatus === 'processing' || previousStatus === 'completed') {
@@ -388,6 +396,11 @@ const updateOrder = async (req, res) => {
         console.error('❌ Failed to send order confirmation emails:', emailError);
         // Continue with response even if emails fail
       }
+    }
+
+    // Log when order is marked as delayed
+    if (status === 'delayed' && previousStatus !== 'delayed') {
+      console.log(`⚠️ Order ${order._id} has been marked as delayed`);
     }
 
     res.json(order);
@@ -881,6 +894,99 @@ const restoreProductStock = async (orderItems) => {
   }
 };
 
+// Function to calculate delivery date (7 days after order date)
+const calculateDeliveryDate = (orderDate) => {
+  const deliveryDate = new Date(orderDate);
+  deliveryDate.setDate(deliveryDate.getDate() + 7);
+  return deliveryDate;
+};
+
+// Function to calculate remaining days until delivery
+const calculateRemainingDays = (deliveryDate) => {
+  const today = new Date();
+  const delivery = new Date(deliveryDate);
+  const timeDiff = delivery.getTime() - today.getTime();
+  const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+  return Math.max(0, daysDiff);
+};
+
+// Function to update order delivery information when status changes to completed
+const updateOrderDeliveryInfo = async (order) => {
+  try {
+    if (order.status === 'completed' && !order.deliveryDate) {
+      // Calculate delivery date (7 days after order date)
+      const deliveryDate = calculateDeliveryDate(order.date);
+      const remainingDays = calculateRemainingDays(deliveryDate);
+      
+      order.deliveryDate = deliveryDate;
+      order.remainingDays = remainingDays;
+      
+      console.log(`📅 Delivery date calculation for order ${order._id}:`);
+      console.log(`   Order Date: ${order.date.toDateString()}`);
+      console.log(`   Delivery Date: ${deliveryDate.toDateString()} (Order Date + 7 days)`);
+      console.log(`   Remaining Days: ${remainingDays}`);
+      
+      await order.save();
+    }
+  } catch (error) {
+    console.error('Error updating order delivery info:', error);
+    throw error;
+  }
+};
+
+// Function to check and update orders that should be marked as delivered
+const checkAndUpdateDeliveredOrders = async () => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Start of today
+    
+    // Find orders that are completed and have delivery date today or earlier
+    const ordersToUpdate = await Order.find({
+      status: 'completed',
+      deliveryDate: { $lte: today }
+    });
+    
+    for (const order of ordersToUpdate) {
+      order.status = 'delivered';
+      order.remainingDays = 0;
+      await order.save();
+      console.log(`✅ Order ${order._id} automatically marked as delivered`);
+    }
+    
+    if (ordersToUpdate.length > 0) {
+      console.log(`📦 ${ordersToUpdate.length} orders automatically marked as delivered`);
+    }
+  } catch (error) {
+    console.error('Error checking delivered orders:', error);
+  }
+};
+
+// Function to update remaining days for all completed orders
+const updateRemainingDaysForAllOrders = async () => {
+  try {
+    const completedOrders = await Order.find({ status: 'completed' });
+    
+    for (const order of completedOrders) {
+      // If order doesn't have delivery date, calculate it
+      if (!order.deliveryDate) {
+        const deliveryDate = calculateDeliveryDate(order.date);
+        order.deliveryDate = deliveryDate;
+        console.log(`📅 Added delivery date for order ${order._id}: ${deliveryDate.toDateString()} (Order Date + 7 days)`);
+      }
+      
+      if (order.deliveryDate) {
+        const remainingDays = calculateRemainingDays(order.deliveryDate);
+        order.remainingDays = remainingDays;
+        await order.save();
+      }
+    }
+    
+    console.log(`📅 Updated remaining days for ${completedOrders.length} completed orders`);
+  } catch (error) {
+    console.error('Error updating remaining days:', error);
+  }
+};
+
 export {
   createOrder,
   createCartOrder,
@@ -895,5 +1001,7 @@ export {
   downloadOrder,
   cancelOrder,
   calculateOrderTotal,
-  getOrdersByStatus
+  getOrdersByStatus,
+  checkAndUpdateDeliveredOrders,
+  updateRemainingDaysForAllOrders
 };

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Search, Filter, Eye, Edit, Trash2, XCircle, Package, Clock, CheckCircle } from 'lucide-react';
+import { Search, Filter, Eye, Edit, Trash2, XCircle, Package, Clock, CheckCircle, RefreshCw, AlertTriangle } from 'lucide-react';
 
 // Reusable Modal Component
 const Modal = ({ isOpen, onClose, children }) => {
@@ -69,6 +69,16 @@ export default function ListOrders() {
     const fetchOrders = async () => {
         try {
             setLoading(true);
+            
+            // First, update delivery information for all orders
+            try {
+                await axios.post('http://localhost:5000/api/orders/delivery-check');
+                console.log('✅ Delivery information updated');
+            } catch (deliveryError) {
+                console.warn('⚠️ Could not update delivery information:', deliveryError.message);
+                // Continue with fetching orders even if delivery check fails
+            }
+            
             let url;
             if (selectedStatus) {
                 url = `http://localhost:5000/api/orders/status/${selectedStatus}`;
@@ -155,11 +165,71 @@ export default function ListOrders() {
         }));
     };
 
-    const getStatusPill = (status) => {
+    const handleRefreshDeliveryInfo = async () => {
+        try {
+            setLoading(true);
+            await axios.post('http://localhost:5000/api/orders/delivery-check');
+            console.log('✅ Delivery information refreshed');
+            // Refresh the orders list
+            await fetchOrders();
+            alert('Delivery information updated successfully! All completed orders now have delivery dates calculated (Order Date + 7 days).');
+        } catch (error) {
+            console.error('Error refreshing delivery info:', error);
+            alert('Failed to refresh delivery information. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const formatDeliveryInfo = (order) => {
+        if (order.status === 'completed' && order.deliveryDate) {
+            const deliveryDate = new Date(order.deliveryDate);
+            const remainingDays = order.remainingDays || 0;
+            
+            if (remainingDays > 0) {
+                return {
+                    text: `Expected delivery: ${deliveryDate.toLocaleDateString()}`,
+                    countdown: `${remainingDays} day${remainingDays !== 1 ? 's' : ''} remaining`,
+                    color: 'text-blue-600'
+                };
+            } else if (remainingDays === 0) {
+                return {
+                    text: `Expected delivery: ${deliveryDate.toLocaleDateString()}`,
+                    countdown: 'Delivery expected today',
+                    color: 'text-orange-600'
+                };
+            }
+        } else if (order.status === 'delivered') {
+            return {
+                text: 'Order delivered successfully',
+                countdown: 'Delivered',
+                color: 'text-green-600'
+            };
+        }
+        return null;
+    };
+
+    // Function to check if an order is delayed
+    const isOrderDelayed = (order) => {
+        if (order.status !== 'completed' || !order.deliveryDate) {
+            return false;
+        }
+        const today = new Date();
+        const deliveryDate = new Date(order.deliveryDate);
+        return today > deliveryDate;
+    };
+
+    const getStatusPill = (status, order = null) => {
+        // Check if order is delayed (either manually set or auto-detected)
+        if (status === 'delayed' || (order && isOrderDelayed(order))) {
+            return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800"><AlertTriangle size={14} /> delayed</span>;
+        }
+        
         const statuses = {
             created: { icon: <Package size={14} />, color: 'bg-blue-100 text-blue-800' },
             processing: { icon: <Clock size={14} />, color: 'bg-yellow-100 text-yellow-800' },
             completed: { icon: <CheckCircle size={14} />, color: 'bg-green-100 text-green-800' },
+            delivered: { icon: <CheckCircle size={14} />, color: 'bg-emerald-100 text-emerald-800' },
             cancelled: { icon: <XCircle size={14} />, color: 'bg-red-100 text-red-800' },
             cart_pending: { icon: <Clock size={14} />, color: 'bg-gray-100 text-gray-800' },
             default: { icon: <Package size={14} />, color: 'bg-gray-100 text-gray-800' }
@@ -168,15 +238,22 @@ export default function ListOrders() {
         return <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${color}`}>{icon} {status}</span>;
     };
 
-    // Filter orders based on search query
+    // Filter orders based on search query and status
     const filteredOrders = orders.filter(order => {
         const searchLower = searchQuery.toLowerCase();
-        return (
+        const matchesSearch = (
             order._id.toLowerCase().includes(searchLower) ||
             order.customerId?.toLowerCase().includes(searchLower) ||
             order.address?.toLowerCase().includes(searchLower) ||
             order.status?.toLowerCase().includes(searchLower)
         );
+        
+        // Handle delayed filter
+        if (selectedStatus === 'delayed') {
+            return matchesSearch && (order.status === 'delayed' || isOrderDelayed(order));
+        }
+        
+        return matchesSearch && (selectedStatus === '' || order.status === selectedStatus);
     });
 
     // Calculate order statistics
@@ -186,7 +263,9 @@ export default function ListOrders() {
         created: orders.filter(order => order.status === 'created').length,
         processing: orders.filter(order => order.status === 'processing').length,
         completed: orders.filter(order => order.status === 'completed').length,
-        cancelled: orders.filter(order => order.status === 'cancelled').length
+        delivered: orders.filter(order => order.status === 'delivered').length,
+        cancelled: orders.filter(order => order.status === 'cancelled').length,
+        delayed: orders.filter(order => order.status === 'delayed' || isOrderDelayed(order)).length
     };
 
     // Calculate total amount of all orders
@@ -222,14 +301,24 @@ export default function ListOrders() {
                             <option value="created">Created</option>
                             <option value="processing">Processing</option>
                             <option value="completed">Completed</option>
+                            <option value="delivered">Delivered</option>
                             <option value="cancelled">Cancelled</option>
+                            <option value="delayed">Delayed</option>
                         </select>
+                        <button
+                            onClick={handleRefreshDeliveryInfo}
+                            className="flex items-center gap-2 px-4 py-2 bg-[#42ADF5] text-white rounded-lg hover:bg-[#2C8ED1] transition-colors"
+                            title="Refresh delivery information"
+                        >
+                            <RefreshCw size={16} />
+                            <span className="hidden sm:inline">Refresh Delivery</span>
+                        </button>
                     </div>
                 </div>
             </div>
 
             {/* Dashboard Statistics */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                 <div className="bg-white p-4 rounded-xl shadow-lg border-l-4 border-blue-500">
                     <div className="flex items-center justify-between">
                         <div>
@@ -250,26 +339,6 @@ export default function ListOrders() {
                     </div>
                 </div>
                 
-                <div className="bg-white p-4 rounded-xl shadow-lg border-l-4 border-blue-500">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm font-medium text-gray-600">Created</p>
-                            <p className="text-2xl font-bold text-blue-700">{orderStats.created}</p>
-                        </div>
-                        <Package className="text-blue-500" size={24} />
-                    </div>
-                </div>
-                
-                <div className="bg-white p-4 rounded-xl shadow-lg border-l-4 border-yellow-500">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm font-medium text-gray-600">Processing</p>
-                            <p className="text-2xl font-bold text-yellow-700">{orderStats.processing}</p>
-                        </div>
-                        <Clock className="text-yellow-500" size={24} />
-                    </div>
-                </div>
-                
                 <div className="bg-white p-4 rounded-xl shadow-lg border-l-4 border-green-500">
                     <div className="flex items-center justify-between">
                         <div>
@@ -280,13 +349,23 @@ export default function ListOrders() {
                     </div>
                 </div>
                 
+                <div className="bg-white p-4 rounded-xl shadow-lg border-l-4 border-emerald-500">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-sm font-medium text-gray-600">Delivered</p>
+                            <p className="text-2xl font-bold text-emerald-700">{orderStats.delivered}</p>
+                        </div>
+                        <CheckCircle className="text-emerald-500" size={24} />
+                    </div>
+                </div>
+                
                 <div className="bg-white p-4 rounded-xl shadow-lg border-l-4 border-red-500">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm font-medium text-gray-600">Cancelled</p>
-                            <p className="text-2xl font-bold text-red-700">{orderStats.cancelled}</p>
+                            <p className="text-sm font-medium text-gray-600">Delayed</p>
+                            <p className="text-2xl font-bold text-red-700">{orderStats.delayed}</p>
                         </div>
-                        <XCircle className="text-red-500" size={24} />
+                        <AlertTriangle className="text-red-500" size={24} />
                     </div>
                 </div>
             </div>
@@ -321,13 +400,15 @@ export default function ListOrders() {
                                     <th className="p-4">Amount / Total</th>
                                     <th className="p-4">Status</th>
                                     <th className="p-4">Date</th>
+                                    <th className="p-4">Delivery Date(Date+7)</th>
+                                    <th className="p-4">Days Remaining</th>
                                     <th className="p-4">Actions</th>
                                 </tr>
                             </thead>
                            <tbody>
                                 {filteredOrders.length === 0 ? (
                                     <tr>
-                                        <td colSpan="6" className="p-8 text-center text-gray-500">
+                                        <td colSpan="8" className="p-8 text-center text-gray-500">
                                             No orders found.
                                         </td>
                                     </tr>
@@ -352,8 +433,24 @@ export default function ListOrders() {
                                                {isCartPendingRow ? (order.productTitle || 'Unknown Product') : (<>{order.customerId?.slice(-8) || 'N/A'}...</>)}
                                            </td>
                                            <td className="p-4 font-semibold text-[#072679]">LKR {(order.amount ?? order.total ?? 0).toFixed(2)}</td>
-                                           <td className="p-4">{getStatusPill(order.status)}</td>
+                                           <td className="p-4">{getStatusPill(order.status, order)}</td>
                                            <td className="p-4 text-sm text-gray-500">{new Date(order.date || order.createdAt).toLocaleDateString()}</td>
+                                           <td className="p-4 text-sm text-gray-600">
+                                               {order.deliveryDate ? new Date(order.deliveryDate).toLocaleDateString() : '-'}
+                                           </td>
+                                           <td className="p-4 text-center">
+                                               {order.remainingDays !== undefined && order.remainingDays !== null ? (
+                                                   <span className={`px-3 py-2 rounded-full text-sm font-bold ${
+                                                       order.remainingDays === 0 ? 'bg-orange-100 text-orange-800' :
+                                                       order.remainingDays > 0 ? 'bg-blue-100 text-blue-800' :
+                                                       'bg-green-100 text-green-800'
+                                                   }`}>
+                                                       {order.remainingDays === 0 ? 'Today' :
+                                                        order.remainingDays > 0 ? `${order.remainingDays}` :
+                                                        'Delivered'}
+                                                   </span>
+                                               ) : '-'}
+                                           </td>
                                            <td className="p-4">
                                                 {isCartPendingRow ? (
                                                     <div className="text-xs text-gray-400">Read-only</div>
@@ -432,6 +529,27 @@ export default function ListOrders() {
                                     <p className="text-sm text-gray-600">Date</p>
                                     <p className="text-sm">{new Date(selectedOrder.date || selectedOrder.createdAt).toLocaleString()}</p>
                                 </div>
+                                {formatDeliveryInfo(selectedOrder) && (
+                                    <div className="md:col-span-2">
+                                        <p className="text-sm text-gray-600">Delivery Information</p>
+                                        <div className="mt-1 p-3 bg-gray-50 rounded-lg">
+                                            <p className="text-sm font-medium text-gray-800">
+                                                {formatDeliveryInfo(selectedOrder).text}
+                                            </p>
+                                            <p className={`text-sm font-semibold ${formatDeliveryInfo(selectedOrder).color}`}>
+                                                {formatDeliveryInfo(selectedOrder).countdown}
+                                            </p>
+                                            {selectedOrder.deliveryDate && (
+                                                <div className="mt-2 pt-2 border-t border-gray-200">
+                                                    <p className="text-xs text-gray-600 font-medium">Calculation:</p>
+                                                    <p className="text-xs text-gray-500">
+                                                        {new Date(selectedOrder.date || selectedOrder.createdAt).toLocaleDateString()} + 7 days = {new Date(selectedOrder.deliveryDate).toLocaleDateString()}
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                             
                             <div className="border-t pt-4">
@@ -487,7 +605,9 @@ export default function ListOrders() {
                                     <option value="created">Created</option>
                                     <option value="processing">Processing</option>
                                     <option value="completed">Completed</option>
+                                    <option value="delivered">Delivered</option>
                                     <option value="cancelled">Cancelled</option>
+                                    <option value="delayed">Delayed</option>
                                 </select>
                             </div>
                             <div className="flex justify-end space-x-4 pt-4">
