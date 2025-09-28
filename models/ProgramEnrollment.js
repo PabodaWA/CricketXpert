@@ -166,13 +166,58 @@ programenrollmentSchema.pre('save', function(next) {
   if (this.isModified('progress.completedSessions') || this.isModified('progress.totalSessions')) {
     this.progress.progressPercentage = this.completionPercentage;
     
-    // Check if eligible for certificate (80% completion + program completed)
-    if (this.progress.progressPercentage >= 80 && this.status === 'completed') {
+    // Check if eligible for certificate (75% completion + program completed)
+    if (this.progress.progressPercentage >= 75 && this.status === 'completed') {
       this.certificateEligible = true;
     }
   }
   next();
 });
+
+// Method to check certificate eligibility with attendance
+programenrollmentSchema.methods.checkCertificateEligibility = async function() {
+  try {
+    const Attendance = mongoose.model('Attendance');
+    const Session = mongoose.model('Session');
+    
+    // Get all sessions for this program
+    const sessions = await Session.find({ program: this.program });
+    
+    // Get attendance records for this user in this program
+    const attendanceRecords = await Attendance.find({
+      participant: this.user,
+      session: { $in: sessions.map(s => s._id) },
+      attended: true
+    });
+    
+    // Calculate attendance percentage
+    const totalSessions = sessions.length;
+    const attendedSessions = attendanceRecords.length;
+    const attendancePercentage = totalSessions > 0 ? (attendedSessions / totalSessions) * 100 : 0;
+    
+    // Get progress percentage
+    const progressPercentage = this.progress.progressPercentage || 0;
+    
+    // Check eligibility conditions (both attendance and progress >= 75%)
+    const isEligible = attendancePercentage >= 75 && progressPercentage >= 75;
+    
+    return {
+      isEligible,
+      attendancePercentage: Math.round(attendancePercentage),
+      progressPercentage: Math.round(progressPercentage),
+      totalSessions,
+      attendedSessions,
+      requirements: {
+        attendanceRequired: 75,
+        progressRequired: 75,
+        attendanceMet: attendancePercentage >= 75,
+        progressMet: progressPercentage >= 75
+      }
+    };
+  } catch (error) {
+    throw new Error(`Error checking certificate eligibility: ${error.message}`);
+  }
+};
 
 // Pagination plugin commented out - install mongoose-paginate-v2 to enable
 // programenrollmentSchema.plugin(mongoosePaginate);

@@ -2,6 +2,8 @@ import Session from '../models/Session.js';
 import CoachingProgram from '../models/CoachingProgram.js';
 import ProgramEnrollment from '../models/ProgramEnrollment.js';
 import Ground from '../models/Ground.js';
+import Coach from '../models/Coach.js';
+import { generateSessionDetailsPDF } from '../utils/sessionPDFGenerator.js';
 
 // Helper function for manual pagination
 const paginateHelper = async (Model, filter, options) => {
@@ -500,11 +502,18 @@ const markAttendance = async (req, res) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Reset time to start of day for comparison
     
-    if (sessionDate > today) {
+    // Allow attendance marking for future sessions in development
+    const isDevelopment = process.env.NODE_ENV !== 'production' || process.env.NODE_ENV === undefined;
+    
+    if (sessionDate > today && !isDevelopment) {
       return res.status(400).json({
         success: false,
         message: 'Cannot mark attendance for future sessions. Please wait until the session date has passed.'
       });
+    }
+    
+    if (sessionDate > today) {
+      console.log('Allowing attendance marking for future session (development mode)');
     }
 
     // Check if user is the coach of this session
@@ -797,6 +806,20 @@ const rescheduleSession = async (req, res) => {
       });
     }
 
+    // Check if attendance has been marked for this session
+    const hasAttendanceMarked = session.participants.some(participant => 
+      participant.attendanceMarkedAt !== undefined || 
+      (participant.attended === true) || 
+      (participant.attended === false && participant.attendanceMarkedAt !== undefined)
+    );
+
+    if (hasAttendanceMarked) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot reschedule session after attendance has been marked'
+      });
+    }
+
     // Check if new time slot is available
     const isAvailable = await Session.isSlotAvailable(
       session.ground,
@@ -1048,8 +1071,22 @@ const getSessionsByEnrollment = async (req, res) => {
         record.session.toString() === session._id.toString()
       );
       
+      // Check if this is a future session
+      const sessionDate = new Date(session.scheduledDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const isFutureSession = sessionDate > today;
+      
       // Update participants with attendance data
       const updatedParticipants = session.participants.map(participant => {
+        // If this is a future session, always show as not_marked
+        if (isFutureSession) {
+          return {
+            ...participant.toObject(),
+            attendanceStatus: 'not_marked'
+          };
+        }
+        
         const attendanceRecord = sessionAttendanceRecords.find(record => 
           record.participant.toString() === participant.user._id.toString()
         );
@@ -1058,6 +1095,7 @@ const getSessionsByEnrollment = async (req, res) => {
           return {
             ...participant.toObject(),
             attended: attendanceRecord.attended,
+            attendanceStatus: attendanceRecord.attended ? 'present' : 'absent',
             attendance: {
               attended: attendanceRecord.attended,
               status: attendanceRecord.status,
@@ -1068,7 +1106,18 @@ const getSessionsByEnrollment = async (req, res) => {
           };
         }
         
-        return participant;
+        // For past sessions, check if participant has attendance data
+        if (participant.attended !== undefined) {
+          return {
+            ...participant.toObject(),
+            attendanceStatus: participant.attended ? 'present' : 'absent'
+          };
+        }
+        
+        return {
+          ...participant.toObject(),
+          attendanceStatus: 'not_marked'
+        };
       });
       
       return {
@@ -1305,11 +1354,38 @@ const createDirectSession = async (req, res) => {
     // Calculate the week number (each session gets its own week)
     const weekNumber = nextSessionNumber;
     
-    // Calculate the session date based on enrollment date + week number
-    // Session 1 = week 1 from enrollment, Session 2 = week 2 from enrollment, etc.
-    const enrollmentDate = new Date(enrollment.createdAt);
-    const sessionDate = new Date(enrollmentDate);
-    sessionDate.setDate(enrollmentDate.getDate() + (weekNumber - 1) * 7); // Add 7 days for each week from enrollment
+    // Use the user's selected date instead of recalculating
+    const sessionDate = new Date(scheduledDate);
+    
+    console.log('Using user selected date:', {
+      originalDate: scheduledDate,
+      parsedDate: sessionDate.toISOString().split('T')[0],
+      dayOfWeek: sessionDate.getDay(),
+      dayName: ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][sessionDate.getDay()]
+    });
+    
+    // Verify the coach is available on the selected day
+    const coach = await Coach.findById(enrollment.program.coach._id);
+    const coachAvailability = coach.availability || [];
+    const availableDays = coachAvailability.map(avail => avail.day.toLowerCase());
+    
+    const dayOfWeek = sessionDate.getDay();
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const currentDayName = dayNames[dayOfWeek].toLowerCase();
+    
+    console.log('Coach availability check:', {
+      availableDays: availableDays,
+      selectedDay: currentDayName,
+      isAvailable: availableDays.includes(currentDayName)
+    });
+    
+    // Check if coach is available on the selected day
+    if (!availableDays.includes(currentDayName)) {
+      return res.status(400).json({
+        success: false,
+        message: `Coach is not available on ${currentDayName}. Available days: ${availableDays.join(', ')}`
+      });
+    }
     
     console.log('Session scheduling:', {
       sessionNumber: nextSessionNumber,
@@ -1686,6 +1762,21 @@ const customerRescheduleSession = async (req, res) => {
       scheduledDate: session.scheduledDate
     });
 
+    // Check if attendance has been marked for this session
+    const hasAttendanceMarked = session.participants.some(participant => 
+      participant.attendanceMarkedAt !== undefined || 
+      (participant.attended === true) || 
+      (participant.attended === false && participant.attendanceMarkedAt !== undefined)
+    );
+
+    if (hasAttendanceMarked) {
+      console.log('Attendance has been marked, cannot reschedule');
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot reschedule session after attendance has been marked'
+      });
+    }
+
     // Check if new session date is more than 24 hours away
     const now = new Date();
     const newSessionDate = new Date(newDate);
@@ -1901,6 +1992,142 @@ const customerRescheduleSession = async (req, res) => {
       success: false, 
       message: 'Error rescheduling session', 
       error: error.message 
+    });
+  }
+};
+
+// @desc    Debug endpoint to find and clean up incorrect attendance for future sessions
+// @route   GET /api/sessions/debug/cleanup-future-attendance
+// @access  Public (for debugging)
+const debugCleanupFutureAttendance = async (req, res) => {
+  try {
+    const Attendance = (await import('../models/Attendance.js')).default;
+    const Session = (await import('../models/Session.js')).default;
+    
+    const now = new Date();
+    console.log('Current time:', now.toISOString());
+    
+    // Find all future sessions
+    const futureSessions = await Session.find({
+      scheduledDate: { $gt: now }
+    }).populate('participants.user', 'firstName lastName');
+    
+    console.log('Future sessions found:', futureSessions.length);
+    
+    const futureSessionIds = futureSessions.map(s => s._id);
+    console.log('Future session IDs:', futureSessionIds);
+    
+    // Find attendance records for future sessions
+    const futureAttendanceRecords = await Attendance.find({
+      session: { $in: futureSessionIds }
+    }).populate('session', 'title scheduledDate')
+      .populate('participant', 'firstName lastName');
+    
+    console.log('Attendance records for future sessions:', futureAttendanceRecords.length);
+    
+    const results = {
+      futureSessions: futureSessions.map(s => ({
+        id: s._id,
+        title: s.title,
+        scheduledDate: s.scheduledDate,
+        participants: s.participants.map(p => ({
+          id: p._id,
+          name: `${p.user?.firstName} ${p.user?.lastName}`,
+          attended: p.attended,
+          attendanceMarkedAt: p.attendanceMarkedAt
+        }))
+      })),
+      futureAttendanceRecords: futureAttendanceRecords.map(att => ({
+        id: att._id,
+        sessionTitle: att.session?.title,
+        sessionDate: att.session?.scheduledDate,
+        participantName: `${att.participant?.firstName} ${att.participant?.lastName}`,
+        attended: att.attended,
+        attendanceMarkedAt: att.attendanceMarkedAt
+      }))
+    };
+    
+    res.status(200).json({
+      success: true,
+      message: 'Future attendance data found',
+      data: results
+    });
+    
+  } catch (error) {
+    console.error('Error checking future attendance:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error checking future attendance',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Clean up incorrect attendance for future sessions
+// @route   DELETE /api/sessions/debug/cleanup-future-attendance
+// @access  Public (for debugging)
+const cleanupFutureAttendance = async (req, res) => {
+  try {
+    const Attendance = (await import('../models/Attendance.js')).default;
+    const Session = (await import('../models/Session.js')).default;
+    
+    const now = new Date();
+    
+    // Find all future sessions
+    const futureSessions = await Session.find({
+      scheduledDate: { $gt: now }
+    });
+    
+    const futureSessionIds = futureSessions.map(s => s._id);
+    
+    // Delete attendance records for future sessions
+    const deleteResult = await Attendance.deleteMany({
+      session: { $in: futureSessionIds }
+    });
+    
+    // Also clean up participant attendance data in sessions using direct MongoDB update
+    const updateResult = await Session.updateMany(
+      { 
+        _id: { $in: futureSessionIds }
+      },
+      { 
+        $unset: { 
+          'participants.$[].attended': 1,
+          'participants.$[].attendanceMarkedAt': 1,
+          'participants.$[].attendance': 1
+        }
+      }
+    );
+    
+    console.log('Direct MongoDB update result:', updateResult);
+    
+    // Also try a different approach - update each session individually
+    for (const sessionId of futureSessionIds) {
+      await Session.updateOne(
+        { _id: sessionId },
+        { 
+          $unset: { 
+            'participants.$[].attended': 1,
+            'participants.$[].attendanceMarkedAt': 1,
+            'participants.$[].attendance': 1
+          }
+        }
+      );
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: 'Future attendance data cleaned up successfully',
+      deletedRecords: deleteResult.deletedCount,
+      cleanedSessions: futureSessions.length
+    });
+    
+  } catch (error) {
+    console.error('Error cleaning up future attendance:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error cleaning up future attendance',
+      error: error.message
     });
   }
 };
@@ -2228,6 +2455,87 @@ const debugAttendance = async (req, res) => {
   }
 };
 
+// @desc    Download session details as PDF
+// @route   GET /api/sessions/:id/download-pdf
+// @access  Private
+const downloadSessionPDF = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    // Get session with all necessary populated data
+    const session = await Session.findById(id)
+      .populate('program', 'title description coach')
+      .populate('participants.user', 'firstName lastName email')
+      .populate('ground', 'name location facilities')
+      .populate({
+        path: 'program.coach',
+        select: 'userId',
+        populate: {
+          path: 'userId',
+          select: 'firstName lastName'
+        }
+      });
+
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session not found'
+      });
+    }
+
+    // Check if user has access to this session
+    const isParticipant = session.participants.some(p => p.user && p.user._id.toString() === userId);
+    const isCoach = session.program.coach && session.program.coach.userId && 
+                   session.program.coach.userId._id.toString() === userId;
+    
+    if (!isParticipant && req.user.role !== 'admin' && !isCoach) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to download this session details'
+      });
+    }
+
+    // Get enrollment data for the user with properly populated coach information
+    const enrollment = await ProgramEnrollment.findOne({
+      program: session.program._id,
+      user: userId
+    }).populate({
+      path: 'program',
+      select: 'title description coach',
+      populate: {
+        path: 'coach',
+        select: 'userId',
+        populate: {
+          path: 'userId',
+          select: 'firstName lastName email'
+        }
+      }
+    });
+
+    // Get user data
+    const User = (await import('../models/User.js')).default;
+    const user = await User.findById(userId).select('firstName lastName email');
+
+    // Generate PDF
+    const pdfBuffer = await generateSessionDetailsPDF(session, enrollment, user);
+
+    // Set response headers for PDF download
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="session-${session.sessionNumber || session._id}-details.pdf"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+
+    res.send(pdfBuffer);
+  } catch (error) {
+    console.error('Error generating session PDF:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error generating session PDF',
+      error: error.message
+    });
+  }
+};
+
 
 export {
   getAllSessions,
@@ -2254,5 +2562,8 @@ export {
   debugAttendance,
   debugMarkAttendance,
   debugMedhaniAttendance,
-  debugEnrollmentAttendance
+  debugEnrollmentAttendance,
+  debugCleanupFutureAttendance,
+  cleanupFutureAttendance,
+  downloadSessionPDF
 };

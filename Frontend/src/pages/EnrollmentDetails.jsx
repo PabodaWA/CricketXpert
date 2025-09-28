@@ -5,6 +5,8 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import CoachAvailability from '../components/CoachAvailability';
 import WeeklySessionBooking from '../components/WeeklySessionBooking';
+import CertificateDownload from '../components/CertificateDownload';
+import EnrollmentCalendar from '../components/EnrollmentCalendar';
 
 export default function EnrollmentDetails() {
   const { enrollmentId } = useParams();
@@ -164,6 +166,38 @@ export default function EnrollmentDetails() {
     setSelectedSession(session);
     setShowRescheduleModal(true);
     fetchAvailableRescheduleDates();
+  };
+
+  const handleDownloadSessionPDF = async (session) => {
+    try {
+      const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+      if (!userInfo || !userInfo.token) {
+        alert('Please log in to download session details');
+        return;
+      }
+
+      const config = {
+        headers: {
+          Authorization: `Bearer ${userInfo.token}`,
+        },
+        responseType: 'blob'
+      };
+
+      const response = await axios.get(`/api/sessions/${session._id}/download-pdf`, config);
+      
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `session-${session.sessionNumber || session._id}-details.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading session PDF:', error);
+      alert('Failed to download session details. Please try again.');
+    }
   };
 
   const fetchAvailableRescheduleDates = async () => {
@@ -1215,11 +1249,24 @@ export default function EnrollmentDetails() {
               )}
 
               {enrollment.status === 'completed' && (
-                <div className="text-center py-4 bg-green-50 rounded-lg">
+                <div className="text-center py-4 bg-green-50 rounded-lg mb-4">
                   <div className="text-green-600 text-2xl mb-2">🎓</div>
                   <p className="text-green-800 font-medium">Program Completed!</p>
                   <p className="text-green-600 text-sm">Congratulations on finishing the program!</p>
                 </div>
+              )}
+
+              {/* Certificate Download Section */}
+              {(enrollment.status === 'completed' || enrollment.status === 'active') && (
+                <CertificateDownload 
+                  enrollmentId={enrollmentId}
+                  enrollmentStatus={enrollment.status}
+                  onCertificateGenerated={(certificate) => {
+                    console.log('Certificate generated:', certificate);
+                    // Optionally refresh enrollment data
+                    fetchEnrollmentDetails();
+                  }}
+                />
               )}
             </div>
           </div>
@@ -1366,126 +1413,10 @@ export default function EnrollmentDetails() {
 
       {/* Session Calendar Modal */}
       {showSessionCalendar && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">Session Calendar</h2>
-                <button
-                  onClick={closeModals}
-                  className="text-gray-400 hover:text-gray-600 text-2xl"
-                >
-                  ×
-                </button>
-              </div>
-              
-              <div className="bg-blue-50 p-4 rounded-lg mb-6">
-                <div className="flex items-center">
-                  <div className="text-blue-600 mr-3">
-                    <span className="text-lg">📅</span>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-blue-800">Calendar View</p>
-                    <p className="text-sm text-blue-700">
-                      View your scheduled sessions in a calendar format. 
-                      This feature will show upcoming sessions and allow you to manage your schedule.
-                    </p>
-                  </div>
-                </div>
-              </div>
-              
-              {finalUniqueSessions.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {finalUniqueSessions.map((session) => (
-                    <div key={session._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-semibold text-gray-900">
-                          Session {session.sessionNumber || 'N/A'}
-                        </h3>
-                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                          session.status === 'completed' 
-                            ? 'bg-green-100 text-green-800' 
-                            : session.status === 'scheduled'
-                            ? 'bg-blue-100 text-blue-800'
-                            : session.status === 'cancelled'
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {session.status === 'completed' ? '✅' : 
-                           session.status === 'scheduled' ? '📅' : 
-                           session.status === 'cancelled' ? '❌' : '📋'}
-                        </span>
-                      </div>
-                      
-                        <div className="space-y-1 text-sm text-gray-600">
-                        <p><strong>Week:</strong> Week {session.week || session.sessionNumber || 'N/A'}</p>
-                        <p><strong>Date:</strong> {session.scheduledDate ? new Date(session.scheduledDate).toLocaleDateString() : 'TBD'}</p>
-                        {(session.startTime || session.scheduledTime) && (
-                          <p><strong>Time:</strong> {session.startTime || session.scheduledTime}</p>
-                        )}
-                        {session.ground && (
-                          <p><strong>Location:</strong> {session.ground.name || 'TBD'}</p>
-                        )}
-                        {session.duration && (
-                          <p><strong>Duration:</strong> {session.duration} minutes</p>
-                        )}
-                        {session.rescheduled && (
-                          <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
-                            <p className="text-yellow-800 font-medium">🔄 Rescheduled</p>
-                            {session.rescheduledFrom && (
-                              <p className="text-yellow-700">
-                                From: {new Date(session.rescheduledFrom.date).toLocaleDateString()} at {session.rescheduledFrom.time}
-                              </p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      
-                      {session.notes && (
-                        <div className="mt-3 p-2 bg-gray-50 rounded text-sm">
-                          <strong>Notes:</strong> {session.notes}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <div className="text-gray-400 text-6xl mb-4">📅</div>
-                  <h3 className="text-xl font-semibold text-gray-700 mb-2">No Sessions Scheduled</h3>
-                  <p className="text-gray-600 mb-4">You don't have any sessions scheduled yet.</p>
-                  <button
-                    onClick={() => {
-                      closeModals();
-                      handleBookSession();
-                    }}
-                    className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    Book Your First Session
-                  </button>
-                </div>
-              )}
-              
-              <div className="flex justify-between mt-6">
-                <button
-                  onClick={() => {
-                    setShowSessionCalendar(false);
-                    setShowBookingModal(true);
-                  }}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
-                >
-                  📅 Book Session
-                </button>
-                <button
-                  onClick={closeModals}
-                  className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <EnrollmentCalendar 
+          enrollment={enrollment} 
+          onClose={closeModals}
+        />
       )}
 
       {/* Session Details Modal */}
@@ -1735,14 +1666,54 @@ export default function EnrollmentDetails() {
               {/* Action Buttons */}
               <div className="flex justify-between items-center mt-8 pt-6 border-t">
                 <div className="flex space-x-3">
-                  {selectedSession.status === 'scheduled' && (
-                    <button
-                      onClick={() => handleReschedule(selectedSession)}
-                      className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
-                    >
-                      📅 Reschedule Session
-                    </button>
-                  )}
+                  {selectedSession.status === 'scheduled' && (() => {
+                    // Check if attendance has been marked - only check for actual attendance records
+                    const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+                    const participant = selectedSession.participants?.find(p => p.user && p.user._id === userInfo._id);
+                    
+                    // Debug logging
+                    console.log('Reschedule check - Participant data:', participant);
+                    console.log('Attendance status:', participant?.attendanceStatus);
+                    console.log('Attended value:', participant?.attended);
+                    console.log('Attendance marked at:', participant?.attendanceMarkedAt);
+                    
+                    // Only disable if attendance is actually marked (present/absent), not just if attended field exists
+                    // Check for explicit attendance status or attendance marked timestamp
+                    const hasAttendanceMarked = participant?.attendanceStatus === 'present' || 
+                                              participant?.attendanceStatus === 'absent' ||
+                                              participant?.attendanceMarkedAt !== undefined;
+                    
+                    console.log('Has attendance marked:', hasAttendanceMarked);
+                    
+                    if (hasAttendanceMarked) {
+                      return (
+                        <button
+                          disabled
+                          className="px-4 py-2 bg-gray-400 text-white rounded-lg cursor-not-allowed opacity-60"
+                        >
+                          📅 Cannot Reschedule (Attendance Marked)
+                        </button>
+                      );
+                    }
+                    
+                    return (
+                      <button
+                        onClick={() => handleReschedule(selectedSession)}
+                        className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                      >
+                        📅 Reschedule Session
+                      </button>
+                    );
+                  })()}
+                  
+                  {/* PDF Download Button */}
+                  <button
+                    onClick={() => handleDownloadSessionPDF(selectedSession)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                  >
+                    <span>📄</span>
+                    <span>Download PDF</span>
+                  </button>
                 </div>
                 <button
                   onClick={closeModals}

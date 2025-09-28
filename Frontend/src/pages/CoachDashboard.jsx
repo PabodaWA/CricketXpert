@@ -109,7 +109,7 @@ const CoachDashboard = () => {
       try {
         // Fetch customers data with attendance statistics from the API
         // Fetch customers data with attendance statistics from the API
-        const enrolledCustomersResponse = await axios.get(`http://localhost:5000/api/coaches/customers/68d438cb66caa02c82ffdd9f?t=${Date.now()}`);
+        const enrolledCustomersResponse = await axios.get(`http://localhost:5000/api/coaches/customers/${coachData._id}?t=${Date.now()}`);
         const enrolledCustomersData = enrolledCustomersResponse.data.data.customersByProgram || [];
         
         // Flatten the customers data
@@ -153,7 +153,7 @@ const CoachDashboard = () => {
       
       // Fetch coach's sessions with attendance data
       try {
-        const coachSessionsResponse = await axios.get(`http://localhost:5000/api/coaches/68d438cb66caa02c82ffdd9f/sessions`);
+        const coachSessionsResponse = await axios.get(`http://localhost:5000/api/coaches/${coachData._id}/sessions`);
         const coachSessionsData = coachSessionsResponse.data.data.docs || [];
         setSessions(coachSessionsData);
         setCoachSessions(coachSessionsData);
@@ -237,8 +237,9 @@ const CoachDashboard = () => {
         
         console.log('Original session ID:', originalSessionId);
         console.log('Selected session ID:', selectedSession._id);
+        console.log('Attendance data being sent:', validAttendanceData);
         
-      const response = await axios.put(
+        const response = await axios.put(
           `http://localhost:5000/api/coaches/attendance-only`,
           { 
             sessionId: originalSessionId,
@@ -246,14 +247,24 @@ const CoachDashboard = () => {
           }
         );
         
+        console.log('Backend response:', response.data);
+        
         if (response.data.success) {
           console.log('Backend attendance marking successful!');
           backendSuccess = true;
           alert('Attendance marked successfully! (Saved to database)');
           
-          // Refresh the customers data specifically to show updated attendance statistics
+          // Refresh both sessions and customers data to show updated attendance
           try {
-            const enrolledCustomersResponse = await axios.get(`http://localhost:5000/api/coaches/customers/68d438cb66caa02c82ffdd9f?t=${Date.now()}`);
+            // Refresh sessions data
+            const coachSessionsResponse = await axios.get(`http://localhost:5000/api/coaches/${coach._id}/sessions?t=${Date.now()}`);
+            const coachSessionsData = coachSessionsResponse.data.data.docs || [];
+            setSessions(coachSessionsData);
+            setCoachSessions(coachSessionsData);
+            console.log('Sessions data refreshed with updated attendance');
+            
+            // Refresh customers data
+            const enrolledCustomersResponse = await axios.get(`http://localhost:5000/api/coaches/customers/${coach._id}?t=${Date.now()}`);
             const enrolledCustomersData = enrolledCustomersResponse.data.data.customersByProgram || [];
             
             // Flatten the customers data
@@ -278,19 +289,38 @@ const CoachDashboard = () => {
             setCustomers(updatedCustomers);
             console.log('Customers data refreshed with updated attendance statistics');
           } catch (refreshError) {
-            console.error('Error refreshing customers data:', refreshError);
+            console.error('Error refreshing data:', refreshError);
             // Fallback to full data refresh
-          await fetchCoachData();
+            await fetchCoachData();
           }
         }
       } catch (backendError) {
-        console.warn('Backend attendance marking failed:', backendError.message);
+        console.error('Backend attendance marking failed:', backendError);
+        console.error('Error details:', {
+          message: backendError.message,
+          response: backendError.response?.data,
+          status: backendError.response?.status,
+          statusText: backendError.response?.statusText
+        });
+        
+        // Show specific error message from backend if available
+        const backendMessage = backendError.response?.data?.message;
+        if (backendMessage) {
+          console.error('Backend error message:', backendMessage);
+          // You could show this to the user if needed
+        }
+        
         console.log('Falling back to frontend-only solution...');
       }
       
       // If backend failed, use frontend-only solution
       if (!backendSuccess) {
         console.log('Using frontend-only attendance marking (no backend calls)');
+        console.log('Backend API call failed - this could be due to:');
+        console.log('1. Backend server not running');
+        console.log('2. Invalid session ID or participant data');
+        console.log('3. Database connection issues');
+        console.log('4. API endpoint not responding correctly');
         
         // Update the session participants in local state
         const updatedSessions = sessions.map(session => {
@@ -347,7 +377,7 @@ const CoachDashboard = () => {
         
         // Refresh customers data from API to get updated attendance statistics
         try {
-          const enrolledCustomersResponse = await axios.get(`http://localhost:5000/api/coaches/customers/68d438cb66caa02c82ffdd9f?t=${Date.now()}`);
+          const enrolledCustomersResponse = await axios.get(`http://localhost:5000/api/coaches/customers/${coach._id}?t=${Date.now()}`);
           const enrolledCustomersData = enrolledCustomersResponse.data.data.customersByProgram || [];
           
           // Flatten the customers data
@@ -375,7 +405,9 @@ const CoachDashboard = () => {
           // Keep existing customers data if refresh fails
         }
         
-        alert('Attendance marked successfully! (Frontend-only solution - not saved to database)');
+        // Show a more informative message
+        const errorMessage = 'Attendance marked successfully! (Note: This was saved locally only. If you see this message, the backend API call failed. Please check the browser console for error details and contact your administrator if the issue persists.)';
+        alert(errorMessage);
       }
       
       // Close modal
@@ -392,7 +424,7 @@ const CoachDashboard = () => {
     try {
       if (!coach || !coach._id) return;
       
-      const response = await axios.get(`http://localhost:5000/api/coaches/customers/68d438cb66caa02c82ffdd9f`);
+      const response = await axios.get(`http://localhost:5000/api/coaches/customers/${coach._id}`);
       setEnrolledCustomers(response.data.data.customersByProgram || []);
     } catch (error) {
       console.warn('Could not fetch enrolled customers (this is optional):', error.message);
@@ -899,7 +931,7 @@ const CoachDashboard = () => {
                   <button
                     onClick={async () => {
                       try {
-                        const enrolledCustomersResponse = await axios.get(`http://localhost:5000/api/coaches/customers/68d438cb66caa02c82ffdd9f?t=${Date.now()}`);
+                        const enrolledCustomersResponse = await axios.get(`http://localhost:5000/api/coaches/customers/${coach._id}?t=${Date.now()}`);
                         const enrolledCustomersData = enrolledCustomersResponse.data.data.customersByProgram || [];
                         
                         const updatedCustomers = [];
@@ -936,7 +968,7 @@ const CoachDashboard = () => {
                   <button
                     onClick={async () => {
                       try {
-                        const debugResponse = await axios.get(`http://localhost:5000/api/coaches/68d438cb66caa02c82ffdd9f/debug-attendance`);
+                        const debugResponse = await axios.get(`http://localhost:5000/api/coaches/${coach._id}/debug-attendance`);
                         console.log('Debug attendance data:', debugResponse.data);
                         alert('Debug data logged to console. Check browser console for details.');
                       } catch (error) {
@@ -948,6 +980,23 @@ const CoachDashboard = () => {
                   >
                     <BarChart3 className="h-4 w-4 mr-2" />
                     Debug
+                  </button>
+                  
+                  <button
+                    onClick={async () => {
+                      try {
+                        const testResponse = await axios.get('http://localhost:5000/api/coaches/test');
+                        console.log('Backend connection test:', testResponse.data);
+                        alert('Backend is running! Check console for details.');
+                      } catch (error) {
+                        console.error('Backend connection test failed:', error);
+                        alert('Backend connection failed! Check console for details.');
+                      }
+                    }}
+                    className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Test Backend
                   </button>
                 </div>
               </div>
@@ -1426,9 +1475,46 @@ const SessionCard = ({ session, onGiveFeedback, onMarkAttendance }) => {
       return { attendedCount: 0, totalParticipants: 0, attendancePercentage: 0 };
     }
     
-    const attendedCount = session.participants.filter(p => p.attended === true).length;
+    // Check if this is a future session - if so, show 0% attendance
+    const now = new Date();
+    const sessionDate = new Date(session.scheduledDate);
+    const isFutureSession = sessionDate > now;
+    
+    if (isFutureSession) {
+      console.log('Future session detected, showing 0% attendance:', {
+        sessionId: session._id,
+        sessionDate: sessionDate.toISOString(),
+        now: now.toISOString(),
+        isFuture: isFutureSession
+      });
+      return { attendedCount: 0, totalParticipants: session.participants.length, attendancePercentage: 0 };
+    }
+    
+    // Check multiple possible attendance fields - only count as attended if explicitly true
+    const attendedCount = session.participants.filter(p => {
+      // Only count as attended if explicitly marked as true
+      // Don't count if attended is false, undefined, or null
+      return p.attended === true || p.attendance?.attended === true;
+    }).length;
+    
     const totalParticipants = session.participants.length;
     const attendancePercentage = totalParticipants > 0 ? Math.round((attendedCount / totalParticipants) * 100) : 0;
+    
+    console.log('Attendance stats calculation:', {
+      sessionId: session._id,
+      participants: session.participants.map(p => ({
+        id: p._id,
+        name: `${p.user?.firstName} ${p.user?.lastName}`,
+        attended: p.attended,
+        attendance: p.attendance,
+        attendanceMarkedAt: p.attendanceMarkedAt,
+        isAttended: p.attended === true || p.attendance?.attended === true
+      })),
+      attendedCount,
+      totalParticipants,
+      attendancePercentage,
+      calculation: `${attendedCount}/${totalParticipants} = ${attendancePercentage}%`
+    });
     
     return { attendedCount, totalParticipants, attendancePercentage };
   };
@@ -1488,12 +1574,35 @@ const SessionCard = ({ session, onGiveFeedback, onMarkAttendance }) => {
         <div className="ml-4 text-center">
           <div className="bg-blue-50 rounded-lg p-3 mb-2">
             <p className="text-sm text-gray-500">Attendance</p>
-            <p className={`text-2xl font-bold ${getAttendanceColor(attendanceStats.attendancePercentage)}`}>
-              {attendanceStats.attendancePercentage}%
-            </p>
-            <p className="text-xs text-gray-500">
-              {attendanceStats.attendedCount}/{attendanceStats.totalParticipants}
-            </p>
+            {(() => {
+              const now = new Date();
+              const sessionDate = new Date(session.scheduledDate);
+              const isFutureSession = sessionDate > now;
+              
+              if (isFutureSession) {
+                return (
+                  <>
+                    <p className="text-2xl font-bold text-gray-500">
+                      Not Marked
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Session not started
+                    </p>
+                  </>
+                );
+              }
+              
+              return (
+                <>
+                  <p className={`text-2xl font-bold ${getAttendanceColor(attendanceStats.attendancePercentage)}`}>
+                    {attendanceStats.attendancePercentage}%
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {attendanceStats.attendedCount}/{attendanceStats.totalParticipants}
+                  </p>
+                </>
+              );
+            })()}
           </div>
           
           {onMarkAttendance ? (
@@ -2309,12 +2418,35 @@ const SessionAttendanceCard = ({ session, onMarkAttendance }) => {
         <div className="ml-4 text-center">
           <div className="bg-blue-50 rounded-lg p-3 mb-2">
             <p className="text-sm text-gray-500">Attendance</p>
-            <p className={`text-2xl font-bold ${getAttendanceColor(session.attendanceStats?.attendancePercentage || 0)}`}>
-              {session.attendanceStats?.attendancePercentage || 0}%
-            </p>
-            <p className="text-xs text-gray-500">
-              {session.attendanceStats?.attendedCount || 0}/{session.attendanceStats?.totalParticipants || 0}
-            </p>
+            {(() => {
+              const now = new Date();
+              const sessionDate = new Date(session.scheduledDate);
+              const isFutureSession = sessionDate > now;
+              
+              if (isFutureSession) {
+                return (
+                  <>
+                    <p className="text-2xl font-bold text-gray-500">
+                      Not Marked
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Session not started
+                    </p>
+                  </>
+                );
+              }
+              
+              return (
+                <>
+                  <p className={`text-2xl font-bold ${getAttendanceColor(session.attendanceStats?.attendancePercentage || 0)}`}>
+                    {session.attendanceStats?.attendancePercentage || 0}%
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {session.attendanceStats?.attendedCount || 0}/{session.attendanceStats?.totalParticipants || 0}
+                  </p>
+                </>
+              );
+            })()}
           </div>
           
           <button
@@ -2332,23 +2464,61 @@ const SessionAttendanceCard = ({ session, onMarkAttendance }) => {
         <div className="mt-4 pt-4 border-t border-gray-100">
           <p className="text-sm font-medium text-gray-700 mb-2">Participants:</p>
           <div className="flex flex-wrap gap-2">
-            {session.participants.map((participant) => (
-              <div
-                key={participant._id}
-                className={`flex items-center px-3 py-1 rounded-full text-sm ${
-                  participant.attended 
-                    ? 'bg-green-100 text-green-800' 
-                    : 'bg-gray-100 text-gray-600'
-                }`}
-              >
-                {participant.attended ? (
-                  <CheckCircle className="h-4 w-4 mr-1" />
-                ) : (
-                  <XCircle className="h-4 w-4 mr-1" />
-                )}
-                {participant.user?.firstName} {participant.user?.lastName}
-              </div>
-            ))}
+            {session.participants.map((participant) => {
+              // Check if this is a future session
+              const now = new Date();
+              const sessionDate = new Date(session.scheduledDate);
+              const isFutureSession = sessionDate > now;
+              
+              // For future sessions, always show as not marked
+              if (isFutureSession) {
+                return (
+                  <div
+                    key={participant._id}
+                    className="flex items-center px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-600"
+                  >
+                    <Clock className="h-4 w-4 mr-1" />
+                    {participant.user?.firstName} {participant.user?.lastName}
+                  </div>
+                );
+              }
+              
+              // Check attendance status - only show as attended if explicitly true
+              const isAttended = participant.attended === true || participant.attendance?.attended === true;
+              const isAbsent = participant.attended === false || participant.attendance?.attended === false;
+              const isMarked = participant.attended !== undefined || participant.attendance?.attended !== undefined;
+              
+              console.log('Participant attendance status:', {
+                name: `${participant.user?.firstName} ${participant.user?.lastName}`,
+                attended: participant.attended,
+                attendance: participant.attendance,
+                isAttended,
+                isAbsent,
+                isMarked
+              });
+              
+              return (
+                <div
+                  key={participant._id}
+                  className={`flex items-center px-3 py-1 rounded-full text-sm ${
+                    isAttended 
+                      ? 'bg-green-100 text-green-800' 
+                      : isAbsent
+                      ? 'bg-red-100 text-red-800'
+                      : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  {isAttended ? (
+                    <CheckCircle className="h-4 w-4 mr-1" />
+                  ) : isAbsent ? (
+                    <XCircle className="h-4 w-4 mr-1" />
+                  ) : (
+                    <Clock className="h-4 w-4 mr-1" />
+                  )}
+                  {participant.user?.firstName} {participant.user?.lastName}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

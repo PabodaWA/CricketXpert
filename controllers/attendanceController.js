@@ -35,11 +35,18 @@ const markAttendance = async (req, res) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Reset time to start of day for comparison
     
-    if (sessionDate > today) {
+    // Allow attendance marking for future sessions in development
+    const isDevelopment = process.env.NODE_ENV !== 'production' || process.env.NODE_ENV === undefined;
+    
+    if (sessionDate > today && !isDevelopment) {
       return res.status(400).json({
         success: false,
         message: 'Cannot mark attendance for future sessions. Please wait until the session date has passed.'
       });
+    }
+    
+    if (sessionDate > today) {
+      console.log('Allowing attendance marking for future session (development mode)');
     }
 
     // Validate attendance data
@@ -279,11 +286,18 @@ const markSessionAttendance = async (req, res) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Reset time to start of day for comparison
     
-    if (sessionDate > today) {
+    // Allow attendance marking for future sessions in development
+    const isDevelopment = process.env.NODE_ENV !== 'production' || process.env.NODE_ENV === undefined;
+    
+    if (sessionDate > today && !isDevelopment) {
       return res.status(400).json({
         success: false,
         message: 'Cannot mark attendance for future sessions. Please wait until the session date has passed.'
       });
+    }
+    
+    if (sessionDate > today) {
+      console.log('Allowing attendance marking for future session (development mode)');
     }
     
     // Validate attendance data
