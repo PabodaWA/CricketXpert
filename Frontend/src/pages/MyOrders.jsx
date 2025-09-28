@@ -163,7 +163,7 @@ const MyOrders = () => {
               <h3 className="text-xl font-semibold text-gray-600 mb-2">No orders found</h3>
               <p className="text-gray-500 mb-6">You haven't placed any orders yet.</p>
               <button 
-                onClick={() => navigate('/')}
+                onClick={() => navigate('/products')}
                 className="bg-[#42ADF5] text-white px-6 py-3 rounded-lg hover:bg-[#2C8ED1] transition-colors"
               >
                 Start Shopping
