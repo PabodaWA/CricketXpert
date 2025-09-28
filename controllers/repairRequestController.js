@@ -944,93 +944,6 @@ const getRepairRevenue = async (req, res) => {
   }
 };
 
-/**
- * 14 Submit Feedback
- * - Customer submits feedback for a completed repair request.
- * - Creates a feedback record and notifies service manager.
- */
-const submitFeedback = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { rating, comment, category } = req.body;
-
-    // Validate required fields
-    if (!rating || !comment || !category) {
-      return res.status(400).json({
-        error: 'Rating, comment, and category are required'
-      });
-    }
-
-    // Validate rating (1-5)
-    if (rating < 1 || rating > 5) {
-      return res.status(400).json({
-        error: 'Rating must be between 1 and 5'
-      });
-    }
-
-    // Check if repair request exists and is completed
-    const repairRequest = await RepairRequest.findById(id);
-    if (!repairRequest) {
-      return res.status(404).json({
-        error: 'Repair request not found'
-      });
-    }
-
-    if (repairRequest.status !== 'Ready for Pickup') {
-      return res.status(400).json({
-        error: 'Feedback can only be submitted for completed repairs'
-      });
-    }
-
-    // Create feedback record using existing model structure
-    const Feedback = require('../models/Feedback');
-
-    // Map frontend category to model category
-    let mappedCategory = 'Repair'; // default
-    if (category === 'quality') mappedCategory = 'Repair';
-    else if (category === 'service') mappedCategory = 'Repair';
-    else if (category === 'timing') mappedCategory = 'Repair';
-    else if (category === 'communication') mappedCategory = 'Repair';
-    else if (category === 'general') mappedCategory = 'Repair';
-
-    // Include rating in the description since model doesn't have rating field
-    const descriptionWithRating = `Rating: ${rating}/5 - ${comment}`;
-
-    const feedback = await Feedback.create({
-      requestId: id,
-      requestType: 'RepairRequest',
-      customerId: repairRequest.customerId,
-      description: descriptionWithRating,
-      category: mappedCategory,
-      status: 'Open'
-    });
-
-    // Notify service manager about new feedback
-    if (process.env.SERVICE_MANAGER_EMAIL) {
-      await sendEmail(
-        process.env.SERVICE_MANAGER_EMAIL,
-        'New Feedback Received',
-        `New feedback has been submitted for repair request ${id}.\n\nRating: ${rating}/5\nCategory: ${category}\nComment: ${comment}`
-      );
-    }
-
-    res.status(201).json({
-      message: 'Feedback submitted successfully',
-      feedback: {
-        id: feedback._id,
-        rating,
-        comment,
-        category,
-        requestId: id
-      }
-    });
-
-  } catch (err) {
-    console.error('Feedback submission error:', err);
-    res.status(500).json({ error: err.message });
-  }
-};
-
 export default {
   createRepairRequest,
   testRepairRequest,
@@ -1051,6 +964,6 @@ export default {
   updateProgress,
   downloadAndEmailReport,
   getRepairRevenue,
-  submitFeedback
+
 };
  
