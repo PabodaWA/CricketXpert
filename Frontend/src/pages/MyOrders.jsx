@@ -271,12 +271,9 @@ const MyOrders = () => {
                           Ordered on: {new Date(order.date || order.createdAt).toLocaleDateString()}
                         </p>
                         {formatDeliveryInfo(order) && (
-                          <div className="mt-2 p-2 bg-gray-50 rounded-lg">
-                            <p className="text-sm font-medium" style={{ color: '#36516C' }}>
+                          <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <p className="text-sm font-semibold text-blue-800">
                               {formatDeliveryInfo(order).text}
-                            </p>
-                            <p className={`text-sm font-semibold ${formatDeliveryInfo(order).color}`}>
-                              {formatDeliveryInfo(order).countdown}
                             </p>
                           </div>
                         )}
