@@ -25,13 +25,17 @@ import {
   debugAttendance,
   debugMarkAttendance,
   debugMedhaniAttendance,
-  debugEnrollmentAttendance
+  debugEnrollmentAttendance,
+  debugCleanupFutureAttendance,
+  cleanupFutureAttendance
 } from '../controllers/sessionController.js';
 import { protect, authorizeRoles } from '../middleware/authMiddleware.js';
 
 // Debug routes (MUST be first to avoid conflicts with /:id routes)
 router.get('/debug/enrollment/:enrollmentId', debugEnrollmentAttendance);
 router.get('/debug/medhani', debugMedhaniAttendance);
+router.get('/debug/cleanup-future-attendance', debugCleanupFutureAttendance);
+router.delete('/debug/cleanup-future-attendance', cleanupFutureAttendance);
 router.get('/debug/attendance', debugAttendance);
 router.get('/debug/all-sessions', debugAllSessions);
 router.post('/debug/mark-attendance', debugMarkAttendance);
