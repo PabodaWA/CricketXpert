@@ -2293,7 +2293,8 @@ const SessionsTab = ({ sessions, onReschedule, coaches, programs, onSessionsRefr
       if (sessionDate <= today) {
         // Check if any participant has attendance marked (only for past sessions)
         const hasAttendanceMarked = session.participants?.some(participant => 
-          participant.attended !== undefined || participant.attendanceMarkedAt
+          participant.attendanceStatus === 'present' || participant.attendanceStatus === 'absent' ||
+          (participant.attended !== undefined && participant.attendanceMarkedAt)
         );
         matchesStatus = hasAttendanceMarked;
       } else {
@@ -2309,7 +2310,8 @@ const SessionsTab = ({ sessions, onReschedule, coaches, programs, onSessionsRefr
       if (sessionDate <= today) {
         // Check if no participant has attendance marked (only for past sessions)
         const hasAttendanceMarked = session.participants?.some(participant => 
-          participant.attended !== undefined || participant.attendanceMarkedAt
+          participant.attendanceStatus === 'present' || participant.attendanceStatus === 'absent' ||
+          (participant.attended !== undefined && participant.attendanceMarkedAt)
         );
         matchesStatus = !hasAttendanceMarked;
       } else {
@@ -2380,13 +2382,15 @@ const SessionsTab = ({ sessions, onReschedule, coaches, programs, onSessionsRefr
     attendanceMarked: sessions.filter(s => {
       const sessionDate = new Date(s.scheduledDate);
       return sessionDate <= today && s.participants?.some(participant => 
-        participant.attended !== undefined || participant.attendanceMarkedAt
+        participant.attendanceStatus === 'present' || participant.attendanceStatus === 'absent' ||
+        (participant.attended !== undefined && participant.attendanceMarkedAt)
       );
     }).length,
     attendanceNotMarked: sessions.filter(s => {
       const sessionDate = new Date(s.scheduledDate);
       return sessionDate <= today && !s.participants?.some(participant => 
-        participant.attended !== undefined || participant.attendanceMarkedAt
+        participant.attendanceStatus === 'present' || participant.attendanceStatus === 'absent' ||
+        (participant.attended !== undefined && participant.attendanceMarkedAt)
       );
     }).length
   };
@@ -2651,11 +2655,38 @@ const SessionsTab = ({ sessions, onReschedule, coaches, programs, onSessionsRefr
                           {session.participants.slice(0, 3).map((participant, index) => (
                             <div key={index} className="text-xs text-gray-700 bg-gray-50 px-2 py-1 rounded">
                               {participant.user?.firstName} {participant.user?.lastName}
-                              {participant.attended !== undefined && (
-                                <span className={`ml-2 text-xs ${participant.attended ? 'text-green-600' : 'text-red-600'}`}>
-                                  {participant.attended ? '✓' : '✗'}
-                                </span>
-                              )}
+                              {(() => {
+                                // Check if session is upcoming or past
+                                const sessionDate = new Date(session.scheduledDate);
+                                const today = new Date();
+                                today.setHours(0, 0, 0, 0);
+                                const isUpcomingSession = sessionDate >= today;
+                                
+                                // Only show attendance status for past sessions with marked attendance
+                                if (!isUpcomingSession && 
+                                    ((participant.attendanceStatus === 'present' || participant.attendanceStatus === 'absent') || 
+                                     (participant.attended !== undefined && participant.attendanceMarkedAt))) {
+                                  return (
+                                    <span className={`ml-2 text-xs ${
+                                      participant.attendanceStatus === 'present' || participant.attended === true 
+                                        ? 'text-green-600' : 'text-red-600'
+                                    }`}>
+                                      {participant.attendanceStatus === 'present' || participant.attended === true ? '✓' : '✗'}
+                                    </span>
+                                  );
+                                }
+                                
+                                // For upcoming sessions, show upcoming indicator
+                                if (isUpcomingSession) {
+                                  return (
+                                    <span className="ml-2 text-xs text-blue-500">
+                                      📅
+                                    </span>
+                                  );
+                                }
+                                
+                                return null;
+                              })()}
                             </div>
                           ))}
                           {session.participants.length > 3 && (
@@ -2678,7 +2709,10 @@ const SessionsTab = ({ sessions, onReschedule, coaches, programs, onSessionsRefr
                           
                           if (sessionDate > today) {
                             return <span className="text-gray-500 font-medium">📅 Future Session</span>;
-                          } else if (session.participants?.some(p => p.attended !== undefined || p.attendanceMarkedAt)) {
+                          } else if (session.participants?.some(p => 
+                            p.attendanceStatus === 'present' || p.attendanceStatus === 'absent' ||
+                            (p.attended !== undefined && p.attendanceMarkedAt)
+                          )) {
                             return <span className="text-green-600 font-medium">✓ Attendance Marked</span>;
                           } else {
                             return <span className="text-orange-600 font-medium">⚠ Not Marked</span>;

@@ -1126,6 +1126,11 @@ const getSessionsByEnrollment = async (req, res) => {
         );
         
         if (attendanceRecord) {
+          console.log(`Setting attendance for participant ${participant.user._id}:`, {
+            attended: attendanceRecord.attended,
+            status: attendanceRecord.status,
+            attendanceMarkedAt: attendanceRecord.attendanceMarkedAt
+          });
           return {
             ...participant.toObject(),
             attended: attendanceRecord.attended,
@@ -1416,8 +1421,8 @@ const createDirectSession = async (req, res) => {
       status: 'scheduled',
       participants: [{
         user: req.user._id,
-        enrollment: enrollmentId,
-        attended: false
+        enrollment: enrollmentId
+        // Don't set attended field for upcoming sessions
       }],
       notes: notes || '',
       bookingDeadline: new Date(sessionDate.getTime() - 24 * 60 * 60 * 1000), // 24 hours before session

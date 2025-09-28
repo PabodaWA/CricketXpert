@@ -57,7 +57,56 @@ const CoachDashboard = () => {
 
   useEffect(() => {
     fetchCoachData();
+    
+    // Set up auto-refresh every 5 minutes
+    const autoRefreshInterval = setInterval(() => {
+      console.log('Auto-refreshing sessions data...');
+      refreshSessionsData();
+    }, 5 * 60 * 1000); // 5 minutes
+
+    return () => clearInterval(autoRefreshInterval);
   }, []);
+
+  const refreshSessionsData = async () => {
+    try {
+      if (!coach?._id) return;
+      
+      const coachSessionsResponse = await axios.get(`http://localhost:5000/api/coaches/${coach._id}/sessions?t=${Date.now()}`);
+      const coachSessionsData = coachSessionsResponse.data.data.docs || [];
+      setSessions(coachSessionsData);
+      setCoachSessions(coachSessionsData);
+      console.log('Sessions data refreshed automatically');
+      
+      // Debug: Log session dates for troubleshooting
+      console.log('=== SESSION DATE DEBUG ===');
+      coachSessionsData.forEach((session, index) => {
+        const sessionDate = new Date(session.scheduledDate);
+        const now = new Date();
+        
+        // Create proper datetime with start time
+        let sessionDateTime = sessionDate;
+        if (session.startTime) {
+          const [hours, minutes] = session.startTime.split(':').map(Number);
+          sessionDateTime = new Date(sessionDate);
+          sessionDateTime.setHours(hours, minutes, 0, 0);
+        }
+        
+        console.log(`Session ${index + 1}:`, {
+          title: session.title,
+          scheduledDate: session.scheduledDate,
+          startTime: session.startTime,
+          parsedDate: sessionDate.toISOString(),
+          sessionDateTime: sessionDateTime.toISOString(),
+          currentTime: now.toISOString(),
+          isPast: sessionDateTime < now,
+          isUpcoming: sessionDateTime >= now
+        });
+      });
+      console.log('=== END DEBUG ===');
+    } catch (error) {
+      console.error('Error auto-refreshing sessions:', error);
+    }
+  };
 
   const fetchCoachData = async () => {
     try {
@@ -256,11 +305,8 @@ const CoachDashboard = () => {
           
           // Refresh both sessions and customers data to show updated attendance
           try {
-            // Refresh sessions data
-            const coachSessionsResponse = await axios.get(`http://localhost:5000/api/coaches/${coach._id}/sessions?t=${Date.now()}`);
-            const coachSessionsData = coachSessionsResponse.data.data.docs || [];
-            setSessions(coachSessionsData);
-            setCoachSessions(coachSessionsData);
+            // Refresh sessions data using the new function
+            await refreshSessionsData();
             console.log('Sessions data refreshed with updated attendance');
             
             // Refresh customers data
@@ -628,7 +674,22 @@ const CoachDashboard = () => {
       const matchesSearch = session.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            session.program.title.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus = statusFilter === 'All Status' || session.status === statusFilter;
-      const isPast = new Date(session.scheduledDate) < now;
+      
+      // Create proper datetime comparison including session time
+      const sessionDate = new Date(session.scheduledDate);
+      const now = new Date();
+      
+      // If session has startTime, combine date with start time for accurate comparison
+      let sessionDateTime = sessionDate;
+      if (session.startTime) {
+        const [hours, minutes] = session.startTime.split(':').map(Number);
+        sessionDateTime = new Date(sessionDate);
+        sessionDateTime.setHours(hours, minutes, 0, 0);
+      }
+      
+      const isPast = sessionDateTime < now;
+      
+      console.log(`Session: ${session.title}, Date: ${sessionDate.toISOString()}, StartTime: ${session.startTime}, SessionDateTime: ${sessionDateTime.toISOString()}, Now: ${now.toISOString()}, IsPast: ${isPast}`);
       
       return matchesSearch && matchesStatus && isPast;
     });
@@ -666,7 +727,22 @@ const CoachDashboard = () => {
       const matchesSearch = session.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            session.program.title.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus = statusFilter === 'All Status' || session.status === statusFilter;
-      const isUpcoming = new Date(session.scheduledDate) >= now;
+      
+      // Create proper datetime comparison including session time
+      const sessionDate = new Date(session.scheduledDate);
+      const now = new Date();
+      
+      // If session has startTime, combine date with start time for accurate comparison
+      let sessionDateTime = sessionDate;
+      if (session.startTime) {
+        const [hours, minutes] = session.startTime.split(':').map(Number);
+        sessionDateTime = new Date(sessionDate);
+        sessionDateTime.setHours(hours, minutes, 0, 0);
+      }
+      
+      const isUpcoming = sessionDateTime >= now;
+      
+      console.log(`Session: ${session.title}, Date: ${sessionDate.toISOString()}, StartTime: ${session.startTime}, SessionDateTime: ${sessionDateTime.toISOString()}, Now: ${now.toISOString()}, IsUpcoming: ${isUpcoming}`);
       
       return matchesSearch && matchesStatus && isUpcoming;
     });
@@ -1151,7 +1227,64 @@ const CoachDashboard = () => {
 
           {activeTab === 'sessions' && (
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">My Sessions</h2>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">My Sessions</h2>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={async () => {
+                      try {
+                        await refreshSessionsData();
+                        alert('All sessions data refreshed successfully!');
+                      } catch (error) {
+                        console.error('Error refreshing sessions:', error);
+                        alert('Error refreshing sessions data');
+                      }
+                    }}
+                    className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Refresh All Sessions
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      console.log('=== CURRENT SESSION DATA DEBUG ===');
+                      console.log('Total sessions:', sessions.length);
+                      console.log('Past sessions count:', getPastSessions().length);
+                      console.log('Upcoming sessions count:', getUpcomingSessions().length);
+                      console.log('Current time:', new Date().toISOString());
+                      sessions.forEach((session, index) => {
+                        const sessionDate = new Date(session.scheduledDate);
+                        const now = new Date();
+                        
+                        // Create proper datetime with start time
+                        let sessionDateTime = sessionDate;
+                        if (session.startTime) {
+                          const [hours, minutes] = session.startTime.split(':').map(Number);
+                          sessionDateTime = new Date(sessionDate);
+                          sessionDateTime.setHours(hours, minutes, 0, 0);
+                        }
+                        
+                        console.log(`Session ${index + 1}:`, {
+                          title: session.title,
+                          scheduledDate: session.scheduledDate,
+                          startTime: session.startTime,
+                          parsedDate: sessionDate.toISOString(),
+                          sessionDateTime: sessionDateTime.toISOString(),
+                          currentTime: now.toISOString(),
+                          isPast: sessionDateTime < now,
+                          isUpcoming: sessionDateTime >= now
+                        });
+                      });
+                      console.log('=== END DEBUG ===');
+                      alert('Debug info logged to console. Check browser console for details.');
+                    }}
+                    className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                  >
+                    Debug Sessions
+                  </button>
+                </div>
+              </div>
               
               {/* Filter Bar */}
               <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
@@ -1183,10 +1316,27 @@ const CoachDashboard = () => {
 
               {/* Past Sessions */}
               <div className="mb-8">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <Calendar className="h-5 w-5 mr-2 text-red-600" />
-                  Past Sessions
-                </h3>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                    <Calendar className="h-5 w-5 mr-2 text-red-600" />
+                    Past Sessions
+                  </h3>
+                  <button
+                    onClick={async () => {
+                      try {
+                        await refreshSessionsData();
+                        alert('Sessions data refreshed successfully!');
+                      } catch (error) {
+                        console.error('Error refreshing sessions:', error);
+                        alert('Error refreshing sessions data');
+                      }
+                    }}
+                    className="flex items-center px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                    Refresh
+                  </button>
+                </div>
                 <div className="space-y-4">
                   {getPastSessions().map((session) => (
                     <SessionCard
@@ -1214,10 +1364,27 @@ const CoachDashboard = () => {
 
               {/* Upcoming Sessions */}
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <Clock className="h-5 w-5 mr-2 text-green-600" />
-                  Upcoming Sessions
-                </h3>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                    <Clock className="h-5 w-5 mr-2 text-green-600" />
+                    Upcoming Sessions
+                  </h3>
+                  <button
+                    onClick={async () => {
+                      try {
+                        await refreshSessionsData();
+                        alert('Sessions data refreshed successfully!');
+                      } catch (error) {
+                        console.error('Error refreshing sessions:', error);
+                        alert('Error refreshing sessions data');
+                      }
+                    }}
+                    className="flex items-center px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                    Refresh
+                  </button>
+                </div>
                 <div className="space-y-4">
                   {getUpcomingSessions().map((session) => (
                     <SessionCard
@@ -1485,7 +1652,11 @@ const SessionCard = ({ session, onGiveFeedback, onMarkAttendance }) => {
     // Check if this is a future session - if so, show 0% attendance
     const now = new Date();
     const sessionDate = new Date(session.scheduledDate);
-    const isFutureSession = sessionDate > now;
+    // Set time to start of day for comparison to allow attendance marking for today's sessions
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    sessionDate.setHours(0, 0, 0, 0);
+    const isFutureSession = sessionDate > today;
     
     if (isFutureSession) {
       console.log('Future session detected, showing 0% attendance:', {
@@ -1497,11 +1668,10 @@ const SessionCard = ({ session, onGiveFeedback, onMarkAttendance }) => {
       return { attendedCount: 0, totalParticipants: session.participants.length, attendancePercentage: 0 };
     }
     
-    // Check multiple possible attendance fields - only count as attended if explicitly true
+    // Check both attendanceStatus (new) and attended (old) fields for backward compatibility
     const attendedCount = session.participants.filter(p => {
-      // Only count as attended if explicitly marked as true
-      // Don't count if attended is false, undefined, or null
-      return p.attended === true || p.attendance?.attended === true;
+      return p.attendanceStatus === 'present' || 
+             (p.attended === true && p.attendanceStatus !== 'absent');
     }).length;
     
     const totalParticipants = session.participants.length;
@@ -1584,7 +1754,11 @@ const SessionCard = ({ session, onGiveFeedback, onMarkAttendance }) => {
             {(() => {
               const now = new Date();
               const sessionDate = new Date(session.scheduledDate);
-              const isFutureSession = sessionDate > now;
+              // Set time to start of day for comparison to allow attendance marking for today's sessions
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              sessionDate.setHours(0, 0, 0, 0);
+              const isFutureSession = sessionDate > today;
               
               if (isFutureSession) {
                 return (
@@ -2428,7 +2602,11 @@ const SessionAttendanceCard = ({ session, onMarkAttendance }) => {
             {(() => {
               const now = new Date();
               const sessionDate = new Date(session.scheduledDate);
-              const isFutureSession = sessionDate > now;
+              // Set time to start of day for comparison to allow attendance marking for today's sessions
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              sessionDate.setHours(0, 0, 0, 0);
+              const isFutureSession = sessionDate > today;
               
               if (isFutureSession) {
                 return (
@@ -2475,7 +2653,11 @@ const SessionAttendanceCard = ({ session, onMarkAttendance }) => {
               // Check if this is a future session
               const now = new Date();
               const sessionDate = new Date(session.scheduledDate);
-              const isFutureSession = sessionDate > now;
+              // Set time to start of day for comparison to allow attendance marking for today's sessions
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              sessionDate.setHours(0, 0, 0, 0);
+              const isFutureSession = sessionDate > today;
               
               // For future sessions, always show as not marked
               if (isFutureSession) {
@@ -2490,13 +2672,17 @@ const SessionAttendanceCard = ({ session, onMarkAttendance }) => {
                 );
               }
               
-              // Check attendance status - only show as attended if explicitly true
-              const isAttended = participant.attended === true || participant.attendance?.attended === true;
-              const isAbsent = participant.attended === false || participant.attendance?.attended === false;
-              const isMarked = participant.attended !== undefined || participant.attendance?.attended !== undefined;
+              // Check both attendanceStatus (new) and attended (old) fields for backward compatibility
+              const isAttended = participant.attendanceStatus === 'present' || 
+                                (participant.attended === true && participant.attendanceStatus !== 'absent');
+              const isAbsent = participant.attendanceStatus === 'absent' || 
+                              (participant.attended === false && participant.attendanceStatus !== 'present');
+              const isMarked = participant.attendanceStatus === 'present' || participant.attendanceStatus === 'absent' ||
+                              participant.attended !== undefined;
               
               console.log('Participant attendance status:', {
                 name: `${participant.user?.firstName} ${participant.user?.lastName}`,
+                attendanceStatus: participant.attendanceStatus,
                 attended: participant.attended,
                 attendance: participant.attendance,
                 isAttended,

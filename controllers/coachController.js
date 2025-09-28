@@ -1405,6 +1405,7 @@ const markSessionAttendance = async (req, res) => {
       
       if (participant) {
         participant.attended = attendance.attended;
+        participant.attendanceStatus = attendance.attended ? 'present' : 'absent';
         participant.attendanceMarkedAt = new Date();
         updatedCount++;
         console.log(`Updated participant ${attendance.participantId}: ${attendance.attended}`);
@@ -1758,8 +1759,8 @@ const createSessionsForEnrollments = async (req, res) => {
         bookingDeadline: new Date(sessionDate.getTime() - (24 * 60 * 60 * 1000)), // 24 hours before session
         participants: enrollments.map(enrollment => ({
           user: enrollment.user._id,
-          enrollment: enrollment._id,
-          attended: false
+          enrollment: enrollment._id
+          // Don't set attended field for upcoming sessions
         }))
       };
 
@@ -1936,6 +1937,26 @@ const getEnrolledCustomers = async (req, res) => {
         new Date(session.scheduledDate) < now
       );
 
+      // Check if program has started (enrollment date is today or in the past)
+      const enrollmentDate = new Date(enrollment.enrollmentDate);
+      const today = new Date();
+      
+      // Use UTC dates for comparison to avoid timezone issues
+      const enrollmentDateUTC = new Date(enrollmentDate.getUTCFullYear(), enrollmentDate.getUTCMonth(), enrollmentDate.getUTCDate());
+      const todayUTC = new Date(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+      
+      const hasProgramStarted = enrollmentDateUTC <= todayUTC;
+      
+      // Enhanced debugging for date comparison
+      console.log(`=== ENROLLMENT DATE DEBUG ===`);
+      console.log(`Raw enrollment date: ${enrollment.enrollmentDate}`);
+      console.log(`Parsed enrollment date: ${enrollmentDate.toISOString()}`);
+      console.log(`Enrollment date UTC: ${enrollmentDateUTC.toISOString()}`);
+      console.log(`Today: ${today.toISOString()}`);
+      console.log(`Today UTC: ${todayUTC.toISOString()}`);
+      console.log(`Enrollment date <= today: ${enrollmentDateUTC <= todayUTC}`);
+      console.log(`Has program started: ${hasProgramStarted}`);
+
       // Calculate attendance statistics from Attendance collection
       const customerAttendanceRecords = attendanceRecords.filter(record => 
         record.participant.toString() === enrollment.user._id.toString()
@@ -1943,6 +1964,8 @@ const getEnrolledCustomers = async (req, res) => {
 
       // Debug logging
       console.log(`Customer ${enrollment.user.firstName} ${enrollment.user.lastName}:`);
+      console.log(`- Enrollment date: ${enrollment.enrollmentDate}`);
+      console.log(`- Has program started: ${hasProgramStarted}`);
       console.log(`- Total sessions found: ${customerSessions.length}`);
       console.log(`- Past sessions: ${pastSessions.length}`);
       console.log(`- Attendance records: ${customerAttendanceRecords.length}`);
@@ -1951,6 +1974,25 @@ const getEnrolledCustomers = async (req, res) => {
         attended: r.attended,
         status: r.status
       })));
+
+      // If program hasn't started yet, show 0% attendance
+      if (!hasProgramStarted) {
+        console.log(`Program hasn't started yet for ${enrollment.user.firstName}, showing 0% attendance`);
+        customersByProgram[programId].customers.push({
+          enrollmentId: enrollment._id,
+          user: enrollment.user,
+          enrollmentDate: enrollment.enrollmentDate,
+          status: enrollment.status,
+          progress: enrollment.progress,
+          // Attendance statistics - all zeros for future programs
+          totalSessions: enrollment.program.duration || 0,
+          completedSessions: 0,
+          presentSessions: 0,
+          absentSessions: 0,
+          progressPercentage: 0
+        });
+        return; // Skip the rest of the calculation
+      }
 
       const presentSessions = customerAttendanceRecords.filter(record => 
         record.attended === true
@@ -2434,6 +2476,7 @@ const attendanceOnly = async (req, res) => {
       
       if (participant) {
         participant.attended = attendance.attended;
+        participant.attendanceStatus = attendance.attended ? 'present' : 'absent';
         participant.attendanceMarkedAt = new Date();
         updatedCount++;
         console.log(`Updated participant ${attendance.participantId} - NO COACH DATA TOUCHED`);
@@ -2543,6 +2586,7 @@ const simpleAttendanceMarking = async (req, res) => {
       
       if (participant) {
         participant.attended = attendance.attended;
+        participant.attendanceStatus = attendance.attended ? 'present' : 'absent';
         participant.attendanceMarkedAt = new Date();
         updatedCount++;
         console.log(`Updated participant ${attendance.participantId}`);

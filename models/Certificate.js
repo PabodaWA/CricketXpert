@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import crypto from 'crypto';
 
 const certificateSchema = new mongoose.Schema({
   user: {
@@ -19,7 +20,7 @@ const certificateSchema = new mongoose.Schema({
   coach: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Coach',
-    required: true
+    required: false // Temporarily make optional for debugging
   },
   certificateNumber: {
     type: String,
@@ -144,9 +145,13 @@ certificateSchema.pre('save', function(next) {
     this.certificateNumber = `CERT-${year}-${random}`;
   }
   
+  // Initialize digitalSignature if not exists
+  if (!this.digitalSignature) {
+    this.digitalSignature = {};
+  }
+  
   // Generate verification hash
   if (!this.digitalSignature.verificationHash) {
-    const crypto = require('crypto');
     const dataToHash = `${this.certificateNumber}-${this.user}-${this.program}-${this.issueDate}`;
     this.digitalSignature.verificationHash = crypto.createHash('sha256').update(dataToHash).digest('hex');
   }

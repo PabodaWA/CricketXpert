@@ -191,7 +191,7 @@ programenrollmentSchema.methods.checkCertificateEligibility = async function() {
     });
     
     // Calculate attendance percentage
-    const totalSessions = sessions.length;
+    const totalSessions = this.program?.totalSessions || sessions.length;
     const attendedSessions = attendanceRecords.length;
     const attendancePercentage = totalSessions > 0 ? (attendedSessions / totalSessions) * 100 : 0;
     

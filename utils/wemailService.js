@@ -274,6 +274,60 @@ const sendOrderManagerNotificationEmail = async (order, customer) => {
   }
 };
 
+// --- Function: Certificate Email ---
+const sendCertificateEmail = async (userEmail, userName, programName, certificateNumber) => {
+  try {
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: userEmail,
+      subject: `🎓 Certificate of Completion - ${programName}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #2c5aa0; margin-bottom: 10px;">🎓 Certificate of Completion</h1>
+            <h2 style="color: #333; margin-bottom: 20px;">${programName}</h2>
+          </div>
+          
+          <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h3 style="color: #2c5aa0; margin-bottom: 15px;">Congratulations, ${userName}!</h3>
+            <p style="font-size: 16px; line-height: 1.6; color: #333;">
+              You have successfully completed the <strong>${programName}</strong> program and earned your Certificate of Completion!
+            </p>
+            <p style="font-size: 16px; line-height: 1.6; color: #333;">
+              Your certificate number is: <strong style="color: #2c5aa0;">${certificateNumber}</strong>
+            </p>
+          </div>
+          
+          <div style="background: #e8f4fd; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <h4 style="color: #2c5aa0; margin-bottom: 10px;">📋 What's Next?</h4>
+            <ul style="color: #333; line-height: 1.6;">
+              <li>Download your certificate from your enrollment details page</li>
+              <li>Share your achievement on social media</li>
+              <li>Continue your cricket journey with more advanced programs</li>
+            </ul>
+          </div>
+          
+          <div style="text-align: center; margin-top: 30px;">
+            <p style="color: #666; font-size: 14px;">
+              Thank you for choosing CricketExpert for your cricket development journey!
+            </p>
+            <p style="color: #666; font-size: 12px; margin-top: 20px;">
+              This certificate was generated on ${new Date().toLocaleDateString()}
+            </p>
+          </div>
+        </div>
+      `
+    };
+    
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`Certificate email sent to ${userEmail}: ${info.response}`);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error('Error sending certificate email:', error);
+    return { success: false, error: error.message };
+  }
+};
+
 export {
   sendWelcomeEmail,
   sendNewUserNotification,
@@ -282,4 +336,5 @@ export {
   sendLowStockAlert,
   sendOrderConfirmationEmail,
   sendOrderManagerNotificationEmail,
+  sendCertificateEmail,
 };

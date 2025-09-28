@@ -10,15 +10,15 @@ import path from 'path';
 export const generateCertificatePDF = async (certificate) => {
   return new Promise((resolve, reject) => {
     try {
-      // Create a new PDF document
+      // Create a new PDF document with proper margins
       const doc = new PDFDocument({
         size: 'A4',
         layout: 'landscape',
         margins: {
-          top: 50,
-          bottom: 50,
-          left: 50,
-          right: 50
+          top: 20,
+          bottom: 20,
+          left: 20,
+          right: 20
         }
       });
 
@@ -33,134 +33,235 @@ export const generateCertificatePDF = async (certificate) => {
       const primaryColor = '#1a365d';
       const secondaryColor = '#2d3748';
       const accentColor = '#3182ce';
+      const lightBlue = '#e6f3ff';
 
-      // Background
-      doc.rect(0, 0, doc.page.width, doc.page.height)
+      // Page dimensions - A4 Landscape
+      const pageWidth = 842;  // A4 landscape width
+      const pageHeight = 595; // A4 landscape height
+      const margin = 20;
+
+      // Beautiful background
+      doc.rect(0, 0, pageWidth, pageHeight)
          .fill('#f8f9fa');
 
-      // Border
-      doc.rect(20, 20, doc.page.width - 40, doc.page.height - 40)
+      // Main border - centered
+      const borderWidth = pageWidth - (margin * 2);
+      const borderHeight = pageHeight - (margin * 2);
+      doc.rect(margin, margin, borderWidth, borderHeight)
          .stroke(primaryColor, 3);
 
-      // Inner border
-      doc.rect(30, 30, doc.page.width - 60, doc.page.height - 60)
+      // Inner border - centered
+      doc.rect(margin + 5, margin + 5, borderWidth - 30, borderHeight - 30)
          .stroke(accentColor, 1);
 
-      // Header - Organization Name
-      doc.fontSize(28)
+      // Header - Organization Name (centered)
+      const headerY = margin + 30;
+      doc.fontSize(16)
          .fillColor(primaryColor)
-         .text('CricketXpert Coaching Academy', doc.page.width / 2, 60, {
+         .text('CricketXpert Coaching Academy', pageWidth / 2, headerY, {
            align: 'center',
-           width: doc.page.width - 100
+           width: borderWidth - 40
          });
 
-      // Certificate Title
-      doc.fontSize(24)
-         .fillColor(secondaryColor)
-         .text('CERTIFICATE OF COMPLETION', doc.page.width / 2, 120, {
+      // Certificate Title with decorative background (centered)
+      const titleY = headerY + 40;
+      const titleWidth = 500;
+      const titleX = (pageWidth - titleWidth) / 2;
+      
+      doc.rect(titleX, titleY, titleWidth, 45)
+         .fill(lightBlue)
+         .stroke(accentColor, 1);
+      
+      doc.fontSize(18)
+         .fillColor(primaryColor)
+         .text('CERTIFICATE OF COMPLETION', pageWidth / 2, titleY + 12, {
            align: 'center',
-           width: doc.page.width - 100
+           width: titleWidth - 20
          });
 
-      // Decorative line
-      doc.moveTo(doc.page.width / 2 - 100, 160)
-         .lineTo(doc.page.width / 2 + 100, 160)
+      // Decorative line (centered)
+      const lineY = titleY + 60;
+      const lineLength = 200;
+      doc.moveTo((pageWidth - lineLength) / 2, lineY)
+         .lineTo((pageWidth + lineLength) / 2, lineY)
          .stroke(accentColor, 2);
 
-      // This is to certify text
+      // Main content area (centered)
+      const contentY = lineY + 30;
+      const contentWidth = borderWidth - 40;
+      const contentX = (pageWidth - contentWidth) / 2;
+
+      // This is to certify text (centered)
       doc.fontSize(16)
          .fillColor(secondaryColor)
-         .text('This is to certify that', doc.page.width / 2, 200, {
+         .text('This is to certify that', pageWidth / 2, contentY, {
            align: 'center',
-           width: doc.page.width - 100
+           width: contentWidth
          });
 
-      // Student name
+      // Student name with decorative underline (centered)
       const studentName = `${certificate.user.firstName} ${certificate.user.lastName}`;
+      const nameY = contentY + 35;
+      
       doc.fontSize(22)
          .fillColor(primaryColor)
-         .text(studentName, doc.page.width / 2, 240, {
+         .text(studentName, pageWidth / 2, nameY, {
            align: 'center',
-           width: doc.page.width - 100
+           width: contentWidth
          });
+      
+      // Decorative underline for student name (centered)
+      const underlineY = nameY + 30;
+      const underlineLength = 250;
+      doc.moveTo((pageWidth - underlineLength) / 2, underlineY)
+         .lineTo((pageWidth + underlineLength) / 2, underlineY)
+         .stroke(accentColor, 2);
 
-      // Program completion text
+      // Program completion text (centered)
+      const completionY = underlineY + 25;
       doc.fontSize(16)
          .fillColor(secondaryColor)
-         .text(`has successfully completed the program`, doc.page.width / 2, 280, {
+         .text(`has successfully completed the program`, pageWidth / 2, completionY, {
            align: 'center',
-           width: doc.page.width - 100
+           width: contentWidth
          });
 
-      // Program name
-      doc.fontSize(20)
+      // Program name with decorative background (centered)
+      const programY = completionY + 30;
+      const programWidth = 500;
+      const programX = (pageWidth - programWidth) / 2;
+      
+      doc.rect(programX, programY, programWidth, 35)
+         .fill(lightBlue)
+         .stroke(accentColor, 1);
+      
+      doc.fontSize(16)
          .fillColor(accentColor)
-         .text(`"${certificate.program.title}"`, doc.page.width / 2, 320, {
+         .text(`"${certificate.program.title}"`, pageWidth / 2, programY + 8, {
            align: 'center',
-           width: doc.page.width - 100
+           width: programWidth - 20
          });
 
-      // Completion details
+      // Completion details (centered)
       const completionDate = certificate.issueDate.toLocaleDateString('en-US', {
          year: 'numeric',
          month: 'long',
          day: 'numeric'
       });
 
+      const detailsY = programY + 50;
       doc.fontSize(14)
          .fillColor(secondaryColor)
-         .text(`Completed on: ${completionDate}`, doc.page.width / 2, 380, {
+         .text(`Completed on: ${completionDate}`, pageWidth / 2, detailsY, {
            align: 'center',
-           width: doc.page.width - 100
+           width: contentWidth
          });
 
-      // Performance details
+      // Performance details with decorative background (centered)
       const attendance = certificate.completionDetails.attendancePercentage;
       const grade = certificate.completionDetails.finalGrade;
+      const performanceY = detailsY + 30;
+      const performanceWidth = 550;
+      const performanceX = (pageWidth - performanceWidth) / 2;
+      
+      doc.rect(performanceX, performanceY, performanceWidth, 30)
+         .fill('#f0f8ff')
+         .stroke(accentColor, 1);
       
       doc.fontSize(14)
-         .fillColor(secondaryColor)
-         .text(`Attendance: ${attendance}% | Final Grade: ${grade}`, doc.page.width / 2, 410, {
+         .fillColor(primaryColor)
+         .text(`Attendance: ${attendance}% | Final Grade: ${grade}`, pageWidth / 2, performanceY + 8, {
            align: 'center',
-           width: doc.page.width - 100
+           width: performanceWidth - 20
          });
 
-      // Coach signature section
-      const coachName = `${certificate.coach.userId.firstName} ${certificate.coach.userId.lastName}`;
+      // Bottom section - ALL CENTERED
+      const bottomY = performanceY + 60;
+
+      // Coach signature (CENTERED)
+      let coachName = 'Head Coach';
+      if (certificate.coach && certificate.coach.userId) {
+        coachName = `${certificate.coach.userId.firstName} ${certificate.coach.userId.lastName}`;
+      }
       
-      // Coach signature (right side)
+      const signatureY = bottomY + 20;
+      
       doc.fontSize(12)
          .fillColor(secondaryColor)
-         .text('Coach Signature:', doc.page.width - 200, doc.page.height - 120, {
-           width: 150
+         .text('Coach Signature:', pageWidth / 2, signatureY, {
+           align: 'center',
+           width: contentWidth
          });
+
+      doc.moveTo(pageWidth / 2 - 50, signatureY + 20)
+         .lineTo(pageWidth / 2 + 50, signatureY + 20)
+         .stroke(accentColor, 1);
 
       doc.fontSize(14)
          .fillColor(primaryColor)
-         .text(coachName, doc.page.width - 200, doc.page.height - 100, {
-           width: 150
-         });
-
-      // Certificate number
-      doc.fontSize(10)
-         .fillColor(secondaryColor)
-         .text(`Certificate No: ${certificate.certificateNumber}`, 50, doc.page.height - 80, {
-           width: 200
-         });
-
-      // Verification info
-      doc.fontSize(10)
-         .fillColor(secondaryColor)
-         .text(`Verify at: ${certificate.verificationUrl}`, 50, doc.page.height - 60, {
-           width: 300
-         });
-
-      // Footer
-      doc.fontSize(10)
-         .fillColor(secondaryColor)
-         .text('© 2024 CricketXpert Coaching Academy. All rights reserved.', doc.page.width / 2, doc.page.height - 30, {
+         .text(coachName, pageWidth / 2, signatureY + 25, {
            align: 'center',
-           width: doc.page.width - 100
+           width: contentWidth
+         });
+
+      // Official seal (CENTERED)
+      const sealY = signatureY + 60;
+      
+      doc.circle(pageWidth / 2, sealY + 25, 25)
+         .stroke(primaryColor, 2)
+         .fill('#f0f8ff');
+      
+      doc.fontSize(8)
+         .fillColor(primaryColor)
+         .text('OFFICIAL', pageWidth / 2, sealY + 20, {
+           align: 'center',
+           width: 50
+         });
+      
+      doc.fontSize(6)
+         .fillColor(secondaryColor)
+         .text('SEAL', pageWidth / 2, sealY + 30, {
+           align: 'center',
+           width: 50
+         });
+
+      // Certificate number (CENTERED)
+      const certY = sealY + 60;
+      const certWidth = 400;
+      const certX = (pageWidth - certWidth) / 2;
+      doc.rect(certX, certY, certWidth, 25)
+         .fill('#f8f9fa')
+         .stroke(accentColor, 1);
+      
+      doc.fontSize(11)
+         .fillColor(primaryColor)
+         .text(`Certificate No: ${certificate.certificateNumber}`, pageWidth / 2, certY + 7, {
+           align: 'center',
+           width: certWidth - 10
+         });
+
+      // Verification info (CENTERED)
+      const verifyY = certY + 35;
+      const verifyWidth = 500;
+      const verifyX = (pageWidth - verifyWidth) / 2;
+      doc.rect(verifyX, verifyY, verifyWidth, 25)
+         .fill('#f0f8ff')
+         .stroke(accentColor, 1);
+      
+      doc.fontSize(10)
+         .fillColor(secondaryColor)
+         .text(`Verify at: ${certificate.verificationUrl || 'www.cricketxpert.com/verify'}`, pageWidth / 2, verifyY + 7, {
+           align: 'center',
+           width: verifyWidth - 10
+         });
+
+      // Footer (CENTERED)
+      const footerY = pageHeight - margin - 15;
+      doc.fontSize(10)
+         .fillColor(secondaryColor)
+         .text('© 2024 CricketXpert Coaching Academy. All rights reserved.', pageWidth / 2, footerY, {
+           align: 'center',
+           width: contentWidth
          });
 
       // Finalize the PDF

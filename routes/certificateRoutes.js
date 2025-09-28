@@ -4,7 +4,9 @@ import {
   generateCertificate,
   downloadCertificate,
   getUserCertificates,
-  verifyCertificate
+  verifyCertificate,
+  testCertificateGeneration,
+  checkExistingCertificates
 } from '../controllers/certificateController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
@@ -34,5 +36,15 @@ router.get('/user/:userId', protect, getUserCertificates);
 // @desc    Verify certificate (public endpoint)
 // @access  Public
 router.get('/verify/:certificateNumber', verifyCertificate);
+
+// @route   GET /api/certificates/test/:enrollmentId
+// @desc    Test certificate generation (DEBUG ONLY)
+// @access  Public
+router.get('/test/:enrollmentId', testCertificateGeneration);
+
+// @route   GET /api/certificates/check/:enrollmentId
+// @desc    Check existing certificates (DEBUG ONLY)
+// @access  Public
+router.get('/check/:enrollmentId', checkExistingCertificates);
 
 export default router;
