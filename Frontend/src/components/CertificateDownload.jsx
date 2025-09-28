@@ -207,7 +207,7 @@ const CertificateDownload = ({ enrollmentId, enrollmentStatus, onCertificateGene
 
       {/* Eligibility Status */}
       <div className="mb-4">
-        <div className="grid grid-cols-2 gap-4 mb-3">
+        <div className="grid grid-cols-1 gap-4 mb-3">
           <div className="text-center">
             <div className="text-2xl font-bold text-blue-600">
               {eligibility.eligibility.attendancePercentage}%
@@ -218,15 +218,6 @@ const CertificateDownload = ({ enrollmentId, enrollmentStatus, onCertificateGene
             </div>
             <div className="text-xs text-gray-500 mt-1">
               {eligibility.eligibility.attendedSessions} of {eligibility.eligibility.totalSessions} sessions
-            </div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-blue-600">
-              {eligibility.eligibility.progressPercentage}%
-            </div>
-            <div className="text-sm text-gray-600">Progress</div>
-            <div className={`text-xs ${eligibility.eligibility.requirements.progressMet ? 'text-green-600' : 'text-red-600'}`}>
-              {eligibility.eligibility.requirements.progressMet ? '✓ Met' : '✗ Required: 75%'}
             </div>
           </div>
         </div>
@@ -252,24 +243,6 @@ const CertificateDownload = ({ enrollmentId, enrollmentStatus, onCertificateGene
             </div>
           </div>
           
-          <div>
-            <div className="flex justify-between text-sm text-gray-600 mb-1">
-              <span>Progress Completion</span>
-              <span>{eligibility.eligibility.progressPercentage}% / 75%</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div 
-                className={`h-2 rounded-full transition-all duration-300 ${
-                  eligibility.eligibility.requirements.progressMet 
-                    ? 'bg-green-500' 
-                    : eligibility.eligibility.progressPercentage >= 50 
-                    ? 'bg-yellow-500' 
-                    : 'bg-red-500'
-                }`}
-                style={{ width: `${Math.min(eligibility.eligibility.progressPercentage, 100)}%` }}
-              ></div>
-            </div>
-          </div>
         </div>
 
         <div className="text-center mt-4">
@@ -336,9 +309,6 @@ const CertificateDownload = ({ enrollmentId, enrollmentStatus, onCertificateGene
               <div className="text-xs text-gray-500">
                 {eligibility.eligibility.attendancePercentage < 75 && (
                   <div>Attend {Math.ceil((75 - eligibility.eligibility.attendancePercentage) / 100 * eligibility.eligibility.totalSessions)} more sessions</div>
-                )}
-                {eligibility.eligibility.progressPercentage < 75 && (
-                  <div>Complete {75 - eligibility.eligibility.progressPercentage}% more of your program</div>
                 )}
               </div>
             </div>
