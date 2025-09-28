@@ -1564,14 +1564,6 @@ const ProgramsTab = ({ programs, coaches, programDeletionStatus, onEdit, onDelet
         <h2 className="text-2xl font-bold text-gray-900">Coaching Programs</h2>
         <div className="flex space-x-3">
           <button
-            onClick={() => window.location.reload()}
-            className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 flex items-center space-x-2"
-            title="Refresh Data"
-          >
-            <RefreshCw className="h-5 w-5" />
-            <span>Refresh</span>
-          </button>
-          <button
             onClick={() => onEdit(null)}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
           >
@@ -1922,66 +1914,6 @@ const CoachesTab = ({ coaches, programs, onRefresh, onViewDetails }) => {
           <p className="text-gray-600">Manage and view all coaches in your system</p>
         </div>
         <div className="flex items-center space-x-3">
-          <button
-            onClick={() => {
-              onRefresh();
-              // Force refresh of all components
-              window.location.reload();
-            }}
-            className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 flex items-center space-x-2"
-            title="Force Refresh Data"
-          >
-            <RefreshCw className="h-5 w-5" />
-            <span>Force Refresh</span>
-          </button>
-          <button
-            onClick={() => {
-              console.log('=== DEBUG INFO ===');
-              console.log('Coaches:', coaches);
-              console.log('Selected Coach:', selectedCoach);
-              console.log('Coach Form:', coachForm);
-              console.log('Refresh Key:', refreshKey);
-              alert('Debug info logged to console');
-            }}
-            className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 flex items-center space-x-2"
-            title="Debug Info"
-          >
-            <span>Debug</span>
-          </button>
-          <button
-            onClick={() => {
-              // Test update by changing first coach's name
-              if (coaches.length > 0) {
-                const testCoach = coaches[0];
-                const updatedTestCoach = {
-                  ...testCoach,
-                  userId: {
-                    ...testCoach.userId,
-                    firstName: 'TEST_' + testCoach.userId?.firstName
-                  }
-                };
-                setCoaches(prev => prev.map(c => c._id === testCoach._id ? updatedTestCoach : c));
-                alert('Test update applied to first coach!');
-              }
-            }}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2"
-            title="Test Update"
-          >
-            <span>Test</span>
-          </button>
-          <button
-            onClick={() => {
-              // Test specialization selection
-              console.log('=== SPECIALIZATION TEST ===');
-              console.log('Current Coach Form:', coachForm);
-              console.log('Selected Coach:', selectedCoach);
-              alert('Check console for specialization debug info');
-            }}
-            className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center space-x-2"
-            title="Test Specializations"
-          >
-            <span>Spec Test</span>
-          </button>
           <button
             onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
