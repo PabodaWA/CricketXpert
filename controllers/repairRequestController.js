@@ -856,6 +856,216 @@ const getTechnicianRepairRequests = async (req, res) => {
   }
 };
 
+/**
+ * 9.1 Technician Dashboard - Get estimate time and count
+ */
+const getTechnicianEstimateData = async (req, res) => {
+  try {
+    const { technicianId } = req.params;
+
+    // Get all repair requests assigned to this technician
+    const requests = await RepairRequest.find({ assignedTechnician: technicianId })
+      .populate('customerId', 'username email firstName lastName')
+      .sort({ createdAt: -1 });
+
+    // Calculate estimate time for each request
+    const requestsWithEstimate = requests.map(request => {
+      let estimatedCompletionTime = null;
+      
+      if (request.timeEstimate) {
+        // Parse time estimate - handle both string and numeric formats
+        const timeStr = String(request.timeEstimate).toLowerCase();
+        const requestCreatedAt = new Date(request.createdAt); // Use request creation time instead of current time
+        let daysToAdd = 0;
+        
+        // If it's just a number, assume it's days
+        if (/^\d+$/.test(timeStr.trim())) {
+          daysToAdd = parseInt(timeStr.trim());
+        } else if (timeStr.includes('hour')) {
+          const hours = parseInt(timeStr.match(/\d+/)?.[0] || '0');
+          daysToAdd = hours / 24;
+        } else if (timeStr.includes('day')) {
+          daysToAdd = parseInt(timeStr.match(/\d+/)?.[0] || '0');
+        } else if (timeStr.includes('week')) {
+          const weeks = parseInt(timeStr.match(/\d+/)?.[0] || '0');
+          daysToAdd = weeks * 7;
+        }
+        
+        if (daysToAdd > 0) {
+          // Calculate due date from request creation time + time estimate
+          estimatedCompletionTime = new Date(requestCreatedAt.getTime() + (daysToAdd * 24 * 60 * 60 * 1000));
+        }
+      }
+
+      return {
+        ...request.toObject(),
+        estimatedCompletionTime
+      };
+    });
+
+    // Count by status
+    const statusCounts = {
+      total: requests.length,
+      pending: requests.filter(r => r.status === 'Pending').length,
+      approved: requests.filter(r => r.status === 'Approved').length,
+      inRepair: requests.filter(r => r.status === 'In Repair').length,
+      estimateSent: requests.filter(r => r.status === 'Estimate Sent').length,
+      customerApproved: requests.filter(r => r.status === 'Customer Approved').length,
+      completed: requests.filter(r => r.status === 'Completed').length
+    };
+
+    // Calculate average estimate time
+    const requestsWithTime = requestsWithEstimate.filter(r => r.estimatedCompletionTime);
+    const averageEstimateDays = requestsWithTime.length > 0 
+      ? requestsWithTime.reduce((sum, r) => {
+          const days = (r.estimatedCompletionTime - new Date()) / (1000 * 60 * 60 * 24);
+          return sum + Math.max(0, days);
+        }, 0) / requestsWithTime.length
+      : 0;
+
+    res.json({
+      requests: requestsWithEstimate,
+      statusCounts,
+      averageEstimateDays: Math.round(averageEstimateDays * 10) / 10,
+      totalActiveRequests: statusCounts.total - statusCounts.completed
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+/**
+ * 9.2 Technician Dashboard - Get notifications for repairs due within 3 days
+ */
+const getTechnicianNotifications = async (req, res) => {
+  try {
+    const { technicianId } = req.params;
+    console.log('🔔 DEBUG: Getting notifications for technician:', technicianId);
+
+    // Get repair requests assigned to this technician that are due within 3 days
+    const threeDaysFromNow = new Date();
+    threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
+    console.log('🔔 DEBUG: Three days from now:', threeDaysFromNow);
+
+    const requests = await RepairRequest.find({ 
+      assignedTechnician: technicianId,
+      status: { $in: ['Approved', 'Estimate Sent', 'Customer Approved', 'In Repair', 'Halfway Completed'] }
+    })
+      .populate('customerId', 'username email firstName lastName')
+      .sort({ createdAt: -1 });
+    
+    console.log('🔔 DEBUG: Found', requests.length, 'requests for technician');
+    console.log('🔔 DEBUG: Request details:', requests.map(r => ({
+      id: r._id,
+      status: r.status,
+      timeEstimate: r.timeEstimate,
+      createdAt: r.createdAt,
+      assignedTechnician: r.assignedTechnician
+    })));
+
+    // Filter requests that are due within 3 days based on time estimate
+    const urgentRequests = requests.filter(request => {
+      console.log('🔔 DEBUG: Checking request:', request._id, 'timeEstimate:', request.timeEstimate);
+      
+      if (!request.timeEstimate) {
+        console.log('🔔 DEBUG: No timeEstimate for request:', request._id);
+        return false;
+      }
+      
+      const timeStr = String(request.timeEstimate).toLowerCase();
+      const requestCreatedAt = new Date(request.createdAt); // Use request creation time instead of current time
+      let daysToAdd = 0;
+      
+      console.log('🔔 DEBUG: timeStr:', timeStr, 'createdAt:', requestCreatedAt);
+      
+      // If it's just a number, assume it's days
+      if (/^\d+$/.test(timeStr.trim())) {
+        daysToAdd = parseInt(timeStr.trim());
+      } else if (timeStr.includes('hour')) {
+        const hours = parseInt(timeStr.match(/\d+/)?.[0] || '0');
+        daysToAdd = hours / 24;
+      } else if (timeStr.includes('day')) {
+        daysToAdd = parseInt(timeStr.match(/\d+/)?.[0] || '0');
+      } else if (timeStr.includes('week')) {
+        const weeks = parseInt(timeStr.match(/\d+/)?.[0] || '0');
+        daysToAdd = weeks * 7;
+      }
+      
+      console.log('🔔 DEBUG: daysToAdd:', daysToAdd);
+      
+      if (daysToAdd > 0) {
+        // Calculate due date from request creation time + time estimate
+        const estimatedCompletion = new Date(requestCreatedAt.getTime() + (daysToAdd * 24 * 60 * 60 * 1000));
+        
+        // Compare dates by day only (ignore time) to avoid millisecond precision issues
+        // Use UTC dates to avoid timezone issues
+        const estimatedCompletionDate = new Date(Date.UTC(estimatedCompletion.getUTCFullYear(), estimatedCompletion.getUTCMonth(), estimatedCompletion.getUTCDate()));
+        const threeDaysFromNowDate = new Date(Date.UTC(threeDaysFromNow.getUTCFullYear(), threeDaysFromNow.getUTCMonth(), threeDaysFromNow.getUTCDate()));
+        const isUrgent = estimatedCompletionDate <= threeDaysFromNowDate;
+        
+        console.log('🔔 DEBUG: estimatedCompletion:', estimatedCompletion);
+        console.log('🔔 DEBUG: estimatedCompletionDate (day only):', estimatedCompletionDate);
+        console.log('🔔 DEBUG: threeDaysFromNow:', threeDaysFromNow);
+        console.log('🔔 DEBUG: threeDaysFromNowDate (day only):', threeDaysFromNowDate);
+        console.log('🔔 DEBUG: isUrgent:', isUrgent);
+        
+        return isUrgent;
+      }
+      
+      return false;
+    });
+    
+    console.log('🔔 DEBUG: Found', urgentRequests.length, 'urgent requests');
+
+    // Create notification objects
+    const notifications = urgentRequests.map(request => {
+      const timeStr = String(request.timeEstimate).toLowerCase();
+      const requestCreatedAt = new Date(request.createdAt); // Use request creation time instead of current time
+      let daysToAdd = 0;
+      
+      // If it's just a number, assume it's days
+      if (/^\d+$/.test(timeStr.trim())) {
+        daysToAdd = parseInt(timeStr.trim());
+      } else if (timeStr.includes('hour')) {
+        const hours = parseInt(timeStr.match(/\d+/)?.[0] || '0');
+        daysToAdd = hours / 24;
+      } else if (timeStr.includes('day')) {
+        daysToAdd = parseInt(timeStr.match(/\d+/)?.[0] || '0');
+      } else if (timeStr.includes('week')) {
+        const weeks = parseInt(timeStr.match(/\d+/)?.[0] || '0');
+        daysToAdd = weeks * 7;
+      }
+      
+      // Calculate due date from request creation time + time estimate
+      const estimatedCompletion = new Date(requestCreatedAt.getTime() + (daysToAdd * 24 * 60 * 60 * 1000));
+      const daysUntilDue = Math.ceil((estimatedCompletion - new Date()) / (1000 * 60 * 60 * 24));
+      
+      return {
+        id: request._id,
+        type: 'urgent_repair',
+        title: 'Repair Due Soon',
+        message: `Repair request for ${request.customerId?.firstName || request.customerId?.username} is due in ${daysUntilDue} day(s)`,
+        requestId: request._id,
+        customerName: `${request.customerId?.firstName || ''} ${request.customerId?.lastName || ''}`.trim() || request.customerId?.username,
+        equipmentType: request.equipmentType,
+        damageType: request.damageType,
+        status: request.status,
+        estimatedCompletion,
+        daysUntilDue,
+        createdAt: request.createdAt,
+        isRead: false
+      };
+    });
+
+    res.json({
+      notifications,
+      unreadCount: notifications.length
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 // 10️ Service Manager Dashboard (with filtering & sorting)
 const getAllRepairRequestsWithFilter = async (req, res) => {
   try {
@@ -1015,6 +1225,8 @@ export default {
   deleteRepairRequest,
   getCustomerRepairRequests,
   getTechnicianRepairRequests,
+  getTechnicianEstimateData,
+  getTechnicianNotifications,
   updateRequestStatus,
   customerApproveReject,
   assignTechnician,

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { getAllTechnicians, getAllRepairRequests, updateTaskProgress, getTechnicianTasks } from '../api/repairRequestApi';
+import { getAllTechnicians, getAllRepairRequests, updateTaskProgress, getTechnicianTasks, getTechnicianEstimateData, getTechnicianNotifications } from '../api/repairRequestApi';
 import { updateTechnician } from '../api/technicianApi';
 import { getCurrentUser } from '../utils/getCurrentUser';
 import Brand from '../brand';
+import TechnicianNotifications from '../components/TechnicianNotifications';
 
 const TechnicianDashboard = () => {
   const navigate = useNavigate();
@@ -31,6 +32,11 @@ const TechnicianDashboard = () => {
   const [updatingProgress, setUpdatingProgress] = useState(false);
   const [progressNotesError, setProgressNotesError] = useState('');
   const [showSidebar, setShowSidebar] = useState(false);
+  const [estimateData, setEstimateData] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [loadingEstimates, setLoadingEstimates] = useState(false);
+  const [markingAllRead, setMarkingAllRead] = useState(false);
 
   const SKILL_OPTIONS = [
     'Cricket Bat Repair',
@@ -63,6 +69,8 @@ const TechnicianDashboard = () => {
   useEffect(() => {
     if (currentTechnician) {
       loadTechnicianRepairs();
+      loadEstimateData();
+      loadNotifications();
     }
   }, [currentTechnician]);
 
@@ -138,6 +146,29 @@ const TechnicianDashboard = () => {
     } catch (error) {
       console.error('Error loading technician repair requests:', error);
       setRepairRequests([]);
+    }
+  };
+
+  const loadEstimateData = async () => {
+    try {
+      setLoadingEstimates(true);
+      const response = await getTechnicianEstimateData(currentTechnician._id);
+      setEstimateData(response.data);
+    } catch (error) {
+      console.error('Error loading estimate data:', error);
+      setEstimateData(null);
+    } finally {
+      setLoadingEstimates(false);
+    }
+  };
+
+  const loadNotifications = async () => {
+    try {
+      const response = await getTechnicianNotifications(currentTechnician._id);
+      setNotifications(response.data.notifications || []);
+    } catch (error) {
+      console.error('Error loading notifications:', error);
+      setNotifications([]);
     }
   };
 
@@ -219,6 +250,23 @@ const TechnicianDashboard = () => {
     });
   }, [repairRequests]);
 
+  // Handle clicks outside the notifications dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showNotifications) {
+        const dropdown = document.querySelector('.notifications-dropdown');
+        if (dropdown && !dropdown.contains(event.target)) {
+          setShowNotifications(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showNotifications]);
+
   // Handle progress update
   // Validate progress notes for repeated characters
   const validateProgressNotes = (notes) => {
@@ -284,6 +332,8 @@ const TechnicianDashboard = () => {
       
       // Also reload from server to ensure consistency
       await loadTechnicianRepairs();
+      await loadEstimateData();
+      await loadNotifications();
       
       // Update Service Manager Dashboard if it's open
       if (window.serviceManagerDashboard && window.serviceManagerDashboard.loadData) {
@@ -402,6 +452,8 @@ const TechnicianDashboard = () => {
               ×
             </button>
           </div>
+          
+
           <nav className="space-y-2 flex-1">
             <button
               onClick={() => setGlobalFilter('technicians')}
@@ -455,6 +507,213 @@ const TechnicianDashboard = () => {
               </svg>
               <span>Assign Repair Request</span>
             </button>
+
+            {/* Notifications Dropdown */}
+            <div className="relative notifications-dropdown">
+              <button
+                onClick={() => setShowNotifications(!showNotifications)}
+                className={`w-full text-left px-4 py-3 rounded-lg font-medium transition-all duration-200 flex items-center justify-between group ${
+                  showNotifications 
+                    ? 'text-white shadow-md' 
+                    : 'text-gray-700 hover:text-white hover:shadow-sm'
+                }`}
+                onMouseOver={(e) => { 
+                  if (!showNotifications) {
+                    e.currentTarget.style.backgroundColor = '#42ADF5'; 
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                  }
+                }}
+                onMouseOut={(e) => { 
+                  if (!showNotifications) {
+                    e.currentTarget.style.backgroundColor = 'transparent'; 
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }
+                }}
+                style={{
+                  backgroundColor: showNotifications ? '#42ADF5' : 'transparent'
+                }}
+              >
+                <div className="flex items-center space-x-3">
+                  <svg className="w-6 h-6 transition-transform duration-200 group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h16a1 1 0 00.707-1.707L20 11.586V8a6 6 0 00-6-6zM10 18a2 2 0 104 0" />
+                  </svg>
+                  <span className="font-medium">Notifications</span>
+                </div>
+                {notifications.length > 0 && (
+                  <div className="flex items-center space-x-2">
+                    <span className="bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs rounded-full px-2.5 py-1 min-w-[20px] text-center font-semibold shadow-sm border border-red-400">
+                      {notifications.length}
+                    </span>
+                    <svg 
+                      className={`w-4 h-4 transition-transform duration-200 ${showNotifications ? 'rotate-180' : ''}`} 
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                )}
+              </button>
+              
+              {/* Dropdown Content */}
+              {showNotifications && (
+                <div className="absolute left-0 right-0 top-full mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 max-h-80 overflow-y-auto backdrop-blur-sm">
+                  {/* Header */}
+                  <div className="px-4 py-3 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-blue-50 rounded-t-xl">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-slate-800 flex items-center">
+                        <div className="w-6 h-6 mr-2 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                          <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h16a1 1 0 00.707-1.707L20 11.586V8a6 6 0 00-6-6zM10 18a2 2 0 104 0" />
+                          </svg>
+                        </div>
+                        Notifications
+                      </h3>
+                      <span className="text-xs text-slate-600 bg-gradient-to-r from-blue-100 to-indigo-100 px-3 py-1 rounded-full font-medium border border-blue-200">
+                        {notifications.length}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Notifications List */}
+                  <div className="max-h-64 overflow-y-auto">
+                    {notifications.length > 0 ? (
+                      notifications.map((notification, index) => (
+                        <div 
+                          key={index} 
+                          className="p-4 border-b border-slate-100 last:border-b-0 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-all duration-200 group cursor-pointer"
+                          onClick={() => {
+                            // Mark individual notification as read by removing it from the array
+                            const updatedNotifications = notifications.filter((_, i) => i !== index);
+                            setNotifications(updatedNotifications);
+                            
+                            // If no notifications left, close the dropdown
+                            if (updatedNotifications.length === 0) {
+                              setShowNotifications(false);
+                            }
+                          }}
+                        >
+                          <div className="flex items-start space-x-3">
+                            {/* Notification Icon with Type-based Colors */}
+                            <div className="flex-shrink-0 mt-1">
+                              {(() => {
+                                const type = notification.type || 'info';
+                                const iconConfig = {
+                                  repair: { 
+                                    bg: 'from-orange-400 to-red-500', 
+                                    icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
+                                    label: 'Repair'
+                                  },
+                                  urgent: { 
+                                    bg: 'from-red-500 to-pink-600', 
+                                    icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z',
+                                    label: 'Urgent'
+                                  },
+                                  completed: { 
+                                    bg: 'from-green-400 to-emerald-500', 
+                                    icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
+                                    label: 'Completed'
+                                  },
+                                  info: { 
+                                    bg: 'from-blue-400 to-indigo-500', 
+                                    icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+                                    label: 'Info'
+                                  },
+                                  warning: { 
+                                    bg: 'from-yellow-400 to-orange-500', 
+                                    icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z',
+                                    label: 'Warning'
+                                  }
+                                };
+                                const config = iconConfig[type] || iconConfig.info;
+                                
+                                return (
+                                  <div className={`w-10 h-10 rounded-full flex items-center justify-center bg-gradient-to-br ${config.bg} shadow-sm`}>
+                                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={config.icon} />
+                                    </svg>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                            
+                            {/* Notification Content */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start">
+                                <div className="flex-1">
+                                  <h4 className="text-sm font-semibold text-slate-800 group-hover:text-blue-700 transition-colors">
+                                    {notification.title || 'New Notification'}
+                                  </h4>
+                                  <p className="text-sm text-slate-600 mt-1 leading-relaxed">
+                                    {notification.message || 'You have a new notification'}
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              {/* Time */}
+                              <div className="flex items-center mt-2">
+                                <span className="text-xs text-slate-500 flex items-center bg-slate-100 px-2 py-1 rounded-md">
+                                  <svg className="w-3 h-3 mr-1.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  {notification.createdAt ? new Date(notification.createdAt).toLocaleDateString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  }) : 'Just now'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-8 text-center">
+                        <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 shadow-sm">
+                          <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h16a1 1 0 00.707-1.707L20 11.586V8a6 6 0 00-6-6zM10 18a2 2 0 104 0" />
+                          </svg>
+                        </div>
+                        <h3 className="text-sm font-medium text-slate-700 mb-1">No notifications</h3>
+                        <p className="text-xs text-slate-500">You're all caught up!</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Footer */}
+                  {notifications.length > 0 && (
+                    <div className="px-4 py-3 border-t border-slate-200 bg-gradient-to-r from-slate-50 to-blue-50 rounded-b-xl">
+                      <button 
+                        className="w-full text-center text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors duration-200 hover:bg-blue-100 py-2 px-3 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={async () => {
+                          setMarkingAllRead(true);
+                          // Simulate a brief delay for better UX
+                          await new Promise(resolve => setTimeout(resolve, 300));
+                          // Mark all notifications as read by clearing the notifications array
+                          setNotifications([]);
+                          setShowNotifications(false);
+                          setMarkingAllRead(false);
+                        }}
+                        disabled={markingAllRead}
+                      >
+                        {markingAllRead ? (
+                          <div className="flex items-center justify-center space-x-2">
+                            <svg className="w-3 h-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            <span>Marking...</span>
+                          </div>
+                        ) : (
+                          'Mark all as read'
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </nav>
           
           {/* Logout Button at Bottom */}
@@ -479,13 +738,14 @@ const TechnicianDashboard = () => {
         </div>
       </aside>
 
+
                <div className="max-w-7xl mx-auto">
            {/* Header */}
                        <div className="bg-white rounded-xl shadow-md p-6 mb-6 mt-20">
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-bold" style={{ color: Brand.primary }}>Technician Dashboard</h1>
-              <p className="mt-1" style={{ color: Brand.body }}>Manage technician profiles and availability</p>
+              <p className="mt-1" style={{ color: Brand.body }}>Manage your repair tasks and track progress</p>
             </div>
             <div className="flex items-center space-x-4">
               {/* Global Filter Dropdown */}
