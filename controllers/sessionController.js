@@ -1105,6 +1105,8 @@ const getSessionsByEnrollment = async (req, res) => {
         record.session.toString() === session._id.toString()
       );
       
+      console.log(`Session ${session._id} has ${sessionAttendanceRecords.length} attendance records`);
+      
       // Check if this is a future session
       const sessionDate = new Date(session.scheduledDate);
       const today = new Date();
@@ -1117,13 +1119,26 @@ const getSessionsByEnrollment = async (req, res) => {
         if (isFutureSession) {
           return {
             ...participant.toObject(),
-            attendanceStatus: 'not_marked'
+            attendanceStatus: 'not_marked',
+            isUpcomingSession: true,
+            isPastSession: false
           };
         }
         
+        // Look for attendance record for this participant
         const attendanceRecord = sessionAttendanceRecords.find(record => 
-          record.participant.toString() === participant.user._id.toString()
+          record.participant && record.participant._id && 
+          participant.user && participant.user._id &&
+          record.participant._id.toString() === participant.user._id.toString()
         );
+        
+        console.log(`Looking for attendance for participant ${participant.user?._id}:`, {
+          found: !!attendanceRecord,
+          record: attendanceRecord ? {
+            attended: attendanceRecord.attended,
+            status: attendanceRecord.status
+          } : null
+        });
         
         if (attendanceRecord) {
           console.log(`Setting attendance for participant ${participant.user._id}:`, {
@@ -1141,21 +1156,35 @@ const getSessionsByEnrollment = async (req, res) => {
               attendanceMarkedAt: attendanceRecord.attendanceMarkedAt,
               performance: attendanceRecord.performance,
               remarks: attendanceRecord.remarks
-            }
+            },
+            hasAttendanceMarked: true,
+            isPastSession: true,
+            isUpcomingSession: false
           };
         }
         
-        // For past sessions, check if participant has attendance data
+        // For past sessions, check if participant has attendance data in the session itself
         if (participant.attended !== undefined) {
+          console.log(`Using session-level attendance data for participant ${participant.user._id}:`, {
+            attended: participant.attended
+          });
           return {
             ...participant.toObject(),
-            attendanceStatus: participant.attended ? 'present' : 'absent'
+            attendanceStatus: participant.attended ? 'present' : 'absent',
+            hasAttendanceMarked: true,
+            isPastSession: true,
+            isUpcomingSession: false
           };
         }
         
+        // No attendance data found
+        console.log(`No attendance data found for participant ${participant.user._id}`);
         return {
           ...participant.toObject(),
-          attendanceStatus: 'not_marked'
+          attendanceStatus: 'not_marked',
+          hasAttendanceMarked: false,
+          isPastSession: true,
+          isUpcomingSession: false
         };
       });
       

@@ -140,8 +140,13 @@ attendanceSchema.statics.updateSessionParticipants = async function(sessionId, a
   try {
     const Session = mongoose.model('Session');
     
+    console.log('Updating session participants for session:', sessionId);
+    console.log('Attendance data:', attendanceData);
+    
     for (const attendance of attendanceData) {
-      await Session.updateOne(
+      console.log(`Updating participant ${attendance.participantId} with attended: ${attendance.attended}`);
+      
+      const result = await Session.updateOne(
         { 
           _id: sessionId,
           'participants.user': attendance.participantId
@@ -153,10 +158,39 @@ attendanceSchema.statics.updateSessionParticipants = async function(sessionId, a
           }
         }
       );
+      
+      console.log(`Update result for participant ${attendance.participantId}:`, {
+        matchedCount: result.matchedCount,
+        modifiedCount: result.modifiedCount
+      });
+      
+      // If the above didn't work, try alternative field names
+      if (result.matchedCount === 0) {
+        console.log(`Trying alternative update for participant ${attendance.participantId}`);
+        
+        const altResult = await Session.updateOne(
+          { 
+            _id: sessionId,
+            'participants.user._id': attendance.participantId
+          },
+          {
+            $set: {
+              'participants.$.attended': attendance.attended,
+              'participants.$.attendanceMarkedAt': new Date()
+            }
+          }
+        );
+        
+        console.log(`Alternative update result:`, {
+          matchedCount: altResult.matchedCount,
+          modifiedCount: altResult.modifiedCount
+        });
+      }
     }
     
     return true;
   } catch (error) {
+    console.error('Error updating session participants:', error);
     throw new Error(`Error updating session participants: ${error.message}`);
   }
 };

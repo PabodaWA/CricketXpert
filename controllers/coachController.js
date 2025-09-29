@@ -1958,9 +1958,42 @@ const getEnrolledCustomers = async (req, res) => {
       console.log(`Has program started: ${hasProgramStarted}`);
 
       // Calculate attendance statistics from Attendance collection
+      // Only count records that exist (meaning attendance was marked)
       const customerAttendanceRecords = attendanceRecords.filter(record => 
         record.participant.toString() === enrollment.user._id.toString()
       );
+
+      console.log(`Found ${customerAttendanceRecords.length} attendance records for user ${enrollment.user.firstName}`);
+      
+      // AGGRESSIVE DEDUPLICATION: Force remove any duplicates
+      const seenSessions = new Set();
+      const uniqueAttendanceRecords = [];
+      
+      // Sort by attendanceMarkedAt descending to keep the latest record
+      const sortedRecords = customerAttendanceRecords.sort((a, b) => 
+        new Date(b.attendanceMarkedAt) - new Date(a.attendanceMarkedAt)
+      );
+      
+      sortedRecords.forEach(record => {
+        const sessionId = record.session.toString();
+        if (!seenSessions.has(sessionId)) {
+          seenSessions.add(sessionId);
+          uniqueAttendanceRecords.push(record);
+        } else {
+          console.log(`FORCE REMOVING duplicate record for session ${sessionId}`);
+        }
+      });
+      
+      console.log(`FORCE DEDUPLICATED: ${uniqueAttendanceRecords.length} unique records (was ${customerAttendanceRecords.length})`);
+      
+      // If we still have more records than sessions, something is wrong - limit to program duration
+      const maxRecords = enrollment.program.duration || 1;
+      if (uniqueAttendanceRecords.length > maxRecords) {
+        console.log(`FORCE LIMITING: Too many records (${uniqueAttendanceRecords.length}), limiting to ${maxRecords}`);
+        const limitedRecords = uniqueAttendanceRecords.slice(0, maxRecords);
+        console.log(`Using only first ${limitedRecords.length} records`);
+        uniqueAttendanceRecords.splice(0, uniqueAttendanceRecords.length, ...limitedRecords);
+      }
 
       // Debug logging
       console.log(`Customer ${enrollment.user.firstName} ${enrollment.user.lastName}:`);
@@ -1968,11 +2001,12 @@ const getEnrolledCustomers = async (req, res) => {
       console.log(`- Has program started: ${hasProgramStarted}`);
       console.log(`- Total sessions found: ${customerSessions.length}`);
       console.log(`- Past sessions: ${pastSessions.length}`);
-      console.log(`- Attendance records: ${customerAttendanceRecords.length}`);
-      console.log(`- Attendance records:`, customerAttendanceRecords.map(r => ({
+      console.log(`- Attendance records (marked sessions): ${uniqueAttendanceRecords.length}`);
+      console.log(`- Attendance records details:`, uniqueAttendanceRecords.map(r => ({
         session: r.session,
         attended: r.attended,
-        status: r.status
+        status: r.status,
+        attendanceMarkedAt: r.attendanceMarkedAt
       })));
 
       // If program hasn't started yet, show 0% attendance
@@ -1994,23 +2028,30 @@ const getEnrolledCustomers = async (req, res) => {
         return; // Skip the rest of the calculation
       }
 
-      const presentSessions = customerAttendanceRecords.filter(record => 
+      const presentSessions = uniqueAttendanceRecords.filter(record => 
         record.attended === true
       ).length;
 
-      const absentSessions = customerAttendanceRecords.filter(record => 
+      const absentSessions = uniqueAttendanceRecords.filter(record => 
         record.attended === false
       ).length;
 
-      const completedSessions = customerAttendanceRecords.length; // Total marked attendance
-      const totalSessions = Math.max(pastSessions.length, enrollment.program.duration || 0);
+      const completedSessions = uniqueAttendanceRecords.length; // Total marked attendance
+      const totalSessions = enrollment.program.duration || 0; // Use program duration as total sessions
+      
+      // SAFETY CHECK: Ensure we never show more attended than total sessions
+      const safePresentSessions = Math.min(presentSessions, totalSessions);
+      const safeAbsentSessions = Math.min(absentSessions, totalSessions);
+      const safeCompletedSessions = Math.min(completedSessions, totalSessions);
+      
+      console.log(`SAFETY CHECK: Original (${presentSessions}, ${absentSessions}, ${completedSessions}) -> Safe (${safePresentSessions}, ${safeAbsentSessions}, ${safeCompletedSessions})`);
 
       console.log(`Final stats for ${enrollment.user.firstName}:`);
-      console.log(`- Present: ${presentSessions}`);
-      console.log(`- Absent: ${absentSessions}`);
-      console.log(`- Completed: ${completedSessions}`);
+      console.log(`- Present: ${safePresentSessions} (was ${presentSessions})`);
+      console.log(`- Absent: ${safeAbsentSessions} (was ${absentSessions})`);
+      console.log(`- Completed: ${safeCompletedSessions} (was ${completedSessions})`);
       console.log(`- Total: ${totalSessions}`);
-      console.log(`- Progress: ${totalSessions > 0 ? Math.round((presentSessions / totalSessions) * 100) : 0}%`);
+      console.log(`- Progress: ${totalSessions > 0 ? Math.round((safePresentSessions / totalSessions) * 100) : 0}%`);
 
       customersByProgram[programId].customers.push({
         enrollmentId: enrollment._id,
@@ -2018,12 +2059,12 @@ const getEnrolledCustomers = async (req, res) => {
         enrollmentDate: enrollment.enrollmentDate,
         status: enrollment.status,
         progress: enrollment.progress,
-        // Attendance statistics
+        // Attendance statistics - using SAFE values
         totalSessions,
-        completedSessions,
-        presentSessions,
-        absentSessions,
-        progressPercentage: totalSessions > 0 ? Math.round((presentSessions / totalSessions) * 100) : 0
+        completedSessions: safeCompletedSessions,
+        presentSessions: safePresentSessions,
+        absentSessions: safeAbsentSessions,
+        progressPercentage: totalSessions > 0 ? Math.round((safePresentSessions / totalSessions) * 100) : 0
       });
     });
 
@@ -2472,50 +2513,140 @@ const attendanceOnly = async (req, res) => {
       console.log(`Processing participant ${attendance.participantId}: ${attendance.attended}`);
       
       // Find participant by ID and update directly
-      const participant = session.participants.id(attendance.participantId);
+      // Try multiple ways to find the participant
+      let participant = session.participants.id(attendance.participantId);
+      
+      // If not found by ID, try finding by user ID
+      if (!participant) {
+        participant = session.participants.find(p => 
+          p.user && p.user.toString() === attendance.participantId
+        );
+      }
+      
+      // If still not found, try finding by _id field
+      if (!participant) {
+        participant = session.participants.find(p => 
+          p._id && p._id.toString() === attendance.participantId
+        );
+      }
+      
+      console.log(`Looking for participant ${attendance.participantId}:`, {
+        found: !!participant,
+        participantId: participant?._id,
+        userId: participant?.user
+      });
       
       if (participant) {
+        // Update session participant data
         participant.attended = attendance.attended;
         participant.attendanceStatus = attendance.attended ? 'present' : 'absent';
         participant.attendanceMarkedAt = new Date();
         updatedCount++;
         console.log(`Updated participant ${attendance.participantId} - NO COACH DATA TOUCHED`);
         
-        // CRITICAL FIX: Also create/update record in Attendance collection
+        // ONLY create/update Attendance record if attendance is marked (Present or Absent)
+        // If attendance is not marked, remove any existing record
         try {
-          await Attendance.findOneAndUpdate(
-            { 
-              session: sessionId, 
-              participant: participant.user 
-            },
-            {
-              session: sessionId,
-              participant: participant.user,
-              coach: session.coach,
-              attended: attendance.attended,
-              status: attendance.attended ? 'present' : 'absent',
-              attendanceMarkedAt: new Date(),
-              performance: attendance.performance || {},
-              remarks: attendance.remarks || '',
-              markedBy: participant.user // Using participant as marker for now
-            },
-            { 
-              upsert: true, 
-              new: true 
+          if (attendance.attended === true || attendance.attended === false) {
+            // Attendance is marked (Present or Absent) - create/update record
+            console.log(`Creating/updating attendance record for marked attendance: ${attendance.attended}`);
+            console.log(`Session ID: ${sessionId}, Participant: ${participant.user}`);
+            
+            const result = await Attendance.findOneAndUpdate(
+              { 
+                session: sessionId, 
+                participant: participant.user 
+              },
+              {
+                session: sessionId,
+                participant: participant.user,
+                coach: session.coach,
+                attended: attendance.attended,
+                status: attendance.attended ? 'present' : 'absent',
+                attendanceMarkedAt: new Date(),
+                performance: attendance.performance || {},
+                remarks: attendance.remarks || '',
+                markedBy: participant.user
+              },
+              { 
+                upsert: true, 
+                new: true 
+              }
+            );
+            
+            console.log(`✅ Attendance record created/updated successfully:`, {
+              recordId: result._id,
+              attended: result.attended,
+              status: result.status,
+              session: result.session,
+              participant: result.participant
+            });
+            
+            // Verify the record was actually saved
+            const verifyRecord = await Attendance.findById(result._id);
+            if (verifyRecord) {
+              console.log(`✅ Verification: Record exists in database with attended: ${verifyRecord.attended}`);
+            } else {
+              console.log(`❌ Verification failed: Record not found in database`);
             }
-          );
-          console.log(`Created/updated Attendance record for participant ${attendance.participantId}`);
+            
+          } else {
+            // Attendance is not marked - remove any existing record
+            console.log(`Removing attendance record for unmarked attendance`);
+            
+            const deletedRecord = await Attendance.findOneAndDelete({
+              session: sessionId,
+              participant: participant.user
+            });
+            
+            if (deletedRecord) {
+              console.log(`✅ Deleted existing attendance record: ${deletedRecord._id}`);
+            } else {
+              console.log(`No existing attendance record to delete`);
+            }
+          }
         } catch (attendanceError) {
-          console.error('Error creating Attendance record:', attendanceError);
-          // Continue with session update even if Attendance creation fails
+          console.error('❌ Error managing Attendance record:', attendanceError);
+          console.error('Error details:', {
+            message: attendanceError.message,
+            stack: attendanceError.stack
+          });
+          // Continue with session update even if Attendance operation fails
         }
       } else {
-        console.warn(`Participant ${attendance.participantId} not found`);
+        console.warn(`Participant ${attendance.participantId} not found in session ${sessionId}`);
+        console.log('Available participants:', session.participants.map(p => ({
+          id: p._id,
+          userId: p.user,
+          name: p.user?.firstName || 'Unknown'
+        })));
       }
     }
     
     // Save the session - NO COACH DATA TOUCHED
-    await session.save();
+    try {
+      console.log('Saving session to database...');
+      const savedSession = await session.save();
+      console.log('Session saved successfully:', savedSession._id);
+      
+      // Verify the save worked by checking the database
+      const verifySession = await Session.findById(sessionId);
+      console.log('Verification - Session participants after save:', verifySession.participants.map(p => ({
+        id: p._id,
+        userId: p.user,
+        attended: p.attended,
+        attendanceStatus: p.attendanceStatus,
+        attendanceMarkedAt: p.attendanceMarkedAt
+      })));
+      
+    } catch (saveError) {
+      console.error('Error saving session:', saveError);
+      return res.status(500).json({
+        success: false,
+        message: 'Error saving session to database',
+        error: saveError.message
+      });
+    }
     
     console.log(`Successfully updated ${updatedCount} participants - NO COACH DATA TOUCHED`);
     

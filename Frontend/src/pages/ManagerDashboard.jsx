@@ -25,7 +25,6 @@ import {
   Home,
   BarChart3,
   Award,
-  Bell,
   Menu,
   X,
   UserCheck,
@@ -1039,9 +1038,7 @@ const ManagerDashboard = () => {
               { id: 'coaches', label: 'Coaches', icon: Users },
               { id: 'programs', label: 'Programs', icon: BookOpen },
               { id: 'sessions', label: 'Sessions', icon: Calendar },
-              { id: 'reports', label: 'Reports', icon: BarChart3 },
-              { id: 'certificates', label: 'Certificates', icon: Award },
-              { id: 'notifications', label: 'Notifications', icon: Bell }
+              { id: 'reports', label: 'Reports', icon: BarChart3 }
             ].map(tab => (
               <button
                 key={tab.id}
@@ -1121,8 +1118,6 @@ const ManagerDashboard = () => {
             />
           )}
           {activeTab === 'reports' && <ReportsTab coaches={coaches} programs={programs} sessions={sessions} />}
-          {activeTab === 'certificates' && <CertificatesTab />}
-          {activeTab === 'notifications' && <NotificationsTab />}
         </div>
       </div>
 
@@ -3336,83 +3331,7 @@ const ReportsTab = ({ coaches, programs, sessions }) => {
   );
 };
 
-// Certificates Tab Component
-const CertificatesTab = () => {
-  return (
-    <div>
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Certificates</h2>
-        <p className="text-gray-600">Manage coaching certificates and certifications</p>
-      </div>
 
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="text-center py-12">
-          <Award className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No Certificates Yet</h3>
-          <p className="text-gray-500 mb-4">Certificates will appear here once they are issued.</p>
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-            Issue Certificate
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Notifications Tab Component
-const NotificationsTab = () => {
-  const notifications = [
-    {
-      id: 1,
-      title: "New Program Created",
-      message: "Beginner Cricket Training program has been created successfully.",
-      time: "2 hours ago",
-      type: "success"
-    },
-    {
-      id: 2,
-      title: "Session Rescheduled",
-      message: "Advanced Batting session has been rescheduled to tomorrow.",
-      time: "1 day ago",
-      type: "warning"
-    },
-    {
-      id: 3,
-      title: "Coach Assigned",
-      message: "John Smith has been assigned to the new program.",
-      time: "2 days ago",
-      type: "info"
-    }
-  ];
-
-  return (
-    <div>
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Notifications</h2>
-        <p className="text-gray-600">Stay updated with the latest activities</p>
-      </div>
-
-      <div className="space-y-4">
-        {notifications.map((notification) => (
-          <div key={notification.id} className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-start space-x-4">
-              <div className={`flex-shrink-0 w-2 h-2 rounded-full mt-2 ${
-                notification.type === 'success' ? 'bg-green-500' :
-                notification.type === 'warning' ? 'bg-yellow-500' :
-                'bg-blue-500'
-              }`} />
-              <div className="flex-1">
-                <h3 className="text-lg font-medium text-gray-900">{notification.title}</h3>
-                <p className="text-gray-600 mt-1">{notification.message}</p>
-                <p className="text-sm text-gray-500 mt-2">{notification.time}</p>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
 
 // Coach Details Modal Component
 const CoachDetailsModal = ({ coach, programs, onEdit, onManageAvailability, onClose }) => {
