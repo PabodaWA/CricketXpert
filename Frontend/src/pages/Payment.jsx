@@ -133,7 +133,11 @@ const Payment = () => {
     if (cleanNumber.startsWith('34') || cleanNumber.startsWith('37')) {
       return 'amex';
     }
-    return 'visa_mastercard';
+    // Visa starts with 4, Mastercard starts with 5 or 2
+    if (cleanNumber.startsWith('4') || cleanNumber.startsWith('5') || cleanNumber.startsWith('2')) {
+      return 'visa_mastercard';
+    }
+    return 'visa_mastercard'; // Default to visa_mastercard for unknown types
   };
 
   // Email validation
