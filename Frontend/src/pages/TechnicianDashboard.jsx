@@ -558,7 +558,7 @@ const TechnicianDashboard = () => {
               
               {/* Dropdown Content */}
               {showNotifications && (
-                <div className="absolute left-0 right-0 top-full mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 max-h-80 overflow-y-auto backdrop-blur-sm">
+                <div className="absolute left-0 right-0 top-full mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 backdrop-blur-sm">
                   {/* Header */}
                   <div className="px-4 py-3 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-blue-50 rounded-t-xl">
                     <div className="flex items-center justify-between">
