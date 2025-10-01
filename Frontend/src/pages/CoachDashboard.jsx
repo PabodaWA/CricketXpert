@@ -2029,6 +2029,9 @@ const CoachProfileCard = ({ coach, enrolledPrograms, sessions }) => {
     hourlyRate: coach?.hourlyRate || 0,
     achievements: coach?.achievements || []
   });
+  const [profileImage, setProfileImage] = useState(null);
+  const [profileImagePreview, setProfileImagePreview] = useState(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const handleEdit = () => {
     setIsEditing(true);
@@ -2041,17 +2044,85 @@ const CoachProfileCard = ({ coach, enrolledPrograms, sessions }) => {
     });
   };
 
+  const handleImageUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    // Validate file size (5MB limit)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File size must be less than 5MB');
+      return;
+    }
+
+    setProfileImage(file);
+    
+    // Create preview URL
+    const previewUrl = URL.createObjectURL(file);
+    setProfileImagePreview(previewUrl);
+  };
+
+  const uploadProfileImage = async () => {
+    if (!profileImage) return null;
+
+    setUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('profileImage', profileImage);
+
+      const response = await axios.post('/api/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (response.data.filePath) {
+        return response.data.filePath;
+      }
+      throw new Error('Upload failed');
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      alert('Error uploading image: ' + (error.response?.data?.message || error.message));
+      return null;
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   const handleSave = async () => {
     try {
+      let profileImagePath = coach.profileImage; // Keep existing image if no new upload
+      
+      // Upload new image if one was selected
+      if (profileImage) {
+        const uploadedPath = await uploadProfileImage();
+        if (uploadedPath) {
+          profileImagePath = uploadedPath;
+        } else {
+          return; // Stop if upload failed
+        }
+      }
+
+      // Prepare update data
+      const updateData = {
+        ...editData,
+        profileImage: profileImagePath
+      };
       
       // Make API call to update the coach profile
-      const response = await axios.put(`/api/coaches/${coach._id}`, editData);
+      const response = await axios.put(`http://localhost:5000/api/coaches/${coach._id}`, updateData);
       
       if (response.data.success) {
         setIsEditing(false);
+        setProfileImage(null);
+        setProfileImagePreview(null);
         
         // Refresh the coach data to show updated information
-        // You might want to call fetchCoachData() here or update the local state
         alert('Profile updated successfully!');
         
         // Optionally refresh the page or update local state
@@ -2074,6 +2145,8 @@ const CoachProfileCard = ({ coach, enrolledPrograms, sessions }) => {
       hourlyRate: coach.hourlyRate || 0,
       achievements: coach.achievements || []
     });
+    setProfileImage(null);
+    setProfileImagePreview(null);
   };
 
   const addSpecialization = () => {
@@ -2122,8 +2195,48 @@ const CoachProfileCard = ({ coach, enrolledPrograms, sessions }) => {
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
       <div className="flex justify-between items-start mb-6">
         <div className="flex items-center space-x-4">
-          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
-            <User className="h-8 w-8 text-blue-600" />
+          <div className="relative">
+            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center overflow-hidden">
+              {profileImagePreview ? (
+                <img 
+                  src={profileImagePreview} 
+                  alt="Profile Preview" 
+                  className="w-full h-full object-cover"
+                />
+              ) : coach.profileImage ? (
+                <img 
+                  src={`http://localhost:5000${coach.profileImage}`} 
+                  alt="Profile" 
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <User className="h-8 w-8 text-blue-600" />
+              )}
+            </div>
+            {isEditing && (
+              <div className="absolute -bottom-1 -right-1">
+                <label className="cursor-pointer">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${
+                    uploadingImage 
+                      ? 'bg-gray-400 cursor-not-allowed' 
+                      : 'bg-blue-600 hover:bg-blue-700'
+                  }`}>
+                    {uploadingImage ? (
+                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                    ) : (
+                      <Upload className="h-3 w-3 text-white" />
+                    )}
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                    disabled={uploadingImage}
+                  />
+                </label>
+              </div>
+            )}
           </div>
           <div>
             <h3 className="text-2xl font-bold text-gray-900">

@@ -40,7 +40,7 @@ const getCoachingPrograms = async (req, res) => {
             path: 'userId',
             select: 'firstName lastName email'
           },
-          select: 'specializations experience'
+          select: 'specializations experience profileImage'
         }
       ]
     };
@@ -57,7 +57,7 @@ const getCoachingPrograms = async (req, res) => {
           path: 'userId',
           select: 'firstName lastName email'
         },
-        select: 'specializations experience'
+        select: 'specializations experience profileImage'
       });
 
     // Transform programs to match frontend expectations
@@ -79,7 +79,8 @@ const getCoachingPrograms = async (req, res) => {
         _id: program.coach._id,
         userId: program.coach.userId,
         specializations: program.coach.specializations || [],
-        experience: program.coach.experience || 'Not specified'
+        experience: program.coach.experience || 'Not specified',
+        profileImage: program.coach.profileImage || null
       } : null
     }));
 
@@ -156,7 +157,8 @@ const getCoachingProgram = async (req, res) => {
         _id: program.coach._id,
         userId: program.coach.userId,
         specializations: program.coach.specializations || [],
-        experience: program.coach.experience || 'Not specified'
+        experience: program.coach.experience || 'Not specified',
+        profileImage: program.coach.profileImage || null
       } : null
     };
 
@@ -481,7 +483,7 @@ const getProgramsByCoach = async (req, res) => {
             path: 'userId',
             select: 'firstName lastName email'
           },
-          select: 'specializations experience'
+          select: 'specializations experience profileImage'
         }
       ]
     };
@@ -498,7 +500,7 @@ const getProgramsByCoach = async (req, res) => {
           path: 'userId',
           select: 'firstName lastName email'
         },
-        select: 'specializations experience'
+        select: 'specializations experience profileImage'
       });
 
     const totalDocs = await CoachingProgram.countDocuments({ coach: req.params.coachId, isActive: true });
