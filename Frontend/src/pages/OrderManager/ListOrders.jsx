@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Search, Filter, Eye, Edit, Trash2, XCircle, Package, Clock, CheckCircle, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Search, Filter, Eye, Edit, XCircle, Package, Clock, CheckCircle, RefreshCw, AlertTriangle } from 'lucide-react';
 
 // Reusable Modal Component
 const Modal = ({ isOpen, onClose, children }) => {
@@ -117,21 +117,6 @@ export default function ListOrders() {
         }
     };
 
-    const handleDeleteOrder = async (id) => {
-        if (window.confirm('Are you sure you want to delete this order?')) {
-            try {
-                const userInfo = JSON.parse(localStorage.getItem('userInfo'));
-                await axios.delete(`http://localhost:5000/api/orders/${id}`, {
-                    headers: { Authorization: `Bearer ${userInfo.token}` }
-                });
-                fetchOrders();
-                alert('Order deleted successfully!');
-            } catch (err) {
-                console.error('Error deleting order:', err);
-                alert('Error deleting order: ' + (err.response?.data?.message || err.message));
-            }
-        }
-    };
 
     const handleEditOrder = (order) => {
         setEditingOrder(order);
@@ -474,13 +459,6 @@ export default function ListOrders() {
                                                             title="Edit Order"
                                                         >
                                                             <Edit size={16}/>
-                                                        </button>
-                                                        <button 
-                                                            onClick={() => handleDeleteOrder(order._id)} 
-                                                            className="p-2 text-red-600 hover:bg-red-100 rounded-full"
-                                                            title="Delete Order"
-                                                        >
-                                                            <Trash2 size={16}/>
                                                         </button>
                                                     </div>
                                                 )}

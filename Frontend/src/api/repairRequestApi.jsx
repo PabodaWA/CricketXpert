@@ -55,6 +55,16 @@ export const getTechnicianTasks = (technicianId) => {
   return axios.get(`${BASE_URL}/technician/${technicianId}`);
 };
 
+// Get technician estimate data (time estimates and counts)
+export const getTechnicianEstimateData = (technicianId) => {
+  return axios.get(`${BASE_URL}/dashboard/technician/${technicianId}/estimates`);
+};
+
+// Get technician notifications (repairs due within 3 days)
+export const getTechnicianNotifications = (technicianId) => {
+  return axios.get(`${BASE_URL}/dashboard/technician/${technicianId}/notifications`);
+};
+
 // Update repair status
 export const updateRepairStatus = (requestId, statusData) => {
   return axios.put(`${BASE_URL}/status/${requestId}`, statusData);

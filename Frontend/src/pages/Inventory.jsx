@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Package, AlertTriangle, CheckCircle, Plus, PlusCircle, Search, Filter } from 'lucide-react';
+import { Package, AlertTriangle, CheckCircle, Plus, PlusCircle, Search, Filter, Mail } from 'lucide-react';
 
 const Inventory = () => {
   const [products, setProducts] = useState([]);
@@ -13,6 +13,13 @@ const Inventory = () => {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [categories, setCategories] = useState([]);
   const [manualStockInputs, setManualStockInputs] = useState({});
+  const [showSupplierModal, setShowSupplierModal] = useState(false);
+  const [supplierForm, setSupplierForm] = useState({
+    productId: '',
+    quantity: '',
+    email: ''
+  });
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   useEffect(() => {
     fetchProducts();
@@ -147,6 +154,47 @@ const Inventory = () => {
     }
   };
 
+  const handleSupplierEmail = async () => {
+    if (!supplierForm.productId || !supplierForm.quantity || !supplierForm.email) {
+      alert('Please fill in all fields');
+      return;
+    }
+
+    if (supplierForm.quantity <= 0) {
+      alert('Please enter a valid quantity');
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(supplierForm.email)) {
+      alert('Please enter a valid email address');
+      return;
+    }
+
+    try {
+      setSendingEmail(true);
+      const response = await axios.post('http://localhost:5000/api/supplier/contact-supplier', {
+        productId: supplierForm.productId,
+        quantity: parseInt(supplierForm.quantity),
+        email: supplierForm.email
+      });
+
+      if (response.data.success) {
+        alert('Email sent successfully to supplier!');
+        setShowSupplierModal(false);
+        setSupplierForm({ productId: '', quantity: '', email: '' });
+      } else {
+        alert('Failed to send email. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error sending supplier email:', error);
+      alert('Failed to send email. Please try again.');
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
   const getStockIcon = (status) => {
     switch (status) {
       case 'out': return <Package className="w-5 h-5 text-gray-500" />;
@@ -217,6 +265,13 @@ const Inventory = () => {
             <p className="text-gray-600">Monitor and manage product stock levels</p>
           </div>
           <div className="flex items-center gap-4">
+            <button
+              onClick={() => setShowSupplierModal(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+            >
+              <Mail className="w-4 h-4" />
+              Contact Supplier
+            </button>
             <div className="bg-white border border-gray-200 rounded-lg px-4 py-2 shadow-sm">
               <div className="flex items-center gap-2">
                 <Package className="w-5 h-5 text-gray-600" />
@@ -461,6 +516,100 @@ const Inventory = () => {
             <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-600 mb-2">No Products Found</h3>
             <p className="text-gray-500">Add some products to start managing your inventory.</p>
+          </div>
+        )}
+
+        {/* Supplier Contact Modal */}
+        {showSupplierModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-gray-900">Contact Supplier</h2>
+                <button
+                  onClick={() => setShowSupplierModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Product (Restock Alert Items)
+                  </label>
+                  <select
+                    value={supplierForm.productId}
+                    onChange={(e) => setSupplierForm(prev => ({ ...prev, productId: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Select a product...</option>
+                    {products
+                      .filter(product => product.stock_quantity > 0 && product.stock_quantity < 10)
+                      .map(product => (
+                        <option key={product._id} value={product._id}>
+                          {product.name} - Stock: {product.stock_quantity} (Code: {product.productId})
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Quantity to Order
+                  </label>
+                  <input
+                    type="number"
+                    value={supplierForm.quantity}
+                    onChange={(e) => setSupplierForm(prev => ({ ...prev, quantity: e.target.value }))}
+                    placeholder="Enter quantity..."
+                    min="1"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Supplier Email
+                  </label>
+                  <input
+                    type="email"
+                    value={supplierForm.email}
+                    onChange={(e) => setSupplierForm(prev => ({ ...prev, email: e.target.value }))}
+                    placeholder="supplier@example.com"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => setShowSupplierModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSupplierEmail}
+                  disabled={sendingEmail}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                >
+                  {sendingEmail ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="w-4 h-4" />
+                      Send Email
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

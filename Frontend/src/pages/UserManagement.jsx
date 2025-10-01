@@ -106,6 +106,30 @@ export default function UserManagement() {
     };
     useEffect(() => { fetchUsers(); }, []);
 
+    // --- User Statistics ---
+    const userStats = useMemo(() => {
+        const nonAdminUsers = users.filter(user => user.role !== 'admin');
+        const totalUsers = nonAdminUsers.length;
+        
+        const roleCounts = {
+            coach: 0,
+            technician: 0,
+            customer: 0,
+            managers: 0,
+            delivery_staff: 0
+        };
+        
+        nonAdminUsers.forEach(user => {
+            if (managerRoles.includes(user.role)) {
+                roleCounts.managers++;
+            } else if (roleCounts.hasOwnProperty(user.role)) {
+                roleCounts[user.role]++;
+            }
+        });
+        
+        return { totalUsers, roleCounts };
+    }, [users]);
+
     // --- Filtering and Searching (Live) ---
     const filteredUsers = useMemo(() => {
         return users.filter(user => {
@@ -181,6 +205,24 @@ export default function UserManagement() {
 
     return (
         <div>
+            {/* --- User Statistics --- */}
+            <div className="bg-white p-4 rounded-lg shadow-md mb-4">
+                <div className="flex flex-wrap gap-4 items-center">
+                    <div className="flex items-center">
+                        <span className="text-lg font-semibold text-[#072679]">Total Users: </span>
+                        <span className="text-xl font-bold text-[#42ADF5] ml-2">{userStats.totalUsers}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-6">
+                        {Object.entries(userStats.roleCounts).map(([role, count]) => (
+                            <div key={role} className="flex items-center">
+                                <span className="text-sm text-gray-600 capitalize">{role.replace('_', ' ')}: </span>
+                                <span className="text-sm font-semibold text-gray-800 ml-1">{count}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
             {/* --- Header and Controls --- */}
             <div className="bg-white p-4 rounded-lg shadow-md mb-6">
                 <div className="flex flex-col sm:flex-row justify-between items-center gap-4">

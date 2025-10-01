@@ -8,6 +8,12 @@ router.get('/dashboard/customer/:customerId', repairController.getCustomerRepair
 // Technician Dashboard - Get all repair requests for a technician (optional status filter)
 router.get('/dashboard/technician/:technicianId', repairController.getTechnicianRepairRequests);
 
+// Technician Dashboard - Get estimate time and count data
+router.get('/dashboard/technician/:technicianId/estimates', repairController.getTechnicianEstimateData);
+
+// Technician Dashboard - Get notifications for repairs due within 3 days
+router.get('/dashboard/technician/:technicianId/notifications', repairController.getTechnicianNotifications);
+
 // Service Manager Dashboard - Get all repair requests
 router.get('/dashboard/manager', repairController.getAllRepairRequests);
 
