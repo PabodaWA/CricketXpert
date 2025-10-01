@@ -60,27 +60,28 @@ const checkCertificateEligibility = async (req, res) => {
       attended: true
     });
 
-    console.log('=== CERTIFICATE ELIGIBILITY DEBUG ===');
-    console.log('User ID:', enrollment.user._id);
-    console.log('Program ID:', enrollment.program._id);
-    console.log('Sessions found:', sessions.length);
-    console.log('Session IDs:', sessions.map(s => s._id));
-    console.log('Attendance records found:', attendanceRecords.length);
-    console.log('Attendance records:', attendanceRecords.map(ar => ({
-      session: ar.session,
-      participant: ar.participant,
-      attended: ar.attended,
-      status: ar.status
-    })));
+    // Debug logs commented out to reduce terminal output
+    // console.log('=== CERTIFICATE ELIGIBILITY DEBUG ===');
+    // console.log('User ID:', enrollment.user._id);
+    // console.log('Program ID:', enrollment.program._id);
+    // console.log('Sessions found:', sessions.length);
+    // console.log('Session IDs:', sessions.map(s => s._id));
+    // console.log('Attendance records found:', attendanceRecords.length);
+    // console.log('Attendance records:', attendanceRecords.map(ar => ({
+    //   session: ar.session,
+    //   participant: ar.participant,
+    //   attended: ar.attended,
+    //   status: ar.status
+    // })));
 
     // Calculate attendance percentage - only count sessions where user is a participant
     const totalSessions = enrollment.program?.totalSessions || sessions.length;
     const attendedSessions = attendanceRecords.length;
     const attendancePercentage = totalSessions > 0 ? (attendedSessions / totalSessions) * 100 : 0;
     
-    console.log('Total sessions:', totalSessions);
-    console.log('Attended sessions:', attendedSessions);
-    console.log('Attendance percentage:', attendancePercentage);
+    // console.log('Total sessions:', totalSessions);
+    // console.log('Attended sessions:', attendedSessions);
+    // console.log('Attendance percentage:', attendancePercentage);
 
     // Get progress percentage from enrollment
     const progressPercentage = enrollment.progress.progressPercentage || 0;
@@ -147,11 +148,11 @@ const checkCertificateEligibility = async (req, res) => {
       }
     };
 
-    console.log('📤 Sending response to frontend:', {
-      certificate: responseData.data.certificate ? 'Present' : 'Null',
-      certificateId: responseData.data.certificate?.id,
-      certificateNumber: responseData.data.certificate?.certificateNumber
-    });
+    // console.log('📤 Sending response to frontend:', {
+    //   certificate: responseData.data.certificate ? 'Present' : 'Null',
+    //   certificateId: responseData.data.certificate?.id,
+    //   certificateNumber: responseData.data.certificate?.certificateNumber
+    // });
 
     res.status(200).json(responseData);
   } catch (error) {
@@ -227,11 +228,12 @@ const generateCertificate = async (req, res) => {
       'participants.user': enrollment.user._id // Filter by user participation
     }).select('_id scheduledDate');
 
-    console.log('=== CERTIFICATE GENERATION DEBUG ===');
-    console.log('User ID:', enrollment.user._id);
-    console.log('Program ID:', enrollment.program._id);
-    console.log('Sessions found:', sessions.length);
-    console.log('Session IDs:', sessions.map(s => s._id));
+    // Debug logs commented out to reduce terminal output
+    // console.log('=== CERTIFICATE GENERATION DEBUG ===');
+    // console.log('User ID:', enrollment.user._id);
+    // console.log('Program ID:', enrollment.program._id);
+    // console.log('Sessions found:', sessions.length);
+    // console.log('Session IDs:', sessions.map(s => s._id));
 
     const attendanceRecords = await Attendance.find({
       participant: enrollment.user._id,
@@ -239,23 +241,23 @@ const generateCertificate = async (req, res) => {
       attended: true
     });
 
-    console.log('Attendance records found:', attendanceRecords.length);
-    console.log('Attendance records:', attendanceRecords.map(ar => ({
-      session: ar.session,
-      participant: ar.participant,
-      attended: ar.attended,
-      status: ar.status
-    })));
+    // console.log('Attendance records found:', attendanceRecords.length);
+    // console.log('Attendance records:', attendanceRecords.map(ar => ({
+    //   session: ar.session,
+    //   participant: ar.participant,
+    //   attended: ar.attended,
+    //   status: ar.status
+    // })));
 
     const totalSessions = enrollment.program?.totalSessions || sessions.length;
     const attendedSessions = attendanceRecords.length;
     const attendancePercentage = totalSessions > 0 ? (attendedSessions / totalSessions) * 100 : 0;
     const progressPercentage = enrollment.progress.progressPercentage || 0;
 
-    console.log('Total sessions:', totalSessions);
-    console.log('Attended sessions:', attendedSessions);
-    console.log('Attendance percentage:', attendancePercentage);
-    console.log('Progress percentage:', progressPercentage);
+    // console.log('Total sessions:', totalSessions);
+    // console.log('Attended sessions:', attendedSessions);
+    // console.log('Attendance percentage:', attendancePercentage);
+    // console.log('Progress percentage:', progressPercentage);
 
     if (attendancePercentage < 75) {
       console.log('❌ Certificate eligibility not met - attendance percentage too low');

@@ -345,6 +345,55 @@ const sendSupplierOrderEmail = async (product, quantity, supplierEmail) => {
       }
 };
 
+// --- Function 9: Certificate Email ---
+const sendCertificateEmail = async (email, fullName, programTitle, certificateNumber) => {
+  try {
+    console.log('📧 Starting to send certificate email...');
+    
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: `🎓 Certificate of Completion - ${programTitle}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #28a745;">🎓 Certificate of Completion</h2>
+          <p>Dear ${fullName},</p>
+          <p><strong>Congratulations! You have successfully completed the ${programTitle} program.</strong></p>
+          
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #072679; margin-top: 0;">Certificate Details</h3>
+            <p><strong>Program:</strong> ${programTitle}</p>
+            <p><strong>Certificate Number:</strong> ${certificateNumber}</p>
+            <p><strong>Issue Date:</strong> ${new Date().toLocaleDateString()}</p>
+            <p><strong>Recipient:</strong> ${fullName}</p>
+          </div>
+
+          <div style="background-color: #d1ecf1; border: 1px solid #bee5eb; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="margin-top: 0; color: #0c5460;">What's Next?</h3>
+            <p style="color: #0c5460; margin: 0;">You can download your certificate from your dashboard or use the certificate number to verify your completion.</p>
+          </div>
+          
+          <p>We are proud of your achievement and wish you continued success in your cricket journey!</p>
+          <p>Thank you for being part of CricketExpert!</p>
+          
+          <hr style="margin: 30px 0;">
+          <p style="color: #6c757d; font-size: 12px;">
+            This is an automated certificate notification from CricketExpert Certificate System.<br>
+            Generated on: ${new Date().toLocaleString()}
+          </p>
+        </div>
+      `,
+    };
+    
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`📧 Certificate email sent to ${email}: ${info.response}`);
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Failed to send certificate email:', error);
+    return { success: false, error: error.message };
+  }
+};
+
 export {
   sendWelcomeEmail,
   sendNewUserNotification,
@@ -353,5 +402,6 @@ export {
   sendLowStockAlert,
   sendOrderConfirmationEmail,
   sendOrderManagerNotificationEmail,
-  sendSupplierOrderEmail
+  sendSupplierOrderEmail,
+  sendCertificateEmail
 }
