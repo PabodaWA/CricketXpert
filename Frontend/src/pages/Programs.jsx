@@ -410,7 +410,7 @@ export default function Programs() {
                   <option value="">All Durations</option>
                   <option value="short">Short (≤4 weeks)</option>
                   <option value="medium">Medium (5-8 weeks)</option>
-                  <option value="long">Long (>8 weeks)</option>
+                    <option value="long">Long (&gt;8 weeks)</option>
                 </select>
               </div>
 
