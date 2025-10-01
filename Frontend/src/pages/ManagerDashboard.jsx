@@ -25,7 +25,6 @@ import {
   Home,
   BarChart3,
   Award,
-  Bell,
   Menu,
   X,
   UserCheck,
@@ -42,6 +41,7 @@ const ManagerDashboard = () => {
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [programDeletionStatus, setProgramDeletionStatus] = useState({});
   
   // Modal states
   const [showProgramModal, setShowProgramModal] = useState(false);
@@ -310,6 +310,10 @@ const ManagerDashboard = () => {
       setError('Failed to load dashboard data');
     } finally {
       setLoading(false);
+      // Check deletion status for all programs after loading
+      setTimeout(() => {
+        checkAllProgramDeletionStatus();
+      }, 1000);
     }
   };
 
@@ -407,18 +411,101 @@ const ManagerDashboard = () => {
     }
   };
 
-  const handleDeleteProgram = async (programId) => {
-    if (!window.confirm('Are you sure you want to delete this program?')) return;
+  // Function to check deletion status for all programs
+  const checkAllProgramDeletionStatus = async () => {
+    const statusMap = {};
     
+    for (const program of programs) {
+      try {
+        const response = await axios.get(`http://localhost:5000/api/programs/${program._id}/can-delete`);
+        statusMap[program._id] = {
+          canDelete: response.data.canDelete,
+          reason: response.data.reason,
+          details: response.data.details
+        };
+      } catch (error) {
+        console.error(`Error checking deletion status for program ${program._id}:`, error);
+        statusMap[program._id] = {
+          canDelete: false,
+          reason: 'Error checking deletion status',
+          details: null
+        };
+      }
+    }
+    
+    setProgramDeletionStatus(statusMap);
+  };
+
+  const handleDeleteProgram = async (programId) => {
     try {
+      // First check if the program can be deleted
+      const canDeleteResponse = await axios.get(`http://localhost:5000/api/programs/${programId}/can-delete`);
+      
+      if (!canDeleteResponse.data.canDelete) {
+        // Show detailed error message
+        const reason = canDeleteResponse.data.reason;
+        const details = canDeleteResponse.data.details;
+        
+        let errorMessage = `Cannot delete program: ${reason}`;
+        
+        if (details && details.invalidEnrollments) {
+          errorMessage += '\n\nEnrollments that need attention:';
+          details.invalidEnrollments.forEach(enrollment => {
+            errorMessage += `\n- ${enrollment.user.firstName} ${enrollment.user.lastName}: ${enrollment.progressPercentage}% progress`;
+          });
+        }
+        
+        if (details && details.futureSessions) {
+          errorMessage += `\n\nFuture sessions found:`;
+          details.futureSessions.forEach(session => {
+            errorMessage += `\n- ${session.title} on ${new Date(session.scheduledDate).toLocaleDateString()}`;
+          });
+        }
+        
+        alert(errorMessage);
+        return;
+      }
+      
+      // If we reach here, the program can be deleted
+      if (!window.confirm('Are you sure you want to delete this program? This will also delete all related enrollments and sessions.')) return;
+      
       await axios.delete(`http://localhost:5000/api/programs/${programId}`);
       setPrograms(programs.filter(p => p._id !== programId));
+      // Update deletion status
+      const newStatus = { ...programDeletionStatus };
+      delete newStatus[programId];
+      setProgramDeletionStatus(newStatus);
       alert('Program deleted successfully!');
     } catch (error) {
       console.error('Error deleting program:', error);
-      // For development, remove from local state even if API fails
-      setPrograms(programs.filter(p => p._id !== programId));
-      alert('Program deleted locally (API not available)');
+      
+      // Handle specific error responses
+      if (error.response && error.response.data && error.response.data.message) {
+        const errorMessage = error.response.data.message;
+        const details = error.response.data.details;
+        
+        let fullErrorMessage = errorMessage;
+        
+        if (details && details.invalidEnrollments) {
+          fullErrorMessage += '\n\nEnrollments that need attention:';
+          details.invalidEnrollments.forEach(enrollment => {
+            fullErrorMessage += `\n- ${enrollment.user.firstName} ${enrollment.user.lastName}: ${enrollment.progressPercentage}% progress`;
+          });
+        }
+        
+        if (details && details.futureSessions) {
+          fullErrorMessage += `\n\nFuture sessions found:`;
+          details.futureSessions.forEach(session => {
+            fullErrorMessage += `\n- ${session.title} on ${new Date(session.scheduledDate).toLocaleDateString()}`;
+          });
+        }
+        
+        alert(fullErrorMessage);
+      } else {
+        // For development, remove from local state even if API fails
+        setPrograms(programs.filter(p => p._id !== programId));
+        alert('Program deleted locally (API not available)');
+      }
     }
   };
 
@@ -931,7 +1018,7 @@ const ManagerDashboard = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-blue-900 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0`}>
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-blue-900 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out lg:translate-x-0`}>
         <div className="flex flex-col h-full">
           {/* Brand */}
           <div className="flex items-center justify-between h-16 px-6 bg-blue-800">
@@ -951,9 +1038,7 @@ const ManagerDashboard = () => {
               { id: 'coaches', label: 'Coaches', icon: Users },
               { id: 'programs', label: 'Programs', icon: BookOpen },
               { id: 'sessions', label: 'Sessions', icon: Calendar },
-              { id: 'reports', label: 'Reports', icon: BarChart3 },
-              { id: 'certificates', label: 'Certificates', icon: Award },
-              { id: 'notifications', label: 'Notifications', icon: Bell }
+              { id: 'reports', label: 'Reports', icon: BarChart3 }
             ].map(tab => (
               <button
                 key={tab.id}
@@ -996,7 +1081,7 @@ const ManagerDashboard = () => {
       )}
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col lg:ml-0">
+      <div className="flex-1 flex flex-col lg:ml-64">
 
         {/* Content Area */}
         <div className="flex-1 p-4 lg:p-6">
@@ -1006,6 +1091,7 @@ const ManagerDashboard = () => {
             <ProgramsTab 
               programs={programs} 
               coaches={coaches}
+              programDeletionStatus={programDeletionStatus}
               onEdit={openProgramModal}
               onDelete={handleDeleteProgram}
               onAddMaterial={(program) => {
@@ -1032,8 +1118,6 @@ const ManagerDashboard = () => {
             />
           )}
           {activeTab === 'reports' && <ReportsTab coaches={coaches} programs={programs} sessions={sessions} />}
-          {activeTab === 'certificates' && <CertificatesTab />}
-          {activeTab === 'notifications' && <NotificationsTab />}
         </div>
       </div>
 
@@ -1431,7 +1515,7 @@ const OverviewTab = ({ coaches, programs, sessions }) => {
 };
 
 // Programs Tab Component
-const ProgramsTab = ({ programs, coaches, onEdit, onDelete, onAddMaterial, onAssignCoach }) => {
+const ProgramsTab = ({ programs, coaches, programDeletionStatus, onEdit, onDelete, onAddMaterial, onAssignCoach }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [filterDifficulty, setFilterDifficulty] = useState('');
@@ -1474,14 +1558,6 @@ const ProgramsTab = ({ programs, coaches, onEdit, onDelete, onAddMaterial, onAss
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-gray-900">Coaching Programs</h2>
         <div className="flex space-x-3">
-          <button
-            onClick={() => window.location.reload()}
-            className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 flex items-center space-x-2"
-            title="Refresh Data"
-          >
-            <RefreshCw className="h-5 w-5" />
-            <span>Refresh</span>
-          </button>
           <button
             onClick={() => onEdit(null)}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
@@ -1669,6 +1745,29 @@ const ProgramsTab = ({ programs, coaches, onEdit, onDelete, onAddMaterial, onAss
                 </div>
               </div>
 
+              {/* Deletion Status Indicator */}
+              {programDeletionStatus[program._id] && (
+                <div className={`mb-4 p-2 rounded-md text-sm ${
+                  programDeletionStatus[program._id].canDelete
+                    ? 'bg-green-50 text-green-700 border border-green-200'
+                    : 'bg-red-50 text-red-700 border border-red-200'
+                }`}>
+                  <div className="flex items-center">
+                    {programDeletionStatus[program._id].canDelete ? (
+                      <>
+                        <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                        <span>Ready for deletion</span>
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-2 h-2 bg-red-500 rounded-full mr-2"></div>
+                        <span>Cannot delete: {programDeletionStatus[program._id].reason}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Materials Count */}
               {program.materials && program.materials.length > 0 && (
                 <div className="flex items-center text-sm text-gray-600 mb-4">
@@ -1704,8 +1803,17 @@ const ProgramsTab = ({ programs, coaches, onEdit, onDelete, onAddMaterial, onAss
                 </div>
                 <button
                   onClick={() => onDelete(program._id)}
-                  className="text-red-600 hover:text-red-900 p-1"
-                  title="Delete Program"
+                  className={`p-1 ${
+                    programDeletionStatus[program._id]?.canDelete === false
+                      ? 'text-gray-400 cursor-not-allowed'
+                      : 'text-red-600 hover:text-red-900'
+                  }`}
+                  title={
+                    programDeletionStatus[program._id]?.canDelete === false
+                      ? `Cannot delete: ${programDeletionStatus[program._id]?.reason}`
+                      : 'Delete Program'
+                  }
+                  disabled={programDeletionStatus[program._id]?.canDelete === false}
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -1801,66 +1909,6 @@ const CoachesTab = ({ coaches, programs, onRefresh, onViewDetails }) => {
           <p className="text-gray-600">Manage and view all coaches in your system</p>
         </div>
         <div className="flex items-center space-x-3">
-          <button
-            onClick={() => {
-              onRefresh();
-              // Force refresh of all components
-              window.location.reload();
-            }}
-            className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 flex items-center space-x-2"
-            title="Force Refresh Data"
-          >
-            <RefreshCw className="h-5 w-5" />
-            <span>Force Refresh</span>
-          </button>
-          <button
-            onClick={() => {
-              console.log('=== DEBUG INFO ===');
-              console.log('Coaches:', coaches);
-              console.log('Selected Coach:', selectedCoach);
-              console.log('Coach Form:', coachForm);
-              console.log('Refresh Key:', refreshKey);
-              alert('Debug info logged to console');
-            }}
-            className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 flex items-center space-x-2"
-            title="Debug Info"
-          >
-            <span>Debug</span>
-          </button>
-          <button
-            onClick={() => {
-              // Test update by changing first coach's name
-              if (coaches.length > 0) {
-                const testCoach = coaches[0];
-                const updatedTestCoach = {
-                  ...testCoach,
-                  userId: {
-                    ...testCoach.userId,
-                    firstName: 'TEST_' + testCoach.userId?.firstName
-                  }
-                };
-                setCoaches(prev => prev.map(c => c._id === testCoach._id ? updatedTestCoach : c));
-                alert('Test update applied to first coach!');
-              }
-            }}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2"
-            title="Test Update"
-          >
-            <span>Test</span>
-          </button>
-          <button
-            onClick={() => {
-              // Test specialization selection
-              console.log('=== SPECIALIZATION TEST ===');
-              console.log('Current Coach Form:', coachForm);
-              console.log('Selected Coach:', selectedCoach);
-              alert('Check console for specialization debug info');
-            }}
-            className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center space-x-2"
-            title="Test Specializations"
-          >
-            <span>Spec Test</span>
-          </button>
           <button
             onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
@@ -2240,7 +2288,8 @@ const SessionsTab = ({ sessions, onReschedule, coaches, programs, onSessionsRefr
       if (sessionDate <= today) {
         // Check if any participant has attendance marked (only for past sessions)
         const hasAttendanceMarked = session.participants?.some(participant => 
-          participant.attended !== undefined || participant.attendanceMarkedAt
+          participant.attendanceStatus === 'present' || participant.attendanceStatus === 'absent' ||
+          (participant.attended !== undefined && participant.attendanceMarkedAt)
         );
         matchesStatus = hasAttendanceMarked;
       } else {
@@ -2256,7 +2305,8 @@ const SessionsTab = ({ sessions, onReschedule, coaches, programs, onSessionsRefr
       if (sessionDate <= today) {
         // Check if no participant has attendance marked (only for past sessions)
         const hasAttendanceMarked = session.participants?.some(participant => 
-          participant.attended !== undefined || participant.attendanceMarkedAt
+          participant.attendanceStatus === 'present' || participant.attendanceStatus === 'absent' ||
+          (participant.attended !== undefined && participant.attendanceMarkedAt)
         );
         matchesStatus = !hasAttendanceMarked;
       } else {
@@ -2327,13 +2377,15 @@ const SessionsTab = ({ sessions, onReschedule, coaches, programs, onSessionsRefr
     attendanceMarked: sessions.filter(s => {
       const sessionDate = new Date(s.scheduledDate);
       return sessionDate <= today && s.participants?.some(participant => 
-        participant.attended !== undefined || participant.attendanceMarkedAt
+        participant.attendanceStatus === 'present' || participant.attendanceStatus === 'absent' ||
+        (participant.attended !== undefined && participant.attendanceMarkedAt)
       );
     }).length,
     attendanceNotMarked: sessions.filter(s => {
       const sessionDate = new Date(s.scheduledDate);
       return sessionDate <= today && !s.participants?.some(participant => 
-        participant.attended !== undefined || participant.attendanceMarkedAt
+        participant.attendanceStatus === 'present' || participant.attendanceStatus === 'absent' ||
+        (participant.attended !== undefined && participant.attendanceMarkedAt)
       );
     }).length
   };
@@ -2598,11 +2650,38 @@ const SessionsTab = ({ sessions, onReschedule, coaches, programs, onSessionsRefr
                           {session.participants.slice(0, 3).map((participant, index) => (
                             <div key={index} className="text-xs text-gray-700 bg-gray-50 px-2 py-1 rounded">
                               {participant.user?.firstName} {participant.user?.lastName}
-                              {participant.attended !== undefined && (
-                                <span className={`ml-2 text-xs ${participant.attended ? 'text-green-600' : 'text-red-600'}`}>
-                                  {participant.attended ? '✓' : '✗'}
-                                </span>
-                              )}
+                              {(() => {
+                                // Check if session is upcoming or past
+                                const sessionDate = new Date(session.scheduledDate);
+                                const today = new Date();
+                                today.setHours(0, 0, 0, 0);
+                                const isUpcomingSession = sessionDate >= today;
+                                
+                                // Only show attendance status for past sessions with marked attendance
+                                if (!isUpcomingSession && 
+                                    ((participant.attendanceStatus === 'present' || participant.attendanceStatus === 'absent') || 
+                                     (participant.attended !== undefined && participant.attendanceMarkedAt))) {
+                                  return (
+                                    <span className={`ml-2 text-xs ${
+                                      participant.attendanceStatus === 'present' || participant.attended === true 
+                                        ? 'text-green-600' : 'text-red-600'
+                                    }`}>
+                                      {participant.attendanceStatus === 'present' || participant.attended === true ? '✓' : '✗'}
+                                    </span>
+                                  );
+                                }
+                                
+                                // For upcoming sessions, show upcoming indicator
+                                if (isUpcomingSession) {
+                                  return (
+                                    <span className="ml-2 text-xs text-blue-500">
+                                      📅
+                                    </span>
+                                  );
+                                }
+                                
+                                return null;
+                              })()}
                             </div>
                           ))}
                           {session.participants.length > 3 && (
@@ -2625,7 +2704,10 @@ const SessionsTab = ({ sessions, onReschedule, coaches, programs, onSessionsRefr
                           
                           if (sessionDate > today) {
                             return <span className="text-gray-500 font-medium">📅 Future Session</span>;
-                          } else if (session.participants?.some(p => p.attended !== undefined || p.attendanceMarkedAt)) {
+                          } else if (session.participants?.some(p => 
+                            p.attendanceStatus === 'present' || p.attendanceStatus === 'absent' ||
+                            (p.attended !== undefined && p.attendanceMarkedAt)
+                          )) {
                             return <span className="text-green-600 font-medium">✓ Attendance Marked</span>;
                           } else {
                             return <span className="text-orange-600 font-medium">⚠ Not Marked</span>;
@@ -3249,83 +3331,7 @@ const ReportsTab = ({ coaches, programs, sessions }) => {
   );
 };
 
-// Certificates Tab Component
-const CertificatesTab = () => {
-  return (
-    <div>
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Certificates</h2>
-        <p className="text-gray-600">Manage coaching certificates and certifications</p>
-      </div>
 
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="text-center py-12">
-          <Award className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No Certificates Yet</h3>
-          <p className="text-gray-500 mb-4">Certificates will appear here once they are issued.</p>
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-            Issue Certificate
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Notifications Tab Component
-const NotificationsTab = () => {
-  const notifications = [
-    {
-      id: 1,
-      title: "New Program Created",
-      message: "Beginner Cricket Training program has been created successfully.",
-      time: "2 hours ago",
-      type: "success"
-    },
-    {
-      id: 2,
-      title: "Session Rescheduled",
-      message: "Advanced Batting session has been rescheduled to tomorrow.",
-      time: "1 day ago",
-      type: "warning"
-    },
-    {
-      id: 3,
-      title: "Coach Assigned",
-      message: "John Smith has been assigned to the new program.",
-      time: "2 days ago",
-      type: "info"
-    }
-  ];
-
-  return (
-    <div>
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Notifications</h2>
-        <p className="text-gray-600">Stay updated with the latest activities</p>
-      </div>
-
-      <div className="space-y-4">
-        {notifications.map((notification) => (
-          <div key={notification.id} className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-start space-x-4">
-              <div className={`flex-shrink-0 w-2 h-2 rounded-full mt-2 ${
-                notification.type === 'success' ? 'bg-green-500' :
-                notification.type === 'warning' ? 'bg-yellow-500' :
-                'bg-blue-500'
-              }`} />
-              <div className="flex-1">
-                <h3 className="text-lg font-medium text-gray-900">{notification.title}</h3>
-                <p className="text-gray-600 mt-1">{notification.message}</p>
-                <p className="text-sm text-gray-500 mt-2">{notification.time}</p>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
 
 // Coach Details Modal Component
 const CoachDetailsModal = ({ coach, programs, onEdit, onManageAvailability, onClose }) => {

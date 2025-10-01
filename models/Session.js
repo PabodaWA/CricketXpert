@@ -186,7 +186,12 @@ sessionSchema.methods.hasAttendanceMarked = function(userId) {
   const participant = this.participants.find(p => p.user && p.user.toString() === userId.toString());
   if (!participant) return false;
   
-  // Check if attendance has been marked (either through attendanceMarkedAt or attended field)
+  // For upcoming sessions, attendance should not be considered marked
+  if (this.isUpcomingSession()) {
+    return false;
+  }
+  
+  // For past sessions, check if attendance has been marked (either through attendanceMarkedAt or attended field)
   return participant.attendanceMarkedAt || participant.attended !== undefined;
 };
 

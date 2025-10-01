@@ -65,12 +65,28 @@ const CertificateDownload = ({ enrollmentId, enrollmentStatus, onCertificateGene
       setGenerating(true);
       setError('');
       
+      // Get token from localStorage with same logic as checkEligibility
+      const token = localStorage.getItem('token') || localStorage.getItem('userInfo');
+      let authToken = token;
+      
+      // If token is in userInfo object, parse it
+      if (token && token.includes('{')) {
+        try {
+          const userInfo = JSON.parse(token);
+          authToken = userInfo.token;
+        } catch (e) {
+          console.log('Token is not JSON, using as is');
+        }
+      }
+      
+      console.log('Generating certificate with token:', authToken ? 'Present' : 'Missing');
+      
       const response = await axios.post(
         `http://localhost:5000/api/certificates/generate/${enrollmentId}`,
         {},
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
+            Authorization: `Bearer ${authToken}`
           }
         }
       );
@@ -104,11 +120,25 @@ const CertificateDownload = ({ enrollmentId, enrollmentStatus, onCertificateGene
     try {
       if (!eligibility?.certificate?.id) return;
       
+      // Get token from localStorage with same logic as other functions
+      const token = localStorage.getItem('token') || localStorage.getItem('userInfo');
+      let authToken = token;
+      
+      // If token is in userInfo object, parse it
+      if (token && token.includes('{')) {
+        try {
+          const userInfo = JSON.parse(token);
+          authToken = userInfo.token;
+        } catch (e) {
+          console.log('Token is not JSON, using as is');
+        }
+      }
+      
       const response = await axios.get(
         `http://localhost:5000/api/certificates/download/${eligibility.certificate.id}`,
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
+            Authorization: `Bearer ${authToken}`
           },
           responseType: 'blob'
         }
