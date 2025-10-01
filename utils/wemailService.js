@@ -275,7 +275,74 @@ const sendOrderManagerNotificationEmail = async (order, customer) => {
 };
 
 
-  }
+// --- Function 8: Supplier Order Email ---
+const sendSupplierOrderEmail = async (product, quantity, supplierEmail) => {
+  try {
+    console.log('📧 Starting to send supplier order email...');
+    
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: supplierEmail,
+      subject: `📦 Stock Reorder Request - ${product.name}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #28a745;">📦 Stock Reorder Request</h2>
+          <p>Dear Supplier,</p>
+          <p>We need to place an urgent reorder for the following product due to low stock levels.</p>
+          
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #072679; margin-top: 0;">Product Information</h3>
+            <p><strong>Product Name:</strong> ${product.name}</p>
+            <p><strong>Product Code:</strong> ${product.productId}</p>
+            <p><strong>Category:</strong> ${product.category}</p>
+            <p><strong>Brand:</strong> ${product.brand || 'N/A'}</p>
+            <p><strong>Current Stock:</strong> ${product.stock_quantity} units</p>
+            <p><strong>Requested Quantity:</strong> ${quantity} units</p>
+            <p><strong>Unit Price:</strong> LKR ${product.price}.00</p>
+            <p><strong>Total Estimated Cost:</strong> LKR ${(product.price * quantity).toLocaleString()}.00</p>
+          </div>
+
+          <div style="background-color: ${product.stock_quantity < 10 ? '#f8d7da' : '#fff3cd'}; border: 1px solid ${product.stock_quantity < 10 ? '#f5c6cb' : '#ffeaa7'}; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: ${product.stock_quantity < 10 ? '#721c24' : '#856404'}; margin-top: 0;">
+              ${product.stock_quantity < 10 ? '🚨 URGENT - Critical Stock Level' : '⚠️ Low Stock Alert'}
+            </h3>
+            <p>This product is currently at a ${product.stock_quantity < 10 ? 'critical' : 'low'} stock level and requires immediate attention.</p>
+          </div>
+
+          <div style="background-color: #e2e3e5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #072679; margin-top: 0;">Next Steps</h3>
+            <p>Please confirm:</p>
+            <ul>
+              <li>Availability of ${quantity} units</li>
+              <li>Current pricing and any bulk discounts</li>
+              <li>Estimated delivery timeline</li>
+              <li>Payment terms and methods</li>
+            </ul>
+          </div>
+
+          <div style="background-color: #d1ecf1; border: 1px solid #bee5eb; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #0c5460; margin-top: 0;">Contact Information</h3>
+            <p><strong>Company:</strong> CricketExpert</p>
+            <p><strong>Email:</strong> ${process.env.EMAIL_USER}</p>
+            <p><strong>Request Date:</strong> ${new Date().toLocaleDateString()}</p>
+          </div>
+
+          <p style="margin-top: 30px;">Thank you for your prompt attention to this matter. We look forward to your response.</p>
+          
+          <p>Best regards,<br>
+          <strong>CricketExpert Inventory Management Team</strong></p>
+        </div>
+      `,
+    };
+
+    const result = await transporter.sendMail(mailOptions);
+    console.log(`✅ Supplier order email sent successfully to: ${supplierEmail}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to send supplier order email:', error);
+    return false;
+
+      }
 };
 
 export {
@@ -286,4 +353,5 @@ export {
   sendLowStockAlert,
   sendOrderConfirmationEmail,
   sendOrderManagerNotificationEmail,
-
+  sendSupplierOrderEmail
+}
