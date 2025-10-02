@@ -306,11 +306,11 @@ export default function Programs() {
         <Header />
         
         {/* Page Header */}
-        <div className="bg-white/80 backdrop-blur-sm shadow-sm">
+        <div className="bg-gradient-to-r from-blue-500 via-blue-800 to-blue-500 shadow-sm">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div className="text-center">
-              <h1 className="text-4xl font-bold text-gray-900 mb-4">Coaching Programs</h1>
-              <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              <h1 className="text-4xl font-bold text-white mb-4">Coaching Programs</h1>
+              <p className="text-xl text-blue-100 max-w-3xl mx-auto">
                 Discover our comprehensive coaching programs designed to help you improve your cricket skills
               </p>
             </div>
