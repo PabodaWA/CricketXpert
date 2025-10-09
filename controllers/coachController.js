@@ -121,7 +121,7 @@ const getAllCoaches = async (req, res) => {
       populate: [
         {
           path: 'userId',
-          select: 'firstName lastName email profileImageURL'
+          select: 'firstName lastName email profileImageURL role'
         },
         {
           path: 'assignedPrograms',
@@ -150,9 +150,17 @@ const getAllCoaches = async (req, res) => {
 
     const coaches = await paginateHelper(Coach, filter, options);
 
+    // Additional safety filter: Only return coaches whose userId has role='coach'
+    // This ensures data consistency without modifying the database
+    const filteredCoaches = {
+      ...coaches,
+      docs: coaches.docs.filter(coach => coach.userId && coach.userId.role === 'coach'),
+      totalDocs: coaches.docs.filter(coach => coach.userId && coach.userId.role === 'coach').length
+    };
+
     res.status(200).json({
       success: true,
-      data: coaches
+      data: filteredCoaches
     });
   } catch (error) {
     res.status(500).json({
