@@ -2725,21 +2725,14 @@ const SessionsTab = ({ sessions, onReschedule, coaches, programs, onSessionsRefr
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => onReschedule(session)}
-                          className="text-orange-600 hover:text-orange-900"
-                          title="Reassign Session Coach"
-                        >
-                          <RefreshCw className="h-4 w-4" />
-                        </button>
-                        <button
-                          className="text-blue-600 hover:text-blue-900"
-                          title="View Details"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => onReschedule(session)}
+                        className="flex items-center px-3 py-1.5 text-sm bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors"
+                        title="Reassign Session Coach"
+                      >
+                        <RefreshCw className="h-4 w-4 mr-1" />
+                        Reschedule
+                      </button>
                     </td>
                   </tr>
                 ))
