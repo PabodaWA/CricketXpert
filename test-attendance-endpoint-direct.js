@@ -69,3 +69,4 @@ async function testAttendanceEndpointDirect() {
 
 // Run the test
 testAttendanceEndpointDirect();
+

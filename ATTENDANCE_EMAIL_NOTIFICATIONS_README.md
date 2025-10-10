@@ -167,3 +167,4 @@ Potential improvements that could be added:
 3. Test email functionality using the provided test script
 4. Check customer email addresses in the database
 5. Verify SMTP configuration and Gmail settings
+

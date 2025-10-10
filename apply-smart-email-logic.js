@@ -91,3 +91,4 @@ console.log('❌ "Skipping email for participant [ID] - no status change or alre
 console.log('');
 
 console.log('🎉 This will give you smart email notifications that only send when needed!');
+

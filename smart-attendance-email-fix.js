@@ -74,3 +74,4 @@ console.log('6. Mark Absent again (same status) → ❌ No email');
 console.log('');
 
 console.log('🚀 Ready to implement? The logic is ready to be added to your attendance controller!');
+

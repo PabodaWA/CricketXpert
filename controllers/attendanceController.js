@@ -73,21 +73,31 @@ const markAttendance = async (req, res) => {
     console.log('Attendance marked successfully:', results.length, 'records');
     
     // Get all unique customer IDs
-    const customerIds = [...new Set(attendanceData.map(item => item.participantId))];
+    // First, get the actual user IDs from the session participants
+    const participantIds = [...new Set(attendanceData.map(item => item.participantId))];
+    const sessionParticipants = session.participants.filter(p => 
+      participantIds.includes(p._id.toString())
+    );
     
-    // Get customer details
-    const customers = await User.find({ _id: { $in: customerIds } });
-    const customerMap = customers.reduce((acc, customer) => {
-      acc[customer._id.toString()] = customer;
-      return acc;
-    }, {});
+    // Extract user IDs from participants
+    const userIds = sessionParticipants.map(p => p.user.toString());
+    const customers = await User.find({ _id: { $in: userIds } });
+    
+    // Create a map from participant ID to user data
+    const participantToUserMap = {};
+    sessionParticipants.forEach(participant => {
+      const user = customers.find(c => c._id.toString() === participant.user.toString());
+      if (user) {
+        participantToUserMap[participant._id.toString()] = user;
+      }
+    });
 
     // Get coach details
     const coach = await User.findById(coachId);
     
     // Send professional email notifications to each customer
     const emailPromises = attendanceData.map(async (item) => {
-      const customer = customerMap[item.participantId];
+      const customer = participantToUserMap[item.participantId];
       if (!customer || !customer.email) {
         console.log(`Skipping email for participant ${item.participantId} - no email found`);
         return;

@@ -77,3 +77,4 @@ if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
 
 // Run the test
 testAttendanceEmail();
+

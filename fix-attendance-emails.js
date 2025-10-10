@@ -72,3 +72,4 @@ console.log('Content: Professional email with session details and attendance sta
 console.log('');
 
 console.log('Need help? Check the server console logs when marking attendance!');
+

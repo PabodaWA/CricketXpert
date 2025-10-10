@@ -74,3 +74,4 @@ async function testRealAttendanceMarking() {
 
 // Run the test
 testRealAttendanceMarking();
+

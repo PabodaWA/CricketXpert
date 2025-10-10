@@ -119,3 +119,4 @@ async function findSessionAndParticipantIds() {
 
 // Run the search
 findSessionAndParticipantIds();
+

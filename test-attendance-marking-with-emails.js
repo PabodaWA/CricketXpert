@@ -193,3 +193,4 @@ async function testAttendanceMarkingWithEmails() {
 
 // Run the test
 testAttendanceMarkingWithEmails();
+
