@@ -3,6 +3,7 @@ import Session from '../models/Session.js';
 import ProgramEnrollment from '../models/ProgramEnrollment.js';
 import mongoose from 'mongoose';
 import { sendEmail } from '../utils/notification.js';
+import { sendAttendanceNotificationEmail } from '../utils/wemailService.js';
 import User from '../models/User.js';
 
 // @desc    Mark attendance for session participants
@@ -84,7 +85,7 @@ const markAttendance = async (req, res) => {
     // Get coach details
     const coach = await User.findById(coachId);
     
-    // Send email to each customer
+    // Send professional email notifications to each customer
     const emailPromises = attendanceData.map(async (item) => {
       const customer = customerMap[item.participantId];
       if (!customer || !customer.email) {
@@ -92,40 +93,24 @@ const markAttendance = async (req, res) => {
         return;
       }
 
-      const status = item.attended ? 'present' : 'absent';
-      const emailSubject = `Attendance Marked - ${session.title}`;
-      const emailText = `
-Hello ${customer.firstName || 'there'},
-
-Your attendance for the session "${session.title}" on ${new Date(session.scheduledDate).toLocaleDateString()} 
-has been marked as ${status} by Coach ${coach?.firstName || 'the coach'}.
-
-Session Details:
-- Title: ${session.title}
-- Date: ${new Date(session.scheduledDate).toLocaleDateString()}
-- Time: ${session.startTime || 'N/A'} - ${session.endTime || 'N/A'}
-- Status: ${status.charAt(0).toUpperCase() + status.slice(1)}
-- Coach: ${coach?.firstName ? `${coach.firstName} ${coach.lastName || ''}` : 'N/A'}
-
-If you believe this is a mistake, please contact your coach.
-
-Best regards,
-The Coaching Team`;
+      const attendanceStatus = item.attended ? 'present' : 'absent';
+      const coachName = coach?.firstName ? `${coach.firstName} ${coach.lastName || ''}` : 'Your Coach';
 
       try {
-        const emailSent = await sendEmail(
-          customer.email,
-          emailSubject,
-          emailText.trim()
+        const emailSent = await sendAttendanceNotificationEmail(
+          customer,
+          session,
+          attendanceStatus,
+          coachName
         );
         
         if (emailSent) {
-          console.log(`✅ Attendance notification sent to ${customer.email}`);
+          console.log(`✅ Professional attendance notification sent to ${customer.email}`);
         } else {
-          console.error(`❌ Failed to send email to ${customer.email} - sendEmail returned false`);
+          console.error(`❌ Failed to send professional email to ${customer.email}`);
         }
       } catch (emailError) {
-        console.error(`❌ Error sending email to ${customer.email}:`, emailError.message);
+        console.error(`❌ Error sending professional email to ${customer.email}:`, emailError.message);
       }
     });
 

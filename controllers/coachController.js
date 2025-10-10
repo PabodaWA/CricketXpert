@@ -2,6 +2,7 @@ import Coach from '../models/Coach.js';
 import User from '../models/User.js';
 import Session from '../models/Session.js';
 import mongoose from 'mongoose';
+import { sendAttendanceNotificationEmail } from '../utils/wemailService.js';
 
 // Helper function for manual pagination
 const paginateHelper = async (Model, filter, options) => {
@@ -1427,6 +1428,59 @@ const markSessionAttendance = async (req, res) => {
     
     console.log(`Successfully updated ${updatedCount} participants`);
     
+    // Send email notifications to customers
+    try {
+      console.log('📧 Sending attendance notification emails...');
+      
+      // Get coach details
+      const coach = await User.findById(coachId);
+      const coachName = coach?.firstName ? `${coach.firstName} ${coach.lastName || ''}` : 'Your Coach';
+      
+      // Get customer details for email notifications
+      const customerIds = [...new Set(attendanceData.map(item => item.participantId))];
+      const customers = await User.find({ _id: { $in: customerIds } });
+      const customerMap = customers.reduce((acc, customer) => {
+        acc[customer._id.toString()] = customer;
+        return acc;
+      }, {});
+      
+      // Send email notifications
+      const emailPromises = attendanceData.map(async (item) => {
+        const customer = customerMap[item.participantId];
+        if (!customer || !customer.email) {
+          console.log(`Skipping email for participant ${item.participantId} - no email found`);
+          return;
+        }
+
+        const attendanceStatus = item.attended ? 'present' : 'absent';
+
+        try {
+          const emailSent = await sendAttendanceNotificationEmail(
+            customer,
+            session,
+            attendanceStatus,
+            coachName
+          );
+          
+          if (emailSent) {
+            console.log(`✅ Professional attendance notification sent to ${customer.email}`);
+          } else {
+            console.error(`❌ Failed to send professional email to ${customer.email}`);
+          }
+        } catch (emailError) {
+          console.error(`❌ Error sending professional email to ${customer.email}:`, emailError.message);
+        }
+      });
+
+      // Wait for all emails to be sent (or fail)
+      await Promise.allSettled(emailPromises);
+      console.log('📧 Email notification process completed');
+      
+    } catch (emailError) {
+      console.error('❌ Error in email notification process:', emailError.message);
+      // Continue with response even if emails fail
+    }
+    
     res.status(200).json({
       success: true,
       message: 'Attendance marked successfully',
@@ -2545,12 +2599,23 @@ const attendanceOnly = async (req, res) => {
       });
       
       if (participant) {
+        // Check if attendance status is changing
+        const previousStatus = participant.attended;
+        const newStatus = attendance.attended;
+        const isFirstTimeMarking = participant.attended === undefined;
+        const isStatusChanging = previousStatus !== newStatus;
+        
         // Update session participant data
         participant.attended = attendance.attended;
         participant.attendanceStatus = attendance.attended ? 'present' : 'absent';
         participant.attendanceMarkedAt = new Date();
         updatedCount++;
+        
+        // Store email sending flag for later use
+        participant.shouldSendEmail = isFirstTimeMarking || isStatusChanging;
+        
         console.log(`Updated participant ${attendance.participantId} - NO COACH DATA TOUCHED`);
+        console.log(`Email will be sent: ${participant.shouldSendEmail ? 'YES' : 'NO'} (First time: ${isFirstTimeMarking}, Status changed: ${isStatusChanging})`);
         
         // ONLY create/update Attendance record if attendance is marked (Present or Absent)
         // If attendance is not marked, remove any existing record
@@ -2657,6 +2722,59 @@ const attendanceOnly = async (req, res) => {
     }
     
     console.log(`Successfully updated ${updatedCount} participants - NO COACH DATA TOUCHED`);
+    
+    // Send email notifications to customers
+    try {
+      console.log('📧 Sending attendance notification emails...');
+      
+      // Get coach details
+      const coach = await User.findById(session.coach);
+      const coachName = coach?.firstName ? `${coach.firstName} ${coach.lastName || ''}` : 'Your Coach';
+      
+      // Get customer details for email notifications
+      const customerIds = [...new Set(attendanceData.map(item => item.participantId))];
+      const customers = await User.find({ _id: { $in: customerIds } });
+      const customerMap = customers.reduce((acc, customer) => {
+        acc[customer._id.toString()] = customer;
+        return acc;
+      }, {});
+      
+      // Send email notifications
+      const emailPromises = attendanceData.map(async (item) => {
+        const customer = customerMap[item.participantId];
+        if (!customer || !customer.email) {
+          console.log(`Skipping email for participant ${item.participantId} - no email found`);
+          return;
+        }
+
+        const attendanceStatus = item.attended ? 'present' : 'absent';
+
+        try {
+          const emailSent = await sendAttendanceNotificationEmail(
+            customer,
+            session,
+            attendanceStatus,
+            coachName
+          );
+          
+          if (emailSent) {
+            console.log(`✅ Professional attendance notification sent to ${customer.email}`);
+          } else {
+            console.error(`❌ Failed to send professional email to ${customer.email}`);
+          }
+        } catch (emailError) {
+          console.error(`❌ Error sending professional email to ${customer.email}:`, emailError.message);
+        }
+      });
+
+      // Wait for all emails to be sent (or fail)
+      await Promise.allSettled(emailPromises);
+      console.log('📧 Email notification process completed');
+      
+    } catch (emailError) {
+      console.error('❌ Error in email notification process:', emailError.message);
+      // Continue with response even if emails fail
+    }
     
     res.status(200).json({
       success: true,
