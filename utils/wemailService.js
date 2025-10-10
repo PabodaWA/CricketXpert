@@ -1,25 +1,28 @@
 import nodemailer from 'nodemailer';
 
 // --- Main Configuration ---
-// Create transporter function that works like the basic email test
-const createTransporter = () => {
-  return nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true,
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  });
-};
+// It now reads the user and password from your .env file
+const transporter = nodemailer.createTransport({
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true, // true for 465, false for other ports
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
 
-// Note: Transporter is created fresh for each email to avoid connection issues
+transporter.verify(function(error, success) {
+  if (error) {
+    console.log('Nodemailer transport verification error:', error);
+  } else {
+    console.log('Nodemailer transport is ready to send emails.');
+  }
+});
 
 // --- Function 1: Welcome Email ---
 const sendWelcomeEmail = async (email, username) => {
   try {
-    const transporter = createTransporter();
     const mailOptions = {
       from: process.env.EMAIL_USER, // Send from your main email
       to: email,
@@ -38,7 +41,8 @@ const sendWelcomeEmail = async (email, username) => {
 // --- Function 2: New User Notification for Manager ---
 // This function sends an alert to the service manager
 const sendNewUserNotification = async (newUser) => {
-    const mailOptions = {
+    try {
+        const mailOptions = {
         from: process.env.EMAIL_USER,
         to: process.env.SERVICE_MANAGER_EMAIL, // Sends to the manager's email
         subject: 'New User Registration',
@@ -52,15 +56,21 @@ const sendNewUserNotification = async (newUser) => {
                 <li><strong>Registered At:</strong> ${new Date(newUser.createdAt).toLocaleString()}</li>
             </ul>
         `,
-    };
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`New user notification sent to service manager: ${info.response}`);
+        };
+        const info = await transporter.sendMail(mailOptions);
+        console.log(`New user notification sent to service manager: ${info.response}`);
+        return true;
+    } catch (error) {
+        console.error('❌ Failed to send new user notification:', error);
+        return false;
+    }
 };
 
 
 // --- Function 3: Password Reset Code Email ---
 const sendPasswordResetCodeEmail = async (email, code) => {
-  const mailOptions = {
+  try {
+    const mailOptions = {
     from: process.env.EMAIL_USER,
     to: email,
     subject: 'Your Password Reset Code',
@@ -71,14 +81,20 @@ const sendPasswordResetCodeEmail = async (email, code) => {
       <p>This code will expire in 10 minutes.</p>
       <p>If you did not request this, please ignore this email.</p>
     `,
-  };
-  await transporter.sendMail(mailOptions);
-  console.log(`Password reset code sent to ${email}`);
+    };
+    await transporter.sendMail(mailOptions);
+    console.log(`Password reset code sent to ${email}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to send password reset code email:', error);
+    return false;
+  }
 };
 
 // --- Function 4: Email Verification Code ---
 const sendEmailVerificationCode = async (email, code) => {
-  const mailOptions = {
+  try {
+    const mailOptions = {
     from: process.env.EMAIL_USER,
     to: email,
     subject: 'Email Verification Code',
@@ -89,14 +105,20 @@ const sendEmailVerificationCode = async (email, code) => {
       <p>This code will expire in 10 minutes.</p>
       <p>If you did not create an account, please ignore this email.</p>
     `,
-  };
-  await transporter.sendMail(mailOptions);
-  console.log(`Email verification code sent to ${email}`);
+    };
+    await transporter.sendMail(mailOptions);
+    console.log(`Email verification code sent to ${email}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to send email verification code:', error);
+    return false;
+  }
 };
 
 // --- Function 5: Low Stock Alert Email ---
 const sendLowStockAlert = async (product) => {
-  const mailOptions = {
+  try {
+    const mailOptions = {
     from: process.env.EMAIL_USER,
     to: process.env.SERVICE_MANAGER_EMAIL, // Send to admin/manager
     subject: `🚨 LOW STOCK ALERT: ${product.name}`,
@@ -126,13 +148,14 @@ const sendLowStockAlert = async (product) => {
         </p>
       </div>
     `,
-  };
-  
-  try {
+    };
+    
     const info = await transporter.sendMail(mailOptions);
     console.log(`📧 Low stock alert email sent to admin for ${product.name}: ${info.response}`);
+    return true;
   } catch (error) {
     console.error('❌ Failed to send low stock alert email:', error);
+    return false;
   }
 };
 
@@ -344,8 +367,7 @@ const sendSupplierOrderEmail = async (product, quantity, supplierEmail) => {
   } catch (error) {
     console.error('❌ Failed to send supplier order email:', error);
     return false;
-
-      }
+  }
 };
 
 // --- Function 9: Certificate Email ---
@@ -411,7 +433,6 @@ const sendAttendanceNotificationEmail = async (customer, session, attendanceStat
     const statusColor = attendanceStatus === 'present' ? '#28a745' : '#dc3545';
     const statusText = attendanceStatus === 'present' ? 'Present' : 'Absent';
     
-    const transporter = createTransporter();
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: customer.email,
