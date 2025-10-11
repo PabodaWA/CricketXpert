@@ -430,7 +430,7 @@ export default function ListOrders() {
                                                        order.remainingDays > 0 ? 'bg-blue-100 text-blue-800' :
                                                        'bg-green-100 text-green-800'
                                                    }`}>
-                                                       {order.remainingDays === 0 ? 'Today' :
+                                                       {order.remainingDays === 0 ? '✓' :
                                                         order.remainingDays > 0 ? `${order.remainingDays}` :
                                                         'Delivered'}
                                                    </span>
