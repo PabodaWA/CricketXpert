@@ -74,6 +74,11 @@ const NewTechnicianForm = () => {
     if (apiError) setApiError('');
   };
 
+  const handleUsernameInputFocus = (e) => {
+    // Ensure cursor is visible when input is focused
+    e.target.style.cursor = 'text';
+  };
+
   const handleSkillChange = (skill) => {
     setFormData((prev) => ({
       ...prev,
@@ -166,9 +171,12 @@ const NewTechnicianForm = () => {
                     type="text"
                     value={usernameInput}
                     onChange={(e) => setUsernameInput(e.target.value)}
-                    className="flex-1 px-4 py-2 border rounded-lg focus:outline-none"
+                    onFocus={handleUsernameInputFocus}
+                    className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-text"
                     style={{ borderColor: Brand.secondary }}
                     placeholder="e.g., john_smith or John Smith"
+                    autoComplete="username"
+                    tabIndex="1"
                   />
                   <button
                     type="button"
