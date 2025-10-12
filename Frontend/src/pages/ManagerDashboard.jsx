@@ -1825,13 +1825,7 @@ const ProgramsTab = ({ programs, coaches, programDeletionStatus, onEdit, onDelet
                   >
                     <Upload className="h-4 w-4" />
                   </button>
-                  <button
-                    onClick={() => onAssignCoach(program)}
-                    className="text-purple-600 hover:text-purple-900 p-1"
-                    title="Assign Coach"
-                  >
-                    <UserPlus className="h-4 w-4" />
-                  </button>
+               
                 </div>
                 <button
                   onClick={() => onDelete(program._id)}
@@ -2429,15 +2423,7 @@ const SessionsTab = ({ sessions, onReschedule, coaches, programs, onSessionsRefr
           <h2 className="text-2xl font-bold text-gray-900">All Sessions</h2>
           <p className="text-gray-600">Manage and monitor all coaching sessions</p>
         </div>
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={onSessionsRefresh}
-            className="flex items-center px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh Sessions
-          </button>
-        </div>
+        
       </div>
 
       {/* Statistics Cards */}
@@ -3151,17 +3137,7 @@ const RescheduleModal = ({ session, form, setForm, onSubmit, onClose, coaches })
                   <option value="" disabled>No coaches available</option>
                 )}
               </select>
-              <button
-                type="button"
-                onClick={() => {
-                  console.log('Refreshing coaches...');
-                  window.location.reload();
-                }}
-                className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
-                title="Refresh coaches data"
-              >
-                🔄
-              </button>
+            
             </div>
             {coaches && coaches.length === 0 && (
               <p className="text-sm text-red-600 mt-1">No coaches found. Click refresh button to reload coaches.</p>

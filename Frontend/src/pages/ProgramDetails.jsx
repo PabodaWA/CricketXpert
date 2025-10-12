@@ -541,7 +541,7 @@ export default function ProgramDetails() {
                       <span className="text-lg">ℹ️</span>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-blue-800">Please Fill All the Detais</p>
+                      <p className="text-sm font-medium text-blue-800">Please Fill All the Details</p>
                     
                     </div>
                   </div>
@@ -729,7 +729,7 @@ export default function ProgramDetails() {
                 <button
                   onClick={() => {
                     setShowEnrollmentErrorModal(false);
-                    navigate('/customer/profile');
+                    navigate('/programs');
                   }}
                   className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
