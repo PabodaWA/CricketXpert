@@ -408,10 +408,10 @@ export default function ListOrders() {
                                                {isCartPendingRow ? (
                                                    <span className="inline-flex items-center gap-2">
                                                        <span className="px-1.5 py-0.5 rounded bg-gray-200 text-gray-800 text-[10px] font-semibold">PENDING</span>
-                                                       <span>...{String(order.cartToken || order._id).slice(-8)}</span>
+                                                       <span>...{String(order.cartToken || order._id.toString()).slice(-8)}</span>
                                                    </span>
                                                ) : (
-                                                   <>...{order._id.slice(-8)}</>
+                                                   <>...{order._id.toString().slice(-8)}</>
                                                )}
                                            </td>
                                            <td className="p-4 text-sm font-medium text-gray-800">

@@ -224,7 +224,7 @@ const MyOrders = () => {
                       <div className="flex items-start justify-between">
                         <div>
                           <h3 className="font-semibold text-lg mb-1" style={{ color: '#000000' }}>
-                            Order #{order._id.slice(-8)}...
+                            Order #{order._id.toString().slice(-8)}...
                           </h3>
                           <p className="text-sm mb-2" style={{ color: '#36516C' }}>
                             Items: {order.items?.length || 0}
