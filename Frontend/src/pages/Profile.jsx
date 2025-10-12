@@ -6,6 +6,7 @@ import SessionManager from '../components/SessionManager';
 import SessionCalendar from '../components/SessionCalendar';
 import PaymentEnrollment from '../components/PaymentEnrollment';
 import CertificateDownload from '../components/CertificateDownload';
+import { calculateAttendancePercentage, isProgramCompleted } from '../utils/attendanceCalculation';
 
 export default function Profile() {
     const [user, setUser] = useState(null);
@@ -160,39 +161,76 @@ export default function Profile() {
 
     useEffect(() => {
         const fetchEnrollments = async () => {
-            if (!user || user.role !== 'customer') return;
-            
-            setEnrollmentsLoading(true);
-            try {
-                const userInfo = JSON.parse(localStorage.getItem('userInfo'));
-                const config = {
-                    headers: {
-                        Authorization: `Bearer ${userInfo.token}`,
-                    },
-                };
+        if (!user || user.role !== 'customer') return;
+        
+        setEnrollmentsLoading(true);
+        try {
+            const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+            const config = {
+                headers: {
+                    Authorization: `Bearer ${userInfo.token}`,
+                },
+            };
 
-                const { data } = await axios.get(`http://localhost:5000/api/enrollments/user/${userInfo._id}`, config);
-                
-                // Handle both response structures
-                if (data.data && data.data.docs) {
-                    // Paginated response
-                    setEnrollments(data.data.docs || []);
-                } else if (data.data && Array.isArray(data.data)) {
-                    // Direct array response
-                    setEnrollments(data.data || []);
-                } else if (data.enrollments) {
-                    // Legacy response structure
-                    setEnrollments(data.enrollments || []);
-                } else {
-                    setEnrollments([]);
-                }
-            } catch (err) {
-                console.error('Error fetching enrollments:', err);
-                // Don't show error for enrollments, just log it
-            } finally {
-                setEnrollmentsLoading(false);
+            // First, get all enrollments
+            const { data } = await axios.get(`http://localhost:5000/api/enrollments/user/${userInfo._id}`, config);
+            let enrollmentsData = [];
+            
+            // Handle different response structures
+            if (data.data && data.data.docs) {
+                enrollmentsData = data.data.docs || [];
+            } else if (data.data && Array.isArray(data.data)) {
+                enrollmentsData = data.data || [];
+            } else if (data.enrollments) {
+                enrollmentsData = data.enrollments || [];
             }
-        };
+
+            // Fetch sessions for each enrollment
+            const enrollmentsWithSessions = await Promise.all(
+                enrollmentsData.map(async (enrollment) => {
+                    try {
+                        const sessionsResponse = await axios.get(
+                            `http://localhost:5000/api/sessions/enrollment/${enrollment._id}`,
+                            config
+                        );
+                        
+                        // Check if the program should be marked as completed based on attendance
+                        let updatedEnrollment = { ...enrollment };
+                        if (sessionsResponse.data.success && sessionsResponse.data.data) {
+                            updatedEnrollment.sessions = sessionsResponse.data.data;
+                            
+
+                            // If attendance is 75% or higher, mark as completed
+                            if (isProgramCompleted(updatedEnrollment.sessions, userInfo._id) && 
+                                updatedEnrollment.status !== 'completed') {
+                                // Update the enrollment status to completed
+                                try {
+                                    await axios.put(
+                                        `http://localhost:5000/api/enrollments/${enrollment._id}/status`,
+                                        { status: 'completed' },
+                                        config
+                                    );
+                                    updatedEnrollment.status = 'completed';
+                                } catch (updateErr) {
+                                    console.error('Error updating enrollment status:', updateErr);
+                                }
+                            }
+                        }
+                        return updatedEnrollment;
+                    } catch (sessionsErr) {
+                        console.error(`Error fetching sessions for enrollment ${enrollment._id}:`, sessionsErr);
+                        return { ...enrollment, sessions: [] };
+                    }
+                })
+            );
+
+            setEnrollments(enrollmentsWithSessions);
+        } catch (err) {
+            console.error('Error fetching enrollments:', err);
+        } finally {
+            setEnrollmentsLoading(false);
+        }
+    };
 
         if (user) {
             fetchEnrollments();
@@ -372,7 +410,11 @@ export default function Profile() {
                             </div>
                             <div className="bg-purple-50 rounded-lg p-4 text-center">
                                 <div className="text-2xl font-bold text-purple-600">
-                                    {enrollments.filter(e => e.status === 'completed').length}
+                                    {enrollments.filter(e => {
+                                        if (e.status === 'completed') return true;
+                                        if (!e.sessions || e.sessions.length === 0) return false;
+                                        return isProgramCompleted(e.sessions, user?._id);
+                                    }).length}
                                 </div>
                                 <div className="text-sm text-purple-800">Completed</div>
                             </div>
@@ -419,40 +461,77 @@ export default function Profile() {
                                                 </p>
                                             </div>
                                             <div className="text-right">
-                                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                                                    enrollment.status === 'active' 
-                                                        ? 'bg-green-100 text-green-800' 
-                                                        : enrollment.status === 'pending'
-                                                        ? 'bg-yellow-100 text-yellow-800'
-                                                        : enrollment.status === 'completed'
-                                                        ? 'bg-blue-100 text-blue-800'
-                                                        : enrollment.status === 'cancelled'
-                                                        ? 'bg-red-100 text-red-800'
-                                                        : 'bg-gray-100 text-gray-800'
-                                                }`}>
-                                                    {enrollment.status === 'active' ? '✅ Active' : 
-                                                     enrollment.status === 'pending' ? '⏳ Pending' : 
-                                                     enrollment.status === 'completed' ? '🎓 Completed' :
-                                                     enrollment.status === 'cancelled' ? '❌ Cancelled' :
-                                                     '📋 ' + enrollment.status}
-                                                </span>
-                                                <div className="mt-2">
-                                                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                                        enrollment.paymentStatus === 'completed' 
-                                                            ? 'bg-green-100 text-green-800' 
-                                                            : enrollment.paymentStatus === 'pending'
-                                                            ? 'bg-yellow-100 text-yellow-800'
-                                                            : 'bg-red-100 text-red-800'
-                                                    }`}>
-                                                        {enrollment.paymentStatus === 'completed' ? '💳 Paid' : 
-                                                         enrollment.paymentStatus === 'pending' ? '⏳ Payment Pending' : 
-                                                         '❌ Payment Failed'}
+                                                {enrollment.sessions && enrollment.sessions.length > 0 ? (
+                                                    <>
+                                                        {isProgramCompleted(enrollment.sessions, user?._id) ? (
+                                                            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                                                                🎓 Completed
+                                                            </span>
+                                                        ) : (
+                                                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                                                                enrollment.status === 'active' 
+                                                                    ? 'bg-green-100 text-green-800' 
+                                                                    : enrollment.status === 'pending'
+                                                                    ? 'bg-yellow-100 text-yellow-800'
+                                                                    : enrollment.status === 'cancelled'
+                                                                    ? 'bg-red-100 text-red-800'
+                                                                    : 'bg-gray-100 text-gray-800'
+                                                            }`}>
+                                                                {enrollment.status === 'active' ? '✅ Active' : 
+                                                                 enrollment.status === 'pending' ? '⏳ Pending' : 
+                                                                 enrollment.status === 'cancelled' ? '❌ Cancelled' :
+                                                                 '📋 ' + enrollment.status}
+                                                            </span>
+                                                        )}
+                                                        <div className="mt-2">
+                                                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                                                enrollment.paymentStatus === 'completed' 
+                                                                    ? 'bg-green-100 text-green-800' 
+                                                                    : enrollment.paymentStatus === 'pending'
+                                                                    ? 'bg-yellow-100 text-yellow-800'
+                                                                    : 'bg-red-100 text-red-800'
+                                                            }`}>
+                                                                {enrollment.paymentStatus === 'completed' ? '💳 Paid' : 
+                                                                 enrollment.paymentStatus === 'pending' ? '⏳ Payment Pending' : 
+                                                                 '❌ Payment Failed'}
+                                                            </span>
+                                                        </div>
+                                                    </>
+                                                ) : (
+                                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
+                                                        No Sessions Yet
                                                     </span>
-                                                </div>
+                                                )}
                                             </div>
                                         </div>
 
-                                        
+                                        {/* Attendance Progress */}
+                                        {enrollment.sessions && enrollment.sessions.length > 0 && (
+                                            <div className="mb-4">
+                                                <div className="flex justify-between text-sm text-gray-600 mb-1">
+                                                    <span>Progress</span>
+                                                    <span>
+                                                        {calculateAttendancePercentage(enrollment.sessions, user?._id).attendedSessions} / 
+                                                        {calculateAttendancePercentage(enrollment.sessions, user?._id).totalSessions} 
+                                                        sessions ({calculateAttendancePercentage(enrollment.sessions, user?._id).percentage}%)
+                                                    </span>
+                                                </div>
+                                                <div className="w-full bg-gray-200 rounded-full h-2.5">
+                                                    <div 
+                                                        className="bg-green-600 h-2.5 rounded-full" 
+                                                        style={{ 
+                                                            width: `${calculateAttendancePercentage(enrollment.sessions, user?._id).percentage}%`,
+                                                            maxWidth: '100%' 
+                                                        }}
+                                                    ></div>
+                                                </div>
+                                                {isProgramCompleted(enrollment.sessions, user?._id) && (
+                                                    <p className="text-sm text-green-600 mt-1 font-medium">
+                                                        🎉 Congratulations! You've completed this program!
+                                                    </p>
+                                                )}
+                                            </div>
+                                        )}
 
                                         {/* Program Details */}
                                         {enrollment.program?.description && (
@@ -482,8 +561,6 @@ export default function Profile() {
 
                                         {/* Action Buttons */}
                                         <div className="flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
-                                            
-                                            
                                             {enrollment.status === 'pending' && enrollment.paymentStatus === 'pending' && (
                                                 <button
                                                     onClick={() => navigate('/payment', { 
@@ -499,20 +576,16 @@ export default function Profile() {
                                                     💳 Complete Payment
                                                 </button>
                                             )}
-
-                                           
                                         </div>
 
                                         {/* Certificate Download Section - Always show for active/completed enrollments */}
-                                        {(enrollment.status === 'completed' || enrollment.status === 'active') && (
+                                        {(enrollment.status === 'completed' || enrollment.status === 'active' || isProgramCompleted(enrollment.sessions || [], user?._id)) && (
                                             <div className="mt-4">
-                                                {console.log('Rendering CertificateDownload for enrollment:', enrollment._id, 'status:', enrollment.status)}
                                                 <CertificateDownload 
                                                     enrollmentId={enrollment._id}
-                                                    enrollmentStatus={enrollment.status}
+                                                    enrollmentStatus={isProgramCompleted(enrollment.sessions || [], user?._id) ? 'completed' : enrollment.status}
                                                     onCertificateGenerated={(certificate) => {
-                                                        console.log('Certificate generated:', certificate);
-                                                        // Optionally refresh enrollments data
+                                                        // Refresh enrollments to show updated status
                                                         fetchEnrollments();
                                                     }}
                                                 />
