@@ -26,8 +26,26 @@ const sendWelcomeEmail = async (email, username) => {
     const mailOptions = {
       from: process.env.EMAIL_USER, // Send from your main email
       to: email,
-      subject: 'Welcome to CricketExpert!',
-      html: `<h1>Hi ${username},</h1><p>Welcome to the team! We're glad to have you on board.</p>`,
+      subject: 'Welcome to CricketExpert – Let’s Get Started!',
+      html: `
+        <h1 style="color:#1a73e8;">Hi ${username},</h1>
+        <p>Welcome to <strong>CricketExpert</strong> – your ultimate destination for top-quality cricket gear and expert services!</p>
+
+        <p>We’re thrilled to have you as part of our cricket-loving community. Whether you’re a professional player, a weekend enthusiast, or just starting your journey, we’re here to help you find the perfect equipment and expert guidance to elevate your game.</p>
+
+        <h3>Here’s what you can do next:</h3>
+        <ul>
+          <li>🏏 Explore our latest collection of bats, pads, and gloves.</li>
+          <li>💬 Connect with certified coaches and service providers.</li>
+          <li>🛒 Enjoy secure shopping and exclusive member discounts.</li>
+        </ul>
+
+        <p>If you ever need assistance, our support team is just a message away – always ready to help you with your cricket journey.</p>
+
+        <p>Thank you for joining CricketExpert – where passion meets performance!</p>
+
+        <p style="margin-top:20px;">Best Regards,<br><strong>The CricketExpert Team</strong></p>
+      `,
     };
     const info = await transporter.sendMail(mailOptions);
     console.log(`Welcome email sent to ${email}: ${info.response}`);
@@ -37,6 +55,7 @@ const sendWelcomeEmail = async (email, username) => {
     return false;
   }
 };
+
 
 // --- Function 2: New User Notification for Manager ---
 // This function sends an alert to the service manager
