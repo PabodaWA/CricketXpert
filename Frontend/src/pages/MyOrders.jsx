@@ -260,14 +260,6 @@ const MyOrders = () => {
                             >
                               Download
                             </button>
-                            {order.status !== 'cancelled' && order.status !== 'completed' && order.status !== 'delayed' && (
-                              <button 
-                                onClick={() => handleCancelOrder(order._id)}
-                                className="block w-full mt-2 border border-[#dc3545] text-[#dc3545] px-4 py-2 rounded text-sm hover:bg-[#dc3545] hover:text-white transition-colors"
-                              >
-                                Cancel Order
-                              </button>
-                            )}
                           </div>
                         </div>
                       </div>
