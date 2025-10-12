@@ -22,20 +22,27 @@ transporter.verify(function(error, success) {
 
 // --- Function 1: Welcome Email ---
 const sendWelcomeEmail = async (email, username) => {
-  const mailOptions = {
-    from: process.env.EMAIL_USER, // Send from your main email
-    to: email,
-    subject: 'Welcome to CricketExpert!',
-    html: `<h1>Hi ${username},</h1><p>Welcome to the team! We're glad to have you on board.</p>`,
-  };
-  const info = await transporter.sendMail(mailOptions);
-  console.log(`Welcome email sent to ${email}: ${info.response}`);
+  try {
+    const mailOptions = {
+      from: process.env.EMAIL_USER, // Send from your main email
+      to: email,
+      subject: 'Welcome to CricketExpert!',
+      html: `<h1>Hi ${username},</h1><p>Welcome to the team! We're glad to have you on board.</p>`,
+    };
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`Welcome email sent to ${email}: ${info.response}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to send welcome email:', error);
+    return false;
+  }
 };
 
 // --- Function 2: New User Notification for Manager ---
 // This function sends an alert to the service manager
 const sendNewUserNotification = async (newUser) => {
-    const mailOptions = {
+    try {
+        const mailOptions = {
         from: process.env.EMAIL_USER,
         to: process.env.SERVICE_MANAGER_EMAIL, // Sends to the manager's email
         subject: 'New User Registration',
@@ -49,15 +56,21 @@ const sendNewUserNotification = async (newUser) => {
                 <li><strong>Registered At:</strong> ${new Date(newUser.createdAt).toLocaleString()}</li>
             </ul>
         `,
-    };
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`New user notification sent to service manager: ${info.response}`);
+        };
+        const info = await transporter.sendMail(mailOptions);
+        console.log(`New user notification sent to service manager: ${info.response}`);
+        return true;
+    } catch (error) {
+        console.error('❌ Failed to send new user notification:', error);
+        return false;
+    }
 };
 
 
 // --- Function 3: Password Reset Code Email ---
 const sendPasswordResetCodeEmail = async (email, code) => {
-  const mailOptions = {
+  try {
+    const mailOptions = {
     from: process.env.EMAIL_USER,
     to: email,
     subject: 'Your Password Reset Code',
@@ -68,14 +81,20 @@ const sendPasswordResetCodeEmail = async (email, code) => {
       <p>This code will expire in 10 minutes.</p>
       <p>If you did not request this, please ignore this email.</p>
     `,
-  };
-  await transporter.sendMail(mailOptions);
-  console.log(`Password reset code sent to ${email}`);
+    };
+    await transporter.sendMail(mailOptions);
+    console.log(`Password reset code sent to ${email}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to send password reset code email:', error);
+    return false;
+  }
 };
 
 // --- Function 4: Email Verification Code ---
 const sendEmailVerificationCode = async (email, code) => {
-  const mailOptions = {
+  try {
+    const mailOptions = {
     from: process.env.EMAIL_USER,
     to: email,
     subject: 'Email Verification Code',
@@ -86,14 +105,20 @@ const sendEmailVerificationCode = async (email, code) => {
       <p>This code will expire in 10 minutes.</p>
       <p>If you did not create an account, please ignore this email.</p>
     `,
-  };
-  await transporter.sendMail(mailOptions);
-  console.log(`Email verification code sent to ${email}`);
+    };
+    await transporter.sendMail(mailOptions);
+    console.log(`Email verification code sent to ${email}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to send email verification code:', error);
+    return false;
+  }
 };
 
 // --- Function 5: Low Stock Alert Email ---
 const sendLowStockAlert = async (product) => {
-  const mailOptions = {
+  try {
+    const mailOptions = {
     from: process.env.EMAIL_USER,
     to: process.env.SERVICE_MANAGER_EMAIL, // Send to admin/manager
     subject: `🚨 LOW STOCK ALERT: ${product.name}`,
@@ -123,13 +148,14 @@ const sendLowStockAlert = async (product) => {
         </p>
       </div>
     `,
-  };
-  
-  try {
+    };
+    
     const info = await transporter.sendMail(mailOptions);
     console.log(`📧 Low stock alert email sent to admin for ${product.name}: ${info.response}`);
+    return true;
   } catch (error) {
     console.error('❌ Failed to send low stock alert email:', error);
+    return false;
   }
 };
 
@@ -341,8 +367,7 @@ const sendSupplierOrderEmail = async (product, quantity, supplierEmail) => {
   } catch (error) {
     console.error('❌ Failed to send supplier order email:', error);
     return false;
-
-      }
+  }
 };
 
 // --- Function 9: Certificate Email ---
@@ -394,6 +419,91 @@ const sendCertificateEmail = async (email, fullName, programTitle, certificateNu
   }
 };
 
+// --- Function 10: Attendance Notification Email ---
+const sendAttendanceNotificationEmail = async (customer, session, attendanceStatus, coachName) => {
+  try {
+    console.log('📧 Starting to send attendance notification email...');
+    
+    if (!customer.email) {
+      console.log('⚠️ Customer email not found, skipping attendance notification email');
+      return false;
+    }
+
+    const statusEmoji = attendanceStatus === 'present' ? '✅' : '❌';
+    const statusColor = attendanceStatus === 'present' ? '#28a745' : '#dc3545';
+    const statusText = attendanceStatus === 'present' ? 'Present' : 'Absent';
+    
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: customer.email,
+      subject: `${statusEmoji} Attendance Marked - ${session.title}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #42ADF5;">${statusEmoji} Attendance Update - CricketExpert</h2>
+          <p>Dear ${customer.firstName || 'Customer'},</p>
+          <p><strong>Your attendance has been marked for the coaching session.</strong></p>
+          
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #072679; margin-top: 0;">Session Details</h3>
+            <p><strong>Session:</strong> ${session.title}</p>
+            <p><strong>Date:</strong> ${new Date(session.scheduledDate).toLocaleDateString()}</p>
+            <p><strong>Time:</strong> ${session.startTime} - ${session.endTime}</p>
+            <p><strong>Coach:</strong> ${coachName || 'Your Coach'}</p>
+            ${session.description ? `<p><strong>Description:</strong> ${session.description}</p>` : ''}
+          </div>
+
+          <div style="background-color: ${attendanceStatus === 'present' ? '#d4edda' : '#f8d7da'}; border: 1px solid ${attendanceStatus === 'present' ? '#c3e6cb' : '#f5c6cb'}; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="margin-top: 0; color: ${statusColor};">Attendance Status: ${statusText}</h3>
+            <p style="color: ${statusColor}; margin: 0; font-size: 18px; font-weight: bold;">
+              ${attendanceStatus === 'present' ? 
+                'Great job! You were marked as present for this session.' : 
+                'You were marked as absent for this session. Please contact your coach if this is incorrect.'
+              }
+            </p>
+          </div>
+
+          ${attendanceStatus === 'present' ? 
+            `<div style="background-color: #d1ecf1; border: 1px solid #bee5eb; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="margin-top: 0; color: #0c5460;">Keep Up the Great Work!</h3>
+              <p style="color: #0c5460; margin: 0;">Your consistent attendance is helping you improve your cricket skills. Continue attending sessions to maximize your progress!</p>
+            </div>` :
+            `<div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="margin-top: 0; color: #856404;">Missed Session</h3>
+              <p style="color: #856404; margin: 0;">If you missed this session due to an emergency or scheduling conflict, please contact your coach to discuss make-up options or rescheduling.</p>
+            </div>`
+          }
+          
+          <div style="background-color: #e2e3e5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #072679; margin-top: 0;">Next Steps</h3>
+            <ul style="color: #072679;">
+              <li>Check your dashboard for session updates and materials</li>
+              <li>Review any homework or practice assignments</li>
+              <li>Prepare for your next coaching session</li>
+              ${attendanceStatus === 'absent' ? '<li>Contact your coach if you need to reschedule or have questions</li>' : ''}
+            </ul>
+          </div>
+          
+          <p>If you have any questions about your attendance or the session, please don't hesitate to contact your coach or our support team.</p>
+          <p>Thank you for being part of CricketExpert!</p>
+          
+          <hr style="margin: 30px 0;">
+          <p style="color: #6c757d; font-size: 12px;">
+            This is an automated attendance notification from CricketExpert Coaching System.<br>
+            Generated on: ${new Date().toLocaleString()}
+          </p>
+        </div>
+      `,
+    };
+    
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`📧 Attendance notification email sent to customer ${customer.email}: ${info.response}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to send attendance notification email:', error);
+    return false;
+  }
+};
+
 export {
   sendWelcomeEmail,
   sendNewUserNotification,
@@ -403,5 +513,6 @@ export {
   sendOrderConfirmationEmail,
   sendOrderManagerNotificationEmail,
   sendSupplierOrderEmail,
-  sendCertificateEmail
+  sendCertificateEmail,
+  sendAttendanceNotificationEmail
 }
