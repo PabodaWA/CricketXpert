@@ -1114,10 +1114,7 @@ export default function EnrollmentDetails() {
                     <span className="text-sm text-gray-600">Sessions Attended</span>
                     <span className="font-medium text-green-600">{attendedSessions}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Sessions Completed</span>
-                    <span className="font-medium text-gray-900">{completedSessions}</span>
-                  </div>
+               
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Attendance Rate</span>
                     <span className="font-medium text-blue-600">{progressPercentage.toFixed(1)}%</span>
