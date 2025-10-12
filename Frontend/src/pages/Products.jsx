@@ -486,11 +486,11 @@ const Products = () => {
                       className="relative cursor-pointer overflow-hidden"
                     onClick={() => openImageModal(product.image_url || 'https://placehold.co/600x500', product.name)}
                   >
-                      <div className="aspect-w-4 aspect-h-3 bg-blue-100">
+                      <div className="aspect-w-4 aspect-h-3 bg-blue-100 relative">
                     <img
                       src={product.image_url || 'https://placehold.co/600x500'}
                       alt={product.name}
-                          className="w-full h-64 object-contain group-hover:scale-110 transition-transform duration-500"
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                       onError={(e) => {
                         console.error(`Product image failed for: ${product.name}`);
                         e.target.src = 'https://placehold.co/300x200';
@@ -617,11 +617,11 @@ const Products = () => {
             {/* Image Container */}
             <div className="p-8 bg-gray-50">
               <div className="flex justify-center items-center min-h-[60vh]">
-                <div className="relative group">
+                <div className="relative group max-w-full max-h-[60vh]">
                 <img
                   src={selectedImage.url}
                   alt={selectedImage.name}
-                    className="max-w-full max-h-[60vh] object-contain rounded-2xl shadow-lg group-hover:shadow-2xl transition-shadow duration-300"
+                    className="w-full h-full object-contain rounded-2xl shadow-lg group-hover:shadow-2xl transition-shadow duration-300"
                   onError={(e) => {
                     e.target.src = 'https://placehold.co/600x400?text=Image+Not+Available';
                   }}

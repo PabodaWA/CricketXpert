@@ -401,14 +401,16 @@ const Inventory = () => {
               >
                 {/* Product Image */}
                 <div className="mb-4">
-                  <img
-                    src={product.image_url || '/placeholder-image.jpg'}
-                    alt={product.name}
-                    className="w-full h-32 object-cover rounded-lg"
-                    onError={(e) => {
-                      e.target.src = '/placeholder-image.jpg';
-                    }}
-                  />
+                  <div className="aspect-w-4 aspect-h-3 relative bg-gray-100 rounded-lg overflow-hidden">
+                    <img
+                      src={product.image_url || '/placeholder-image.jpg'}
+                      alt={product.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.src = '/placeholder-image.jpg';
+                      }}
+                    />
+                  </div>
                 </div>
 
                 {/* Product Info */}

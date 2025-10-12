@@ -145,14 +145,16 @@ const BuyPage = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Product Image */}
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            <img
-              src={product.image_url || 'https://placehold.co/600x500'}
-              alt={product.name}
-              className="w-full h-96 object-cover"
-              onError={(e) => {
-                e.target.src = 'https://placehold.co/600x500';
-              }}
-            />
+            <div className="aspect-w-4 aspect-h-3 relative">
+              <img
+                src={product.image_url || 'https://placehold.co/600x500'}
+                alt={product.name}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.target.src = 'https://placehold.co/600x500';
+                }}
+              />
+            </div>
           </div>
 
           {/* Product Details */}
