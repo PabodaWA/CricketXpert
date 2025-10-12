@@ -541,10 +541,8 @@ export default function ProgramDetails() {
                       <span className="text-lg">ℹ️</span>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-blue-800">Pre-filled Information</p>
-                      <p className="text-sm text-blue-700">
-                        Your profile information has been automatically filled in. You can modify these fields if needed, but please complete the remaining required fields.
-                      </p>
+                      <p className="text-sm font-medium text-blue-800">Please Fill All the Details</p>
+                    
                     </div>
                   </div>
                 </div>
@@ -552,25 +550,26 @@ export default function ProgramDetails() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      First Name * <span className="text-green-600 text-xs">(Pre-filled from profile)</span>
+                      First Name * 
                     </label>
                     <input
                       type="text"
                       value={enrollmentData.firstName}
                       onChange={(e) => handleInputChange('firstName', e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-green-50"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     />
+                    
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Last Name * <span className="text-green-600 text-xs">(Pre-filled from profile)</span>
+                      Last Name * 
                     </label>
                     <input
                       type="text"
                       value={enrollmentData.lastName}
                       onChange={(e) => handleInputChange('lastName', e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-green-50"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 "
                       required
                     />
                   </div>
@@ -730,7 +729,7 @@ export default function ProgramDetails() {
                 <button
                   onClick={() => {
                     setShowEnrollmentErrorModal(false);
-                    navigate('/customer/profile');
+                    navigate('/programs');
                   }}
                   className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >

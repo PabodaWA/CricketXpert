@@ -1118,7 +1118,7 @@ const CoachDashboard = () => {
                   <div className="flex items-center">
                     <Users className="h-8 w-8 text-green-600" />
                     <div className="ml-3">
-                      <p className="text-sm font-medium text-gray-500">Total Students</p>
+                      <p className="text-sm font-medium text-gray-500">Total Customers</p>
                       <p className="text-2xl font-bold text-green-600">{customers.length}</p>
                     </div>
                   </div>
@@ -1574,18 +1574,8 @@ const ProgramCard = ({ program, coach, onViewSessions }) => {
           </div>
         </div>
       </div>
+
       
-      <div className="flex items-center justify-end space-x-2 mt-4 pt-4 border-t border-gray-100">
-        <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
-          <Edit className="h-4 w-4" />
-        </button>
-        <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
-          <Upload className="h-4 w-4" />
-        </button>
-        <button className="p-2 text-gray-400 hover:text-red-600 transition-colors">
-          <Trash2 className="h-4 w-4" />
-        </button>
-      </div>
     </div>
   );
 };
@@ -2501,7 +2491,7 @@ const CoachProfileCard = ({ coach, enrolledPrograms, sessions }) => {
           <div className="flex items-center">
             <Users className="h-8 w-8 text-green-600" />
             <div className="ml-3">
-              <p className="text-sm font-medium text-gray-500">Total Students</p>
+              <p className="text-sm font-medium text-gray-500">Total Customers</p>
               <p className="text-2xl font-bold text-green-600">{enrolledPrograms.length}</p>
             </div>
           </div>
@@ -3462,35 +3452,7 @@ const CustomerDetailsModal = ({ customer, enrollment, onClose }) => {
             </div>
           </div>
 
-          {/* Program Details */}
-          {enrollment && enrollment.program && (
-            <div className="bg-indigo-50 rounded-lg p-4">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <BookOpen className="h-5 w-5 mr-2" />
-                Program Details
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Program ID</label>
-                  <p className="text-gray-900 text-xs font-mono">{enrollment.program._id}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Created Date</label>
-                  <p className="text-gray-900">
-                    {enrollment.program.createdAt ? new Date(enrollment.program.createdAt).toLocaleDateString() : 'Not available'}
-                  </p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Max Participants</label>
-                  <p className="text-gray-900">{enrollment.program.maxParticipants || 'Not specified'}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Current Enrollments</label>
-                  <p className="text-gray-900">{enrollment.program.currentEnrollments || 0}</p>
-                </div>
-              </div>
-            </div>
-          )}
+         
         </div>
 
         {/* Close Button */}

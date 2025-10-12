@@ -14,12 +14,7 @@ export const generateSessionDetailsPDF = async (session, enrollment, user) => {
       const doc = new PDFDocument({
         size: 'A4',
         layout: 'portrait',
-        margins: {
-          top: 50,
-          bottom: 50,
-          left: 50,
-          right: 50
-        }
+        margins: { top: 50, bottom: 50, left: 50, right: 50 },
       });
 
       const buffers = [];
@@ -29,76 +24,71 @@ export const generateSessionDetailsPDF = async (session, enrollment, user) => {
         resolve(pdfBuffer);
       });
 
-      // Set up fonts and colors
+      // Colors
       const primaryColor = '#1a365d';
       const secondaryColor = '#2d3748';
-      const accentColor = '#3182ce';
-      const successColor = '#38a169';
       const warningColor = '#d69e2e';
-      const dangerColor = '#e53e3e';
+
+      // 🟡 Define attendance status (fixed)
+      const attendanceStatus = (() => {
+        if (session.attendance === 'present') {
+          return { status: 'Present', color: '#38a169' };
+        } else if (session.attendance === 'absent') {
+          return { status: 'Absent', color: '#e53e3e' };
+        } else {
+          return { status: 'Not Marked', color: '#718096' };
+        }
+      })();
 
       // Header
       doc.fontSize(24)
-         .fillColor(primaryColor)
-         .text('Session Details Report', 50, 50, {
-           align: 'center',
-           width: doc.page.width - 100
-         });
+        .fillColor(primaryColor)
+        .text('Session Details Report', 50, 50, { align: 'center', width: doc.page.width - 100 });
 
-      // Organization name
       doc.fontSize(14)
-         .fillColor(secondaryColor)
-         .text('CricketXpert Coaching Academy', 50, 80, {
-           align: 'center',
-           width: doc.page.width - 100
-         });
+        .fillColor(secondaryColor)
+        .text('CricketXpert Coaching Academy', 50, 80, { align: 'center', width: doc.page.width - 100 });
 
-      // Date generated
       doc.fontSize(10)
-         .fillColor(secondaryColor)
-         .text(`Generated on: ${new Date().toLocaleDateString('en-US', {
-           weekday: 'long',
-           year: 'numeric',
-           month: 'long',
-           day: 'numeric'
-         })}`, 50, 100, {
-           align: 'center',
-           width: doc.page.width - 100
-         });
+        .fillColor(secondaryColor)
+        .text(`Generated on: ${new Date().toLocaleDateString('en-US', {
+          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+        })}`, 50, 100, { align: 'center', width: doc.page.width - 100 });
 
       let currentY = 140;
 
-      // Session Information Section
-      doc.fontSize(16)
-         .fillColor(primaryColor)
-         .text('Session Information', 50, currentY);
-      
+      // Session Info
+      doc.fontSize(16).fillColor(primaryColor).text('Session Information', 50, currentY);
       currentY += 30;
 
-      // Session details in a structured format
       const sessionInfo = [
         { label: 'Session Number', value: `Session ${session.sessionNumber || 'N/A'}` },
         { label: 'Status', value: session.status || 'N/A' },
-        { label: 'Date', value: session.scheduledDate ? new Date(session.scheduledDate).toLocaleDateString('en-US', {
-          weekday: 'long',
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        }) : 'Date TBD' },
+        {
+          label: 'Date',
+          value: session.scheduledDate
+            ? new Date(session.scheduledDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+            : 'Date TBD'
+        },
         { label: 'Time', value: session.startTime || session.scheduledTime || 'Time TBD' },
         { label: 'Duration', value: `${session.duration || 120} minutes` },
-        { label: 'Week', value: `Week ${session.week || session.sessionNumber || 'N/A'}` }
+        { label: 'Week', value: `Week ${session.week || session.sessionNumber || 'N/A'}` },
+        { label: 'Attendance', value: attendanceStatus.status, color: attendanceStatus.color }
       ];
 
-      sessionInfo.forEach((info, index) => {
-        doc.fontSize(12)
-           .fillColor(secondaryColor)
-           .text(`${info.label}:`, 60, currentY);
-        
-        doc.fontSize(12)
-           .fillColor(primaryColor)
-           .text(info.value, 200, currentY);
-        
+      sessionInfo.forEach((info) => {
+        doc.fontSize(12).fillColor(secondaryColor).text(`${info.label}:`, 60, currentY);
+
+        if (info.label === 'Attendance') {
+          const textWidth = doc.widthOfString(info.value);
+          const padding = 6;
+          doc.roundedRect(198, currentY - 5, textWidth + padding * 2, 18, 6)
+            .fill(info.color + '20');
+          doc.fontSize(12).fillColor(info.color).text(info.value, 200 + padding, currentY);
+        } else {
+          doc.fontSize(12).fillColor(primaryColor).text(info.value, 200, currentY);
+        }
+
         currentY += 20;
       });
 
@@ -106,83 +96,54 @@ export const generateSessionDetailsPDF = async (session, enrollment, user) => {
 
       // Ground Information Section (if available)
       if (session.ground) {
-        doc.fontSize(16)
-           .fillColor(primaryColor)
-           .text('Ground Information', 50, currentY);
-        
+        doc.fontSize(16).fillColor(primaryColor).text('Ground Information', 50, currentY);
         currentY += 30;
 
         const groundInfo = [
           { label: 'Ground Name', value: session.ground.name || 'N/A' },
           { label: 'Location', value: session.ground.location || 'N/A' },
-          { label: 'Ground Slot', value: `Slot ${session.groundSlot || 'N/A'}` }
+          { label: 'Ground Slot', value: `Slot ${session.groundSlot || 'N/A'}` },
         ];
 
         if (session.ground.facilities) {
-          groundInfo.push({ 
-            label: 'Facilities', 
-            value: session.ground.facilities.join(', ') 
-          });
+          groundInfo.push({ label: 'Facilities', value: session.ground.facilities.join(', ') });
         }
 
         groundInfo.forEach((info) => {
-          doc.fontSize(12)
-             .fillColor(secondaryColor)
-             .text(`${info.label}:`, 60, currentY);
-          
-          doc.fontSize(12)
-             .fillColor(primaryColor)
-             .text(info.value, 200, currentY);
-          
+          doc.fontSize(12).fillColor(secondaryColor).text(`${info.label}:`, 60, currentY);
+          doc.fontSize(12).fillColor(primaryColor).text(info.value, 200, currentY);
           currentY += 20;
         });
 
         currentY += 20;
       }
 
-      // Reschedule Information Section (if rescheduled)
+      // Reschedule Information
       if (session.rescheduled) {
-        doc.fontSize(16)
-           .fillColor(warningColor)
-           .text('Reschedule Information', 50, currentY);
-        
+        doc.fontSize(16).fillColor(warningColor).text('Reschedule Information', 50, currentY);
         currentY += 30;
 
-        doc.fontSize(12)
-           .fillColor(secondaryColor)
-           .text('Rescheduled on:', 60, currentY);
-        
-        doc.fontSize(12)
-           .fillColor(primaryColor)
-           .text(session.rescheduledAt ? new Date(session.rescheduledAt).toLocaleDateString() : 'Unknown', 200, currentY);
-        
+        doc.fontSize(12).fillColor(secondaryColor).text('Rescheduled on:', 60, currentY);
+        doc.fontSize(12).fillColor(primaryColor)
+          .text(session.rescheduledAt ? new Date(session.rescheduledAt).toLocaleDateString() : 'Unknown', 200, currentY);
         currentY += 20;
 
         if (session.rescheduledFrom) {
-          doc.fontSize(12)
-             .fillColor(secondaryColor)
-             .text('Previous Schedule:', 60, currentY);
-          
+          doc.fontSize(12).fillColor(secondaryColor).text('Previous Schedule:', 60, currentY);
           currentY += 20;
 
-          doc.fontSize(11)
-             .fillColor(secondaryColor)
-             .text(`Date: ${new Date(session.rescheduledFrom.date).toLocaleDateString()}`, 80, currentY);
-          
+          doc.fontSize(11).fillColor(secondaryColor)
+            .text(`Date: ${new Date(session.rescheduledFrom.date).toLocaleDateString()}`, 80, currentY);
           currentY += 15;
 
           if (session.rescheduledFrom.time) {
-            doc.fontSize(11)
-               .fillColor(secondaryColor)
-               .text(`Time: ${session.rescheduledFrom.time}`, 80, currentY);
-            
+            doc.fontSize(11).fillColor(secondaryColor)
+              .text(`Time: ${session.rescheduledFrom.time}`, 80, currentY);
             currentY += 15;
           }
 
-          doc.fontSize(11)
-             .fillColor(secondaryColor)
-             .text(`Ground Slot: ${session.rescheduledFrom.groundSlot}`, 80, currentY);
-          
+          doc.fontSize(11).fillColor(secondaryColor)
+            .text(`Ground Slot: ${session.rescheduledFrom.groundSlot}`, 80, currentY);
           currentY += 20;
         }
 
@@ -191,194 +152,60 @@ export const generateSessionDetailsPDF = async (session, enrollment, user) => {
 
       // Session Notes Section (if available)
       if (session.notes) {
-        doc.fontSize(16)
-           .fillColor(primaryColor)
-           .text('Session Notes', 50, currentY);
-        
+        doc.fontSize(16).fillColor(primaryColor).text('Session Notes', 50, currentY);
         currentY += 30;
 
-        doc.fontSize(12)
-           .fillColor(secondaryColor)
-           .text(session.notes, 60, currentY, {
-             width: doc.page.width - 120
-           });
-        
+        doc.fontSize(12).fillColor(secondaryColor).text(session.notes, 60, currentY, {
+          width: doc.page.width - 120,
+        });
+
         currentY += 40;
       }
 
-      // Attendance Information Section
-      if (session.participants && session.participants.length > 0) {
-        doc.fontSize(16)
-           .fillColor(primaryColor)
-           .text('Attendance Information', 50, currentY);
-        
-        currentY += 30;
-
-        const participant = session.participants.find(p => 
-          p.user && p.user._id === user._id
-        );
-
-        if (participant) {
-          const attendanceStatus = participant.attendanceStatus;
-          const userAttendance = participant.attendance || (participant.attended !== undefined ? {
-            attended: participant.attended,
-            status: participant.attended ? 'present' : 'absent',
-            attendanceMarkedAt: participant.attendanceMarkedAt,
-            performance: participant.performance,
-            remarks: participant.remarks
-          } : null);
-
-          if (attendanceStatus === 'present' || attendanceStatus === 'absent') {
-            doc.fontSize(12)
-               .fillColor(secondaryColor)
-               .text('Status:', 60, currentY);
-            
-            doc.fontSize(12)
-               .fillColor(attendanceStatus === 'present' ? successColor : dangerColor)
-               .text(attendanceStatus === 'present' ? 'Present' : 'Absent', 200, currentY);
-            
-            currentY += 20;
-
-            if (userAttendance.attendanceMarkedAt) {
-              doc.fontSize(12)
-                 .fillColor(secondaryColor)
-                 .text('Marked On:', 60, currentY);
-              
-              doc.fontSize(12)
-                 .fillColor(primaryColor)
-                 .text(new Date(userAttendance.attendanceMarkedAt).toLocaleString(), 200, currentY);
-              
-              currentY += 20;
-            }
-
-            if (userAttendance.performance) {
-              doc.fontSize(12)
-                 .fillColor(secondaryColor)
-                 .text('Performance Rating:', 60, currentY);
-              
-              doc.fontSize(12)
-                 .fillColor(primaryColor)
-                 .text(`${userAttendance.performance.rating}/5`, 200, currentY);
-              
-              currentY += 20;
-
-              if (userAttendance.performance.notes) {
-                doc.fontSize(12)
-                   .fillColor(secondaryColor)
-                   .text('Performance Notes:', 60, currentY);
-                
-                currentY += 20;
-
-                doc.fontSize(11)
-                   .fillColor(primaryColor)
-                   .text(userAttendance.performance.notes, 80, currentY, {
-                     width: doc.page.width - 140
-                   });
-                
-                currentY += 30;
-              }
-            }
-
-            if (userAttendance.remarks) {
-              doc.fontSize(12)
-                 .fillColor(secondaryColor)
-                 .text('Coach Remarks:', 60, currentY);
-              
-              currentY += 20;
-
-              doc.fontSize(11)
-                 .fillColor(primaryColor)
-                 .text(userAttendance.remarks, 80, currentY, {
-                   width: doc.page.width - 140
-                 });
-              
-              currentY += 30;
-            }
-          } else if (attendanceStatus === 'not_marked') {
-            doc.fontSize(12)
-               .fillColor(secondaryColor)
-               .text('Status:', 60, currentY);
-            
-            doc.fontSize(12)
-               .fillColor(warningColor)
-               .text('Not Marked', 200, currentY);
-            
-            currentY += 20;
-
-            doc.fontSize(11)
-               .fillColor(secondaryColor)
-               .text('Coach has not marked attendance for this session yet.', 60, currentY);
-            
-            currentY += 30;
-          }
-        }
-
-        currentY += 20;
-      }
-
-      // Get coach name from the populated coach data (moved outside sections)
+      // Coach Name
       let coachName = 'N/A';
-      
-      // Try to get coach name from enrollment program
-      if (enrollment && enrollment.program && enrollment.program.coach && enrollment.program.coach.userId) {
-        const coachUser = enrollment.program.coach.userId;
-        coachName = `${coachUser.firstName || ''} ${coachUser.lastName || ''}`.trim() || 'N/A';
-      }
-      // Fallback: try to get coach name from session program
-      else if (session.program && session.program.coach && session.program.coach.userId) {
-        const coachUser = session.program.coach.userId;
-        coachName = `${coachUser.firstName || ''} ${coachUser.lastName || ''}`.trim() || 'N/A';
+      if (enrollment?.program?.coach?.userId) {
+        const c = enrollment.program.coach.userId;
+        coachName = `${c.firstName || ''} ${c.lastName || ''}`.trim() || 'N/A';
+      } else if (session?.program?.coach?.userId) {
+        const c = session.program.coach.userId;
+        coachName = `${c.firstName || ''} ${c.lastName || ''}`.trim() || 'N/A';
       }
 
-      // Program Information Section
-      if (enrollment && enrollment.program) {
-        doc.fontSize(16)
-           .fillColor(primaryColor)
-           .text('Program Information', 50, currentY);
-        
+      // Program Information
+      if (enrollment?.program) {
+        doc.fontSize(16).fillColor(primaryColor).text('Program Information', 50, currentY);
         currentY += 30;
 
         const programInfo = [
           { label: 'Program Name', value: enrollment.program.title || 'N/A' },
           { label: 'Coach', value: coachName },
-          { label: 'Enrollment Date', value: enrollment.enrollmentDate ? 
-            new Date(enrollment.enrollmentDate).toLocaleDateString() : 'N/A' }
+          { label: 'Enrollment Date', value: enrollment.enrollmentDate ? new Date(enrollment.enrollmentDate).toLocaleDateString() : 'N/A' },
         ];
 
         programInfo.forEach((info) => {
-          doc.fontSize(12)
-             .fillColor(secondaryColor)
-             .text(`${info.label}:`, 60, currentY);
-          
-          doc.fontSize(12)
-             .fillColor(primaryColor)
-             .text(info.value, 200, currentY);
-          
+          doc.fontSize(12).fillColor(secondaryColor).text(`${info.label}:`, 60, currentY);
+          doc.fontSize(12).fillColor(primaryColor).text(info.value, 200, currentY);
           currentY += 20;
         });
 
         currentY += 20;
       }
 
-
       // Footer
       const footerY = doc.page.height - 80;
-      
       doc.fontSize(10)
-         .fillColor(secondaryColor)
-         .text('© 2024 CricketXpert Coaching Academy. All rights reserved.', 50, footerY, {
-           align: 'center',
-           width: doc.page.width - 100
-         });
+        .fillColor(secondaryColor)
+        .text('© 2024 CricketXpert Coaching Academy. All rights reserved.', 50, footerY, {
+          align: 'center',
+          width: doc.page.width - 100,
+        });
 
-      // Session ID for reference
       doc.fontSize(8)
-         .fillColor(secondaryColor)
-         .text(`Session ID: ${session._id}`, 50, footerY + 20);
+        .fillColor(secondaryColor)
+        .text(`Session ID: ${session._id}`, 50, footerY + 20);
 
-      // Finalize the PDF
       doc.end();
-
     } catch (error) {
       reject(error);
     }

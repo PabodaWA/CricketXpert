@@ -7,6 +7,8 @@ import CoachAvailability from '../components/CoachAvailability';
 import WeeklySessionBooking from '../components/WeeklySessionBooking';
 import CertificateDownload from '../components/CertificateDownload';
 import EnrollmentCalendar from '../components/EnrollmentCalendar';
+import { getAttendanceStatus } from '../utils/attendanceUtils';
+const userInfo = JSON.parse(localStorage.getItem('userInfo'));
 
 export default function EnrollmentDetails() {
   const { enrollmentId } = useParams();
@@ -970,6 +972,22 @@ export default function EnrollmentDetails() {
                                 Time: {session.scheduledTime}
                               </p>
                             )}
+                            {/* After the session time display */}
+{session.scheduledTime && (
+  <p className="text-gray-600 text-sm mb-2">
+    Time: {session.scheduledTime}
+  </p>
+)}
+
+{/* Add this section for attendance status */}
+<div className="flex items-center space-x-2 mb-2">
+  <span className="text-gray-600 text-sm">Attendance:</span>
+  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+    getAttendanceStatus(session, userInfo?._id).class
+  }`}>
+    {getAttendanceStatus(session, userInfo?._id).status}
+  </span>
+</div>
                             {session.ground && (
                               <p className="text-gray-600 text-sm mb-2">
                                 Location: {session.ground.name || 'TBD'}
@@ -1096,10 +1114,7 @@ export default function EnrollmentDetails() {
                     <span className="text-sm text-gray-600">Sessions Attended</span>
                     <span className="font-medium text-green-600">{attendedSessions}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Sessions Completed</span>
-                    <span className="font-medium text-gray-900">{completedSessions}</span>
-                  </div>
+               
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Attendance Rate</span>
                     <span className="font-medium text-blue-600">{progressPercentage.toFixed(1)}%</span>
@@ -1353,6 +1368,18 @@ export default function EnrollmentDetails() {
                         {selectedSession.startTime || selectedSession.scheduledTime || 'Time TBD'}
                       </p>
                     </div>
+
+                    
+<div className="mb-4">
+  <div className="flex items-center space-x-2">
+    <span className="text-gray-600 text-sm font-medium">Attendance Status:</span>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+      getAttendanceStatus(selectedSession, userInfo?._id).class
+    }`}>
+      {getAttendanceStatus(selectedSession, userInfo?._id).status}
+    </span>
+  </div>
+</div>
                     <div>
                       <label className="text-sm font-medium text-gray-600">Duration</label>
                       <p className="text-gray-900">{selectedSession.duration || 120} minutes</p>
@@ -1427,125 +1454,7 @@ export default function EnrollmentDetails() {
                   </div>
                 )}
 
-                {/* Attendance Information */}
-                {(() => {
-                  const participant = selectedSession.participants?.find(p => 
-                    p.user && p.user._id === JSON.parse(localStorage.getItem('userInfo'))._id
-                  );
-                  
-                  // Debug participant data
-                  console.log('Modal - Participant data:', {
-                    participant,
-                    attended: participant?.attended,
-                    attendanceStatus: participant?.attendanceStatus,
-                    hasAttendanceMarked: participant?.hasAttendanceMarked,
-                    attendance: participant?.attendance
-                  });
-                  
-                  const userAttendance = participant?.attendance || (participant?.attended !== undefined ? {
-                    attended: participant.attended,
-                    status: participant.attended ? 'present' : 'absent',
-                    attendanceMarkedAt: participant.attendanceMarkedAt,
-                    performance: participant.performance,
-                    remarks: participant.remarks
-                  } : null);
-
-                  // Use backend attendance status if available
-                  const attendanceStatus = participant?.attendanceStatus;
-                  const isPastSession = participant?.isPastSession;
-                  const isUpcomingSession = participant?.isUpcomingSession;
-                  const hasAttendanceMarked = participant?.hasAttendanceMarked;
-                  
-                  // Show attendance status if it has been marked, regardless of session date
-                  if (attendanceStatus === 'present' || attendanceStatus === 'absent' || hasAttendanceMarked || participant?.attended !== undefined) {
-                    return (
-                      <div className="bg-blue-50 p-4 rounded-lg">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Attendance</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="text-sm font-medium text-gray-600">Status</label>
-                            <p className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                              (attendanceStatus === 'present' || participant?.attended === true)
-                                ? 'bg-green-100 text-green-800' 
-                                : 'bg-red-100 text-red-800'
-                            }`}>
-                              {(attendanceStatus === 'present' || participant?.attended === true) ? '✅ Present' : '❌ Absent'}
-                            </p>
-                          </div>
-                          {userAttendance.attendanceMarkedAt && (
-                            <div>
-                              <label className="text-sm font-medium text-gray-600">Marked On</label>
-                              <p className="text-gray-900">
-                                {new Date(userAttendance.attendanceMarkedAt).toLocaleString()}
-                              </p>
-                            </div>
-                          )}
-                          {userAttendance.performance && (
-                            <div>
-                              <label className="text-sm font-medium text-gray-600">Performance Rating</label>
-                              <div className="flex items-center">
-                                <div className="flex">
-                                  {[...Array(5)].map((_, i) => (
-                                    <span key={i} className={`text-lg ${
-                                      i < (userAttendance.performance.rating || 0) 
-                                        ? 'text-yellow-400' 
-                                        : 'text-gray-300'
-                                    }`}>
-                                      ⭐
-                                    </span>
-                                  ))}
-                                </div>
-                                <span className="ml-2 text-sm text-gray-600">
-                                  ({userAttendance.performance.rating}/5)
-                                </span>
-                              </div>
-                            </div>
-                          )}
-                          {userAttendance.remarks && (
-                            <div className="md:col-span-2">
-                              <label className="text-sm font-medium text-gray-600">Coach Remarks</label>
-                              <p className="text-gray-900 bg-white p-2 rounded border">
-                                {userAttendance.remarks}
-                              </p>
-                            </div>
-                          )}
-                          {userAttendance.performance?.notes && (
-                            <div className="md:col-span-2">
-                              <label className="text-sm font-medium text-gray-600">Performance Notes</label>
-                              <p className="text-gray-900 bg-white p-2 rounded border">
-                                {userAttendance.performance.notes}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  } else if (attendanceStatus === 'not_marked' || (!hasAttendanceMarked && participant?.attended === undefined)) {
-                    return (
-                      <div className="bg-orange-50 p-4 rounded-lg">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Attendance</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="text-sm font-medium text-gray-600">Status</label>
-                            <p className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">
-                              ⏳ Not Marked
-                            </p>
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium text-gray-600">Note</label>
-                            <p className="text-orange-700 text-sm">
-                              {isUpcomingSession 
-                                ? 'This session is scheduled for the future.'
-                                : 'Coach has not marked attendance for this session yet.'
-                              }
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  }
-                  return null;
-                })()}
+ 
 
                 {/* Coach Information */}
               </div>
