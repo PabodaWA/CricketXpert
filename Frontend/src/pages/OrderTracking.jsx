@@ -32,6 +32,8 @@ const OrderTracking = () => {
         return 'bg-yellow-100 text-yellow-800';
       case 'completed':
         return 'bg-green-100 text-green-800';
+      case 'delivered':
+        return 'bg-green-100 text-green-800';
       case 'cancelled':
         return 'bg-red-100 text-red-800';
       case 'cart_pending':
@@ -48,6 +50,8 @@ const OrderTracking = () => {
       case 'processing':
         return <Clock className="w-5 h-5" />;
       case 'completed':
+        return <CheckCircle className="w-5 h-5" />;
+      case 'delivered':
         return <CheckCircle className="w-5 h-5" />;
       case 'cancelled':
         return <XCircle className="w-5 h-5" />;
@@ -68,6 +72,8 @@ const OrderTracking = () => {
         return 'Your order is being processed and will be shipped soon.';
       case 'completed':
         return 'Your order has been delivered successfully!';
+      case 'delivered':
+        return 'Your order has been delivered successfully!';
       case 'cancelled':
         return 'Your order has been cancelled.';
       default:
@@ -83,8 +89,13 @@ const OrderTracking = () => {
       { status: 'completed', label: 'Delivered', completed: false }
     ];
 
-    const statusOrder = ['cart_pending', 'created', 'processing', 'completed'];
-    const currentIndex = statusOrder.indexOf(currentStatus);
+    const statusOrder = ['cart_pending', 'created', 'processing', 'completed', 'delivered'];
+    let currentIndex = statusOrder.indexOf(currentStatus);
+    
+    // If status is 'delivered', treat it as the final step (same as 'completed')
+    if (currentStatus === 'delivered') {
+      currentIndex = statusOrder.indexOf('completed');
+    }
 
     return steps.map((step, index) => ({
       ...step,
@@ -247,38 +258,57 @@ const OrderTracking = () => {
             {/* Order Progress */}
             <div className="mb-8">
               <h3 className="text-lg font-semibold text-[#072679] mb-4">Order Progress</h3>
-              <div className="flex items-center justify-between">
-                {getStatusSteps(order.status).map((step, index) => (
-                  <div key={step.status} className="flex flex-col items-center flex-1">
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 ${
-                      step.completed 
-                        ? 'bg-[#42ADF5] text-white' 
-                        : step.current 
-                        ? 'bg-yellow-100 text-yellow-600 border-2 border-yellow-300'
-                        : 'bg-gray-100 text-gray-400'
-                    }`}>
-                      {step.completed ? (
-                        <CheckCircle className="w-6 h-6" />
-                      ) : step.current ? (
-                        <Clock className="w-6 h-6" />
-                      ) : (
-                        <Package className="w-6 h-6" />
-                      )}
-                    </div>
-                    <div className="text-center">
-                      <p className={`text-sm font-medium ${
-                        step.completed || step.current ? 'text-[#072679]' : 'text-gray-400'
+              <div className="relative">
+                {/* Progress Bar Background */}
+                <div className="absolute top-6 left-0 right-0 h-1 bg-gray-200 rounded-full"></div>
+                
+                {/* Progress Bar Fill */}
+                <div 
+                  className="absolute top-6 left-0 h-1 bg-[#42ADF5] rounded-full transition-all duration-500"
+                  style={{
+                    width: order.status === 'delivered' 
+                      ? '100%' 
+                      : order.status === 'completed' 
+                        ? '75%' 
+                        : order.status === 'processing' 
+                          ? '50%' 
+                          : order.status === 'created' 
+                            ? '25%' 
+                            : order.status === 'cart_pending' 
+                              ? '12.5%' 
+                              : '0%'
+                  }}
+                ></div>
+                
+                {/* Progress Steps */}
+                <div className="flex items-center justify-between relative z-10">
+                  {getStatusSteps(order.status).map((step, index) => (
+                    <div key={step.status} className="flex flex-col items-center flex-1">
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 ${
+                        step.completed 
+                          ? 'bg-[#42ADF5] text-white' 
+                          : step.current 
+                          ? 'bg-yellow-100 text-yellow-600 border-2 border-yellow-300'
+                          : 'bg-gray-100 text-gray-400'
                       }`}>
-                        {step.label}
-                      </p>
+                        {step.completed ? (
+                          <CheckCircle className="w-6 h-6" />
+                        ) : step.current ? (
+                          <Clock className="w-6 h-6" />
+                        ) : (
+                          <Package className="w-6 h-6" />
+                        )}
+                      </div>
+                      <div className="text-center">
+                        <p className={`text-sm font-medium ${
+                          step.completed || step.current ? 'text-[#072679]' : 'text-gray-400'
+                        }`}>
+                          {step.label}
+                        </p>
+                      </div>
                     </div>
-                    {index < getStatusSteps(order.status).length - 1 && (
-                      <div className={`w-full h-1 mt-4 ${
-                        step.completed ? 'bg-[#42ADF5]' : 'bg-gray-200'
-                      }`}></div>
-                    )}
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
 
