@@ -216,7 +216,7 @@ const processOrderPayment = async (req, res) => {
     const order = await Order.findById(orderId);
     if (!order) return res.status(404).json({ message: 'Order not found' });
 
-    // Verify amount matches
+    //.............................................................................................................. Verify amount matches
     if (amount !== order.amount) {
       return res.status(400).json({ message: 'Payment amount does not match order total' });
     }
