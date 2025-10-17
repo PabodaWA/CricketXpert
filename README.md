@@ -322,7 +322,7 @@ cricketxpert/
     </td>
     <td align="center">
       <a href="https://github.com/wenux2003">
-        <img src="https://github.com/wenux2003.png" width="100px;" alt="Wenura Kavidu"/>
+        <img src="https://github.com/wenux2003.png" width="100px;" alt="Wenura Kavinda"/>
         <br />
         <sub><b>Wenura Kavidu</b></sub>
       </a>
