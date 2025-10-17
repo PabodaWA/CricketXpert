@@ -336,81 +336,29 @@ cricketxpert/
   <tr>
     <td align="center">
       <a href="https://github.com/username1">
-        <img src="https://github.com/username1.png" width="100px;" alt="Team Member 1"/>
-        <br />
-        <sub><b>John Doe</b></sub>
+               <sub><b>Paboda Medhani</b></sub>
       </a>
       <br />
-      <sub>Project Lead & Full Stack Developer</sub>
-      <br />
-      <a href="https://github.com/username1">GitHub</a> | 
-      <a href="https://linkedin.com/in/username1">LinkedIn</a>
     </td>
-    <td align="center">
-      <a href="https://github.com/username2">
-        <img src="https://github.com/username2.png" width="100px;" alt="Team Member 2"/>
-        <br />
-        <sub><b>Jane Smith</b></sub>
+        <td align="center">
+      <a href="https://github.com/Nadali2002">
+       <sub><b>Nadali Devindi</b></sub>
+      </a>
+      
+    </td>
+        <td align="center">
+      <a href="https://github.com/HimashaIndiwari">
+        
+        <sub><b>Himasha Indiwari</b></sub>
       </a>
       <br />
-      <sub>Frontend Developer</sub>
-      <br />
-      <a href="https://github.com/username2">GitHub</a> | 
-      <a href="https://linkedin.com/in/username2">LinkedIn</a>
     </td>
-    <td align="center">
-      <a href="https://github.com/username3">
-        <img src="https://github.com/username3.png" width="100px;" alt="Team Member 3"/>
-        <br />
-        <sub><b>Mike Johnson</b></sub>
+        <td align="center">
+      <a href="https://github.com/wenux2003">
+       
+        <sub><b>Wenura Kavidu</b></sub>
       </a>
       <br />
-      <sub>Backend Developer</sub>
-      <br />
-      <a href="https://github.com/username3">GitHub</a> | 
-      <a href="https://linkedin.com/in/username3">LinkedIn</a>
-    </td>
-    <td align="center">
-      <a href="https://github.com/username4">
-        <img src="https://github.com/username4.png" width="100px;" alt="Team Member 4"/>
-        <br />
-        <sub><b>Sarah Williams</b></sub>
-      </a>
-      <br />
-      <sub>UI/UX Designer</sub>
-      <br />
-      <a href="https://github.com/username4">GitHub</a> | 
-      <a href="https://linkedin.com/in/username4">LinkedIn</a>
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <a href="https://github.com/username5">
-        <img src="https://github.com/username5.png" width="100px;" alt="Team Member 5"/>
-        <br />
-        <sub><b>David Brown</b></sub>
-      </a>
-      <br />
-      <sub>Database Administrator</sub>
-      <br />
-      <a href="https://github.com/username5">GitHub</a> | 
-      <a href="https://linkedin.com/in/username5">LinkedIn</a>
-    </td>
-    <td align="center">
-      <a href="https://github.com/username6">
-        <img src="https://github.com/username6.png" width="100px;" alt="Team Member 6"/>
-        <br />
-        <sub><b>Emily Davis</b></sub>
-      </a>
-      <br />
-      <sub>QA Engineer</sub>
-      <br />
-      <a href="https://github.com/username6">GitHub</a> | 
-      <a href="https://linkedin.com/in/username6">LinkedIn</a>
-    </td>
-    <td align="center" colspan="2">
-      <br />
-      <sub><i>Want to contribute? Check our <a href="#-contributing">Contributing Guidelines</a></i></sub>
     </td>
   </tr>
 </table>
@@ -442,15 +390,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-## 📞 Support
-
-For support and queries:
-
-- **Email:** support@cricketxpert.com
-- **Documentation:** [docs.cricketxpert.com](https://docs.cricketxpert.com)
-- **Issues:** [GitHub Issues](https://github.com/yourusername/cricketxpert/issues)
-
----
 
 ## 🙏 Acknowledgments
 
