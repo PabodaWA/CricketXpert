@@ -324,7 +324,7 @@ cricketxpert/
       <a href="https://github.com/wenux2003">
         <img src="https://github.com/wenux2003.png" width="100px;" alt="Wenura Kavinda"/>
         <br />
-        <sub><b>Wenura Kavidu</b></sub>
+        <sub><b>Wenura Kavinda</b></sub>
       </a>
       <br />
       <sub>Full Stack Developer</sub>
