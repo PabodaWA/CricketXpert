@@ -13,7 +13,6 @@ A comprehensive MERN stack platform for cricket gear sales, coaching management,
 - [Installation](#-installation)
 - [Running the Application](#-running-the-application)
 - [Project Structure](#-project-structure)
-- [User Roles](#-user-roles)
 - [Environment Variables](#-environment-variables)
 - [Team Members](#-team-members)
 - [Contributing](#-contributing)
@@ -261,46 +260,6 @@ cricketxpert/
 ├── package.json
 └── README.md
 ```
-
----
-
-## 👥 User Roles
-
-### 1. **Admin**
-- Full system access and control
-- User management and role assignment
-- System configuration and settings
-- Access to all reports and analytics
-
-### 2. **Player**
-- Browse and purchase cricket gear
-- Enroll in coaching programs
-- Book grounds and facilities
-- View personal performance metrics
-
-### 3. **Coach**
-- Manage coaching sessions and schedules
-- Track student attendance and progress
-- Provide performance feedback
-- Upload training videos and materials
-
-### 4. **Supplier**
-- Manage product inventory
-- Update product information and pricing
-- Track orders and deliveries
-- View payment settlements
-
-### 5. **Delivery Staff**
-- View assigned delivery orders
-- Update delivery status
-- Manage delivery routes
-- Access payroll information
-
-### 6. **Finance Manager**
-- Process payroll and settlements
-- Generate financial reports
-- Manage invoices and payslips
-- Monitor revenue and expenses
 
 ---
 
