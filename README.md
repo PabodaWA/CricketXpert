@@ -335,33 +335,55 @@ cricketxpert/
 <table>
   <tr>
     <td align="center">
-      <a href="https://github.com/username1">
-               <sub><b>Paboda Medhani</b></sub>
+      <a href="https://github.com/PabodaWA">
+        <img src="https://github.com/PabodaWA.png" width="100px;" alt="Paboda Medhani"/>
+        <br />
+        <sub><b>Paboda Medhani</b></sub>
       </a>
       <br />
+      <sub>Full Stack Developer</sub>
+      <br />
+      <a href="https://github.com/PabodaWA">GitHub</a>
     </td>
-        <td align="center">
+    <td align="center">
       <a href="https://github.com/Nadali2002">
-       <sub><b>Nadali Devindi</b></sub>
+        <img src="https://github.com/Nadali2002.png" width="100px;" alt="Nadali Devindi"/>
+        <br />
+        <sub><b>Nadali Devindi</b></sub>
       </a>
-      
+      <br />
+      <sub>Full Stack Developer</sub>
+      <br />
+      <a href="https://github.com/Nadali2002">GitHub</a>
     </td>
-        <td align="center">
+    <td align="center">
       <a href="https://github.com/HimashaIndiwari">
-        
+        <img src="https://github.com/HimashaIndiwari.png" width="100px;" alt="Himasha Indiwari"/>
+        <br />
         <sub><b>Himasha Indiwari</b></sub>
       </a>
       <br />
+      <sub>Full Stack Developer</sub>
+      <br />
+      <a href="https://github.com/HimashaIndiwari">GitHub</a>
     </td>
-        <td align="center">
+    <td align="center">
       <a href="https://github.com/wenux2003">
-       
+        <img src="https://github.com/wenux2003.png" width="100px;" alt="Wenura Kavidu"/>
+        <br />
         <sub><b>Wenura Kavidu</b></sub>
       </a>
       <br />
+      <sub>Full Stack Developer</sub>
+      <br />
+      <a href="https://github.com/wenux2003">GitHub</a>
     </td>
   </tr>
 </table>
+
+<p align="center">
+  <sub><i>Want to contribute? Check our <a href="#-contributing">Contributing Guidelines</a></i></sub>
+</p>
 
 ---
 
@@ -389,7 +411,6 @@ We welcome contributions! Please follow these steps:
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
-
 
 ## 🙏 Acknowledgments
 
