@@ -38,12 +38,6 @@ A comprehensive MERN stack platform for cricket gear sales, coaching management,
 ### Admin Panel
 ![Admin Panel](screenshots/admin-panel.png)
 
-### Mobile Responsive View
-<p align="center">
-  <img src="screenshots/mobile-home.png" width="250" alt="Mobile Home">
-  <img src="screenshots/mobile-cart.png" width="250" alt="Mobile Cart">
-  <img src="screenshots/mobile-profile.png" width="250" alt="Mobile Profile">
-</p>
 
 ---
 
