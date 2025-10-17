@@ -24,19 +24,19 @@ A comprehensive MERN stack platform for cricket gear sales, coaching management,
 ## 📸 Screenshots
 
 ### Home Page
-![Home Page](screenshots/home.png)
+![Home Page](screanshots/homepage.png)
 
-### Product Catalog
-![Product Catalog](screenshots/products.png)
+### Coaching Programs
+![Product Catalog](screanshots/coachingprograms.png)
 
 ### Coaching Dashboard
-![Coaching Dashboard](screenshots/coaching-dashboard.png)
+![Coaching Dashboard](screanshots/coach.png)
 
-### Facility Booking
-![Facility Booking](screenshots/booking.png)
+### Coach Manager Dashboard
+![Facility Booking](screanshots/coachmanager.png)
 
-### Admin Panel
-![Admin Panel](screenshots/admin-panel.png)
+### Profile
+![Admin Panel](screanshots/profile.png)
 
 
 ---
