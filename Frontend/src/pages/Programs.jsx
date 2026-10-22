@@ -49,7 +49,9 @@ export default function Programs() {
       setLoading(true);
       setError('');
       
-      const response = await axios.get('http://localhost:5000/api/programs');
+      const response = await axios.get(
+  `${import.meta.env.VITE_API_URL}/programs`
+);
       
       if (response.data.success) {
         const programsData = response.data.data.docs || [];
