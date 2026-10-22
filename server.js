@@ -41,9 +41,6 @@ import supplierRoutes from './routes/supplierRoutes.js';
 // Load environment variables from .env file
 dotenv.config();
 
-// Connect to the database
-connectDB();
-
 // Initialize the Express app
 const app = express();
 
@@ -106,6 +103,17 @@ app.use(errorMiddleware);
 
 // --- Start the Server ---
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-});
+
+const startServer = async () => {
+    try {
+        await connectDB();
+        app.listen(PORT, () => {
+            console.log(`Server is running on port ${PORT}`);
+        });
+    } catch {
+        console.error('Server startup aborted because MongoDB is unavailable.');
+        process.exitCode = 1;
+    }
+};
+
+startServer();

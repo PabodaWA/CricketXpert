@@ -114,7 +114,6 @@ const certificateSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Indexes for performance and uniqueness
-certificateSchema.index({ certificateNumber: 1 }, { unique: true });
 certificateSchema.index({ user: 1, program: 1 }, { unique: true });
 certificateSchema.index({ status: 1, issueDate: -1 });
 certificateSchema.index({ verificationHash: 1 });

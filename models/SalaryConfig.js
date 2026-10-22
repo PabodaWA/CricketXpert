@@ -30,8 +30,5 @@ const salaryConfigSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Index for efficient queries
-salaryConfigSchema.index({ role: 1 });
-
 const SalaryConfig = mongoose.model('SalaryConfig', salaryConfigSchema);
 export default SalaryConfig;
