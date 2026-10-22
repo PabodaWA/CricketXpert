@@ -104,16 +104,29 @@ app.use(errorMiddleware);
 // --- Start the Server ---
 const PORT = process.env.PORT || 5000;
 
-const startServer = async () => {
-    try {
-        await connectDB();
-        app.listen(PORT, () => {
-            console.log(`Server is running on port ${PORT}`);
-        });
-    } catch {
-        console.error('Server startup aborted because MongoDB is unavailable.');
-        process.exitCode = 1;
-    }
-};
+app.get('/', (req, res) => {
+    res.json({
+        success: true,
+        message: 'CricketXpert API is running!'
+    });
+});
 
-startServer();
+if (process.env.VERCEL) {
+    connectDB().catch((err) => {
+        console.error('MongoDB connection failed:', err.message);
+    });
+} else {
+    const startServer = async () => {
+        try {
+            await connectDB();
+            app.listen(PORT, () => {
+                console.log(`Server is running on port ${PORT}`);
+            });
+        } catch (err) {
+            console.error('Server startup aborted:', err.message);
+            process.exitCode = 1;
+        }
+    };
+
+    startServer();
+}
