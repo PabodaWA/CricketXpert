@@ -84,7 +84,9 @@ const ManagerDashboard = () => {
   const [coachForm, setCoachForm] = useState({
     firstName: '',
     lastName: '',
+    username: '',
     email: '',
+    password: '',
     experience: '',
     specializations: [],
     isActive: true,
@@ -1134,7 +1136,7 @@ const ManagerDashboard = () => {
               }}
             />
           )}
-          {activeTab === 'coaches' && <CoachesTab coaches={coaches} programs={programs} onRefresh={handleRefresh} onViewDetails={openCoachDetailsModal} />}
+          {activeTab === 'coaches' && <CoachesTab coaches={coaches} programs={programs} onRefresh={handleRefresh} onViewDetails={openCoachDetailsModal} onAddCoach={() => setShowCoachModal(true)} />}
           {activeTab === 'payroll' && <PayrollTab coaches={coaches} />}
           {activeTab === 'sessions' && (
             <SessionsTab 
@@ -1220,6 +1222,21 @@ const ManagerDashboard = () => {
             setShowCoachDetailsModal(false);
             setSelectedCoach(null);
             resetCoachForm();
+          }}
+        />
+      )}
+      {showCoachModal && (
+        <AddCoachModal
+          form={coachForm}
+          setForm={setCoachForm}
+          onClose={() => setShowCoachModal(false)}
+          onCreated={(coach) => {
+            setCoaches((current) => [...current, coach]);
+            setShowCoachModal(false);
+            setCoachForm({
+              firstName: '', lastName: '', username: '', email: '', password: '',
+              experience: '', specializations: [], isActive: true, hourlyRate: 0
+            });
           }}
         />
       )}
@@ -1876,7 +1893,7 @@ const ProgramsTab = ({ programs, coaches, programDeletionStatus, onEdit, onDelet
 };
 
 // Coaches Tab Component
-const CoachesTab = ({ coaches, programs, onRefresh, onViewDetails }) => {
+const CoachesTab = ({ coaches, programs, onRefresh, onViewDetails, onAddCoach }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterSpecialization, setFilterSpecialization] = useState('');
   const [filterExperience, setFilterExperience] = useState('');
@@ -1935,6 +1952,13 @@ const CoachesTab = ({ coaches, programs, onRefresh, onViewDetails }) => {
           <p className="text-gray-600">Manage and view all coaches in your system</p>
         </div>
         <div className="flex items-center space-x-3">
+          <button
+            onClick={onAddCoach}
+            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2"
+          >
+            <UserPlus className="h-5 w-5" />
+            <span>Add Coach</span>
+          </button>
           <button
             onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
@@ -2228,7 +2252,7 @@ const CoachesTab = ({ coaches, programs, onRefresh, onViewDetails }) => {
               : 'Try adjusting your search criteria to find coaches.'}
           </p>
           {coaches.length === 0 && (
-            <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+            <button onClick={onAddCoach} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
               Add First Coach
             </button>
           )}
@@ -3290,6 +3314,93 @@ const ReportsTab = ({ coaches, programs, sessions }) => {
 
 
 // Coach Details Modal Component
+const AddCoachModal = ({ form, setForm, onCreated, onClose }) => {
+  const [submitting, setSubmitting] = useState(false);
+
+  const updateField = (field, value) => {
+    setForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setSubmitting(true);
+
+    try {
+      const response = await axios.post('http://localhost:5000/api/coaches/create-account', {
+        ...form,
+        experience: Number(form.experience) || 0,
+        hourlyRate: Number(form.hourlyRate) || 0
+      });
+
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Unable to create coach account');
+      }
+
+      alert('Coach account created successfully.');
+      onCreated(response.data.data);
+    } catch (error) {
+      const message = error.response?.data?.message || error.message;
+      alert(`Unable to add coach: ${message}`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+      <div className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl">
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">Add New Coach</h2>
+            <p className="text-sm text-gray-500">Create the coach login and profile together.</p>
+          </div>
+          <button type="button" onClick={onClose} className="text-gray-500 hover:text-gray-800">
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <input required placeholder="First name" value={form.firstName}
+              onChange={(event) => updateField('firstName', event.target.value)}
+              className="rounded-md border border-gray-300 px-3 py-2" />
+            <input required placeholder="Last name" value={form.lastName}
+              onChange={(event) => updateField('lastName', event.target.value)}
+              className="rounded-md border border-gray-300 px-3 py-2" />
+            <input required placeholder="Username" value={form.username}
+              onChange={(event) => updateField('username', event.target.value)}
+              className="rounded-md border border-gray-300 px-3 py-2" />
+            <input required type="email" placeholder="Email" value={form.email}
+              onChange={(event) => updateField('email', event.target.value)}
+              className="rounded-md border border-gray-300 px-3 py-2" />
+            <input required type="password" minLength={6} placeholder="Temporary password" value={form.password}
+              onChange={(event) => updateField('password', event.target.value)}
+              className="rounded-md border border-gray-300 px-3 py-2" />
+            <input type="number" min="0" placeholder="Years of experience" value={form.experience}
+              onChange={(event) => updateField('experience', event.target.value)}
+              className="rounded-md border border-gray-300 px-3 py-2" />
+            <input type="number" min="0" placeholder="Hourly rate" value={form.hourlyRate}
+              onChange={(event) => updateField('hourlyRate', event.target.value)}
+              className="rounded-md border border-gray-300 px-3 py-2" />
+            <input placeholder="Specializations (comma separated)"
+              value={form.specializations.join(', ')}
+              onChange={(event) => updateField('specializations', event.target.value.split(',').map((item) => item.trim()).filter(Boolean))}
+              className="rounded-md border border-gray-300 px-3 py-2" />
+          </div>
+          <div className="flex justify-end gap-3 pt-4">
+            <button type="button" onClick={onClose} className="rounded-md bg-gray-100 px-4 py-2 text-gray-700 hover:bg-gray-200">
+              Cancel
+            </button>
+            <button type="submit" disabled={submitting} className="rounded-md bg-green-600 px-4 py-2 text-white hover:bg-green-700 disabled:opacity-50">
+              {submitting ? 'Creating...' : 'Create Coach'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 const CoachDetailsModal = ({ coach, programs, onEdit, onManageAvailability, onClose }) => {
   // Get programs assigned to this coach
   const assignedPrograms = programs.filter(program => 

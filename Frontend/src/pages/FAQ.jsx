@@ -61,18 +61,6 @@ const FAQ = () => {
       answer: "Our coaching programs cater to all age groups, from young children (ages 6+) to adults and seniors. We have specialized programs for youth development, teenage training, and adult recreational cricket. Each program is tailored to the specific needs and skill levels of different age groups."
     },
     {
-      question: "How do I book a cricket ground?",
-      answer: "Ground booking is simple through our online booking system. Select your preferred date, time, and ground type (practice nets, full ground, or indoor facility). You can book up to 30 days in advance, and we offer both hourly and full-day booking options with competitive rates."
-    },
-    {
-      question: "What facilities are available for ground booking?",
-      answer: "Our cricket grounds feature professional-quality pitches, practice nets, changing rooms, equipment storage, and parking facilities. We also offer indoor training facilities for year-round practice, complete with artificial turf and climate control for optimal playing conditions."
-    },
-    {
-      question: "Can I cancel or reschedule my ground booking?",
-      answer: "Yes, you can cancel or reschedule your ground booking up to 24 hours before your scheduled time without any penalty. Cancellations made within 24 hours may be subject to a cancellation fee. You can manage your bookings through your account dashboard or contact our booking team."
-    },
-    {
       question: "What types of cricket equipment do you repair?",
       answer: "We repair all types of cricket equipment including bats (handle repairs, blade restoration, grip replacement), balls (re-stitching, leather conditioning), protective gear (helmet repairs, pad adjustments), and accessories (glove repairs, bag fixes). Our skilled technicians can restore equipment to professional standards."
     },

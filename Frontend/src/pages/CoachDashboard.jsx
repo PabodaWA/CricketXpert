@@ -1998,7 +1998,8 @@ const CoachProfileCard = ({ coach, enrolledPrograms, sessions }) => {
     experience: coach?.experience || 0,
     bio: coach?.bio || '',
     hourlyRate: coach?.hourlyRate || 0,
-    achievements: coach?.achievements || []
+    achievements: coach?.achievements || [],
+    availability: coach?.availability || []
   });
   const [profileImage, setProfileImage] = useState(null);
   const [profileImagePreview, setProfileImagePreview] = useState(null);
@@ -2011,7 +2012,8 @@ const CoachProfileCard = ({ coach, enrolledPrograms, sessions }) => {
       experience: coach.experience || 0,
       bio: coach.bio || '',
       hourlyRate: coach.hourlyRate || 0,
-      achievements: coach.achievements || []
+      achievements: coach.achievements || [],
+      availability: coach.availability || []
     });
   };
 
@@ -2114,7 +2116,8 @@ const CoachProfileCard = ({ coach, enrolledPrograms, sessions }) => {
       experience: coach.experience || 0,
       bio: coach.bio || '',
       hourlyRate: coach.hourlyRate || 0,
-      achievements: coach.achievements || []
+      achievements: coach.achievements || [],
+      availability: coach.availability || []
     });
     setProfileImage(null);
     setProfileImagePreview(null);
@@ -2159,6 +2162,29 @@ const CoachProfileCard = ({ coach, enrolledPrograms, sessions }) => {
     setEditData(prev => ({
       ...prev,
       achievements: prev.achievements.filter((_, i) => i !== index)
+    }));
+  };
+
+  const addAvailability = () => {
+    setEditData(prev => ({
+      ...prev,
+      availability: [...prev.availability, { day: 'Monday', startTime: '09:00', endTime: '17:00' }]
+    }));
+  };
+
+  const updateAvailability = (index, field, value) => {
+    setEditData(prev => ({
+      ...prev,
+      availability: prev.availability.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, [field]: value } : item
+      )
+    }));
+  };
+
+  const removeAvailability = (index) => {
+    setEditData(prev => ({
+      ...prev,
+      availability: prev.availability.filter((_, itemIndex) => itemIndex !== index)
     }));
   };
 
@@ -2470,6 +2496,79 @@ const CoachProfileCard = ({ coach, enrolledPrograms, sessions }) => {
               ))
             ) : (
               <p className="text-gray-500 italic">No achievements added</p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Availability */}
+      <div className="mt-6">
+        <h4 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2 mb-4">
+        Available Days & Times
+        </h4>
+        {isEditing ? (
+          <div className="space-y-3">
+            {editData.availability.map((slot, index) => (
+              <div key={index} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end">
+                <label className="text-sm text-gray-600">
+                  Day
+                  <select
+                    value={slot.day}
+                    onChange={(e) => updateAvailability(index, 'day', e.target.value)}
+                    className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  >
+                    {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
+                      <option key={day} value={day}>{day}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-sm text-gray-600">
+                  Start time
+                  <input
+                    type="time"
+                    value={slot.startTime}
+                    onChange={(e) => updateAvailability(index, 'startTime', e.target.value)}
+                    className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                </label>
+                <label className="text-sm text-gray-600">
+                  End time
+                  <input
+                    type="time"
+                    value={slot.endTime}
+                    onChange={(e) => updateAvailability(index, 'endTime', e.target.value)}
+                    className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => removeAvailability(index)}
+                  className="p-2 text-red-600 hover:text-red-800"
+                  aria-label="Remove availability"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={addAvailability}
+              className="flex items-center px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Available Date & Time
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {coach.availability?.length ? coach.availability.map((slot, index) => (
+              <div key={index} className="flex flex-wrap items-center gap-2 text-gray-900">
+                <Calendar className="h-4 w-4 text-blue-600" />
+                <span className="font-medium">{slot.day}</span>
+                <span className="text-gray-600">{slot.startTime} - {slot.endTime}</span>
+              </div>
+            )) : (
+              <p className="text-gray-500 italic">No availability added</p>
             )}
           </div>
         )}
@@ -3470,4 +3569,3 @@ const CustomerDetailsModal = ({ customer, enrollment, onClose }) => {
 };
 
 export default CoachDashboard;
-

@@ -33,15 +33,6 @@ const Home = () => {
       color: 'from-orange-500 to-orange-600',
       workflow: ['Browse Products', 'Add to Cart', 'Secure Checkout', 'Order Processing', 'Shipping', 'Delivery']
     },
-    {
-      icon: '🏟️',
-      title: 'Ground Booking & Facilities',
-      description: 'Book cricket grounds and facilities for practice sessions and matches. Multiple locations with various amenities and equipment.',
-      features: ['Multiple Locations', 'Equipment Available', 'Flexible Booking', 'Facility Management', 'Slot Booking', 'Amenities'],
-      link: '/ground-booking',
-      color: 'from-purple-500 to-purple-600',
-      workflow: ['Location Selection', 'Date & Time', 'Slot Booking', 'Payment', 'Confirmation', 'Facility Access']
-    }
   ];
 
   const platformFeatures = [
@@ -87,20 +78,6 @@ const Home = () => {
         'Product recommendations and search'
       ]
     },
-    {
-      category: 'Ground & Facility Management',
-      icon: '🏟️',
-      items: [
-        'Multiple ground locations with details',
-        'Flexible booking system with calendar',
-        'Equipment rental and availability',
-        'Facility amenities management',
-        'Slot-based booking system (12 slots/day)',
-        'Ground availability tracking',
-        'Pricing management per slot',
-        'Booking confirmation and reminders'
-      ]
-    }
   ];
 
 
@@ -110,7 +87,6 @@ const Home = () => {
     { number: '5000+', label: 'Happy Customers', icon: '👥' },
     { number: '24/7', label: 'Support Available', icon: '🕐' },
     { number: '100+', label: 'Products Available', icon: '🛒' },
-    { number: '10+', label: 'Ground Locations', icon: '🏟️' }
   ];
 
   const testimonials = [
@@ -143,13 +119,6 @@ const Home = () => {
       service: 'Coach Dashboard'
     },
     {
-      name: 'Sarah Williams',
-      role: 'Ground Manager',
-      content: 'The ground booking system is efficient and user-friendly. Managing multiple locations and slot bookings is seamless with this platform.',
-      rating: 5,
-      service: 'Ground Booking'
-    },
-    {
       name: 'David Chen',
       role: 'Technician',
       content: 'The technician dashboard helps me manage repair requests efficiently. The customer communication system makes it easy to provide updates.',
@@ -174,7 +143,7 @@ const Home = () => {
             </h1>
             <p className="text-xl md:text-2xl mb-8 max-w-4xl mx-auto" style={{ color: '#36516C' }}>
               Your comprehensive cricket platform offering equipment repair, professional coaching, 
-              ground booking, e-commerce, and complete cricket solutions for players of all levels.
+              e-commerce, and complete cricket solutions for players of all levels.
               Experience the future of cricket services with our integrated platform.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -235,25 +204,6 @@ const Home = () => {
               >
                 Shop Cricket Gear
               </Link>
-              <Link
-                to="/ground-booking"
-                className="px-8 py-4 rounded-lg text-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
-                style={{ 
-                  backgroundColor: '#36516C', 
-                  color: '#F1F2F7',
-                  border: '2px solid #36516C'
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.backgroundColor = '#2A3F52';
-                  e.target.style.borderColor = '#2A3F52';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.backgroundColor = '#36516C';
-                  e.target.style.borderColor = '#36516C';
-                }}
-              >
-                Book Ground
-              </Link>
             </div>
           </div>
         </div>
@@ -297,7 +247,7 @@ const Home = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {/* Repair Service Image */}
             <div className="group">
               <div className="bg-white rounded-xl shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden transform group-hover:-translate-y-3 group-hover:scale-105">
@@ -364,27 +314,6 @@ const Home = () => {
               </div>
             </div>
 
-            {/* Ground Booking Image */}
-            <div className="group">
-              <div className="bg-white rounded-xl shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden transform group-hover:-translate-y-3 group-hover:scale-105">
-                <div className="relative">
-                  <img 
-                    src="/src/assets/ground.jpeg" 
-                    alt="Ground Booking & Facilities"
-                    className="w-full h-72 object-cover group-hover:scale-110 transition-transform duration-500"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                  <div className="absolute bottom-6 left-6 right-6 text-white opacity-0 group-hover:opacity-100 transition-all duration-500 transform translate-y-4 group-hover:translate-y-0">
-                    <h3 className="text-2xl font-bold mb-2">Ground Booking</h3>
-                    <p className="text-sm mb-4">Book cricket grounds and facilities with flexible scheduling</p>
-                    <div className="flex items-center text-sm">
-                      <span className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: '#36516C' }}></span>
-                      Multiple Locations
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </section>
@@ -637,25 +566,6 @@ const Home = () => {
               }}
             >
               Shop Now
-            </Link>
-            <Link
-              to="/ground-booking"
-              className="px-8 py-4 rounded-lg text-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
-              style={{ 
-                backgroundColor: 'transparent', 
-                color: '#F1F2F7',
-                border: '2px solid #F1F2F7'
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.backgroundColor = '#36516C';
-                e.target.style.borderColor = '#36516C';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.backgroundColor = 'transparent';
-                e.target.style.borderColor = '#F1F2F7';
-              }}
-            >
-              Book Ground
             </Link>
           </div>
         </div>

@@ -520,11 +520,14 @@ export default function ProgramDetails() {
 
       {/* Enrollment Modal */}
       {showEnrollmentModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[calc(100vh-2rem)] flex flex-col overflow-hidden">
+            <div className="p-6 pb-4 border-b border-gray-200 flex-shrink-0">
+              <div className="flex justify-between items-start">
+                <div>
                 <h2 className="text-2xl font-bold text-gray-900">Enroll in {program?.title}</h2>
+                  <p className="text-sm text-gray-500 mt-1">Review the program details and complete your enrollment information.</p>
+                </div>
                 <button
                   onClick={() => setShowEnrollmentModal(false)}
                   className="text-gray-400 hover:text-gray-600 text-2xl"
@@ -532,8 +535,41 @@ export default function ProgramDetails() {
                   ×
                 </button>
               </div>
+            </div>
 
-              <div className="space-y-4">
+            <div className="overflow-y-auto p-6 space-y-5">
+                {/* Complete program details */}
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <h3 className="font-semibold text-gray-900 mb-3">Program Details</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                    <div>
+                      <p className="text-gray-500">Category</p>
+                      <p className="font-medium text-gray-900 capitalize">{program?.category || 'General'}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Difficulty</p>
+                      <p className="font-medium text-gray-900 capitalize">{program?.difficulty || 'All levels'}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Sessions</p>
+                      <p className="font-medium text-gray-900">{program?.totalSessions || program?.duration || 0}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Availability</p>
+                      <p className="font-medium text-gray-900">{program?.currentEnrollments || 0}/{program?.maxParticipants || 0}</p>
+                    </div>
+                  </div>
+                  {program?.coach?.userId && (
+                    <div className="mt-3 pt-3 border-t border-gray-200 text-sm">
+                      <span className="text-gray-500">Coach: </span>
+                      <span className="font-medium text-gray-900">
+                        {program.coach.userId.firstName} {program.coach.userId.lastName}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-4">
                 {/* Pre-filled information notice */}
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <div className="flex items-start">
@@ -647,19 +683,6 @@ export default function ProgramDetails() {
                   />
                 </div>
 
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600">Program Fee</p>
-                      <p className="text-2xl font-bold text-green-600">LKR {program?.fee}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm text-gray-600">Duration</p>
-                      <p className="font-medium">{program?.duration} weeks</p>
-                    </div>
-                  </div>
-                </div>
-
                 {/* Email Confirmation Notice */}
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                   <div className="flex items-start">
@@ -674,9 +697,23 @@ export default function ProgramDetails() {
                     </div>
                   </div>
                 </div>
-              </div>
+                </div>
 
-              <div className="flex justify-end space-x-4 mt-6">
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600">Program Fee</p>
+                      <p className="text-2xl font-bold text-green-600">LKR {program?.fee}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-gray-600">Duration</p>
+                      <p className="font-medium">{program?.duration} weeks</p>
+                    </div>
+                  </div>
+                </div>
+            </div>
+
+            <div className="flex justify-end space-x-4 p-6 pt-4 border-t border-gray-200 bg-white flex-shrink-0">
                 <button
                   onClick={() => setShowEnrollmentModal(false)}
                   className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
@@ -702,7 +739,6 @@ export default function ProgramDetails() {
                 </button>
               </div>
             </div>
-          </div>
         </div>
       )}
 

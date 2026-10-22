@@ -1349,6 +1349,38 @@ const createDirectSession = async (req, res) => {
         message: 'Program or coach not found'
       });
     }
+
+    const requestedDate = new Date(scheduledDate);
+    if (Number.isNaN(requestedDate.getTime()) || !/^\d{2}:\d{2}$/.test(scheduledTime || '')) {
+      return res.status(400).json({
+        success: false,
+        message: 'A valid session date and time are required'
+      });
+    }
+
+    const coachAvailability = enrollment.program.coach.availability || [];
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const requestedDay = dayNames[requestedDate.getDay()];
+    const [requestedHour, requestedMinute] = scheduledTime.split(':').map(Number);
+    const requestedStart = requestedHour * 60 + requestedMinute;
+    const requestedDuration = Number(duration) || 60;
+    const requestedEnd = requestedStart + requestedDuration;
+    const matchingAvailability = coachAvailability.find((slot) => {
+      const [startHour, startMinute] = slot.startTime.split(':').map(Number);
+      const [endHour, endMinute] = slot.endTime.split(':').map(Number);
+      const availabilityStart = startHour * 60 + startMinute;
+      const availabilityEnd = endHour * 60 + endMinute;
+      return slot.day.toLowerCase() === requestedDay.toLowerCase() &&
+        requestedStart >= availabilityStart &&
+        requestedEnd <= availabilityEnd;
+    });
+
+    if (!matchingAvailability) {
+      return res.status(400).json({
+        success: false,
+        message: `Coach is not available on ${requestedDay} at ${scheduledTime} for ${requestedDuration} minutes`
+      });
+    }
     
     // Get the next session number for this enrollment
     const existingSessions = await Session.find({ 
@@ -1363,7 +1395,7 @@ const createDirectSession = async (req, res) => {
     const startDateTime = new Date(scheduledDate);
     startDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
     
-    const endDateTime = new Date(startDateTime.getTime() + (duration || 60) * 60000);
+    const endDateTime = new Date(startDateTime.getTime() + requestedDuration * 60000);
     const endTime = endDateTime.toTimeString().slice(0, 5);
     
     console.log('Session timing:', {
@@ -1444,7 +1476,7 @@ const createDirectSession = async (req, res) => {
       scheduledDate: sessionDate, // Use the user-selected date
       startTime: startTime,
       endTime: endTime,
-      duration: duration || 60,
+      duration: requestedDuration,
       ground: practiceGround._id,
       groundSlot: groundSlot,
       status: 'scheduled',

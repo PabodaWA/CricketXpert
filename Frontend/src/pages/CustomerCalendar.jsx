@@ -142,13 +142,6 @@ export default function CustomerCalendar() {
                     type: 'session',
                     time: '10:00 AM'
                 },
-                {
-                    id: 2,
-                    title: 'Ground Booking',
-                    date: new Date(Date.now() + 24 * 60 * 60 * 1000),
-                    type: 'booking',
-                    time: '2:00 PM'
-                }
             ]);
         } finally {
             setLoading(false);
@@ -319,14 +312,10 @@ export default function CustomerCalendar() {
                 {/* Quick Actions */}
                 <div className="mt-8 bg-white rounded-lg shadow-lg p-6">
                     <h3 className="text-xl font-bold text-gray-900 mb-4">Quick Actions</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <button className="p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors text-left">
                             <div className="text-blue-600 font-medium">Book Session</div>
                             <div className="text-sm text-gray-600">Schedule a new coaching session</div>
-                        </button>
-                        <button className="p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors text-left">
-                            <div className="text-green-600 font-medium">Book Ground</div>
-                            <div className="text-sm text-gray-600">Reserve a ground for practice</div>
                         </button>
                         <button className="p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors text-left">
                             <div className="text-purple-600 font-medium">View Programs</div>

@@ -42,7 +42,6 @@ const Header = () => {
     { path: '/', label: 'Home' },
     { path: '/products', label: 'Products' },
     { path: '/programs', label: 'Coaching Programs' },
-    { path: '/ground-booking', label: 'Ground Booking' },
   ];
 
   const handleMyRequestClick = () => {

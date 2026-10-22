@@ -1207,7 +1207,7 @@ export default function EnrollmentDetails() {
                 </button>
                 <button
                   onClick={handleDirectSessionBooking}
-                  disabled={submitting || !selectedTimeSlot || !selectedTimeSlot.ground || !selectedTimeSlot.groundSlot}
+                  disabled={submitting || !selectedTimeSlot}
                   className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed transition-colors"
                 >
                   {submitting ? 'Booking...' : 'Book Session'}

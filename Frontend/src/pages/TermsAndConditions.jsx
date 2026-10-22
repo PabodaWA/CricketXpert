@@ -37,7 +37,7 @@ const TermsAndConditions = () => {
                 <div className="w-20 h-1 bg-gradient-to-r from-blue-500 to-transparent"></div>
               </div>
               <p className="text-xl leading-relaxed" style={{ color: '#36516C' }}>
-                These Terms and Conditions govern your use of CricketXpert's services, including our website, repair services, coaching programs, and ground bookings. By using our services, you agree to be bound by these terms.
+                These Terms and Conditions govern your use of CricketXpert's services, including our website, repair services, and coaching programs. By using our services, you agree to be bound by these terms.
               </p>
             </div>
           </div>

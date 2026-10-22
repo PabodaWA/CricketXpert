@@ -214,6 +214,18 @@ export default function WeeklySessionBooking({ coachId, onSessionSelect, enrollm
     setSelectedGround(null);
     setSelectedGroundSlot(null);
     setAvailableGrounds([]);
+
+    if (onSessionSelect) {
+      onSessionSelect({
+        week: selectedWeek.week,
+        sessionNumber: selectedWeek.sessionNumber,
+        date: slot.date,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        duration: slot.duration,
+        dayName: slot.dayName
+      });
+    }
     
     // Fetch available grounds for this date and time
     fetchAvailableGrounds(slot.date, slot.startTime, slot.endTime);

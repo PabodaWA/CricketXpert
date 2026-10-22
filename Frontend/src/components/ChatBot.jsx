@@ -11,8 +11,7 @@ const ChatBot = () => {
       buttons: [
         { text: "🛒 Shop Products", action: "products", link: "/products" },
         { text: "🔧 Equipment Repair", action: "repair", link: "/repair" },
-        { text: "🏏 Coaching Programs", action: "coaching", link: "/programs" },
-        { text: "🏟️ Book Ground", action: "ground", link: "/ground-booking" }
+        { text: "🏏 Coaching Programs", action: "coaching", link: "/programs" }
       ]
     }
   ]);
@@ -58,9 +57,7 @@ CricketXpert offers:
 - Equipment Repair: Professional bat, pad, glove, helmet repairs with pickup/delivery
 - Coaching Programs: Expert coaches, structured sessions, certificates, performance tracking
 - E-commerce: Premium cricket gear, secure payments, fast delivery, order tracking
-- Ground Booking: Multiple locations, flexible scheduling, equipment rental, slot booking
-
-For bat purchases: Direct them to /products page and add a "Go to Products" button. For repairs: /repair and add "Book Repair" button. For coaching: /programs and add "View Programs" button. For ground booking: mention ground booking service and add "Book Ground" button.
+For bat purchases: Direct them to /products page and add a "Go to Products" button. For repairs: /repair and add "Book Repair" button. For coaching: /programs and add "View Programs" button.
 
 User question: ${currentInput}`
             }]
@@ -94,8 +91,6 @@ User question: ${currentInput}`
           buttons = [{ text: "🔧 Book Repair", action: "repair", link: "/repair" }];
         } else if (botResponse.toLowerCase().includes('coaching') || botResponse.toLowerCase().includes('program')) {
           buttons = [{ text: "🏏 View Programs", action: "coaching", link: "/programs" }];
-        } else if (botResponse.toLowerCase().includes('ground') || botResponse.toLowerCase().includes('booking')) {
-          buttons = [{ text: "🏟️ Book Ground", action: "ground", link: "/ground-booking" }];
         }
       } else if (data.error) {
         console.error('API Error:', data.error);
@@ -160,10 +155,6 @@ User question: ${currentInput}`
       case "coaching":
         explanation = "Comprehensive coaching programs for all skill levels. Learn from professional coaches with structured sessions, performance tracking, certificates, and personalized feedback.";
         buttonText = "🏏 View Programs";
-        break;
-      case "ground":
-        explanation = "Book cricket grounds and facilities for practice sessions and matches. Multiple locations with various amenities, equipment rental, and flexible slot booking system.";
-        buttonText = "🏟️ Book Ground";
         break;
       case "navigate":
         // Direct navigation without explanation

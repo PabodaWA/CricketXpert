@@ -9,7 +9,14 @@ const connectDB = async () => {
       throw new Error('MONGO_URI is not configured in the environment');
     }
 
-    await mongoose.connect(process.env.MONGO_URI);
+    await mongoose.connect(process.env.MONGO_URI, {
+      serverSelectionTimeoutMS: 10000,
+      connectTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
+      maxPoolSize: 10,
+      retryWrites: true,
+      w: 'majority'
+    });
     console.log('✅ MongoDB Connected');
   } catch (err) {
     console.error('MongoDB connection failed:', err.message);

@@ -6,7 +6,6 @@ import aboutequipmentImage from '../assets/aboutequipment.jpeg';
 import aboutshopImage from '../assets/aboutshop.jpeg';
 import aboutcusImage from '../assets/aboutcus.jpeg';
 import aboutrepairImage from '../assets/aboutrepair.jpeg';
-import aboutgroudImage from '../assets/aboutgroud.jpeg';
 import aboutprogramImage from '../assets/aboutprogram.jpeg';
 
 const AboutUs = () => {
@@ -298,43 +297,6 @@ const AboutUs = () => {
                   alt="Professional Cricket Equipment Repair Services"
                   className="w-full h-full object-cover"
                 />
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Ground Booking Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            {/* Ground Booking Image */}
-            <div className="relative group">
-              <div className="absolute inset-0 bg-gradient-to-r from-green-500 to-teal-600 rounded-2xl transform -rotate-3 group-hover:-rotate-6 transition-transform duration-300"></div>
-              <div className="relative aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl transform group-hover:scale-105 transition-transform duration-300">
-                <img 
-                  src={aboutgroudImage} 
-                  alt="Premium Cricket Grounds for Booking"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            </div>
-            
-            {/* Text Content */}
-            <div className="space-y-8">
-              <div className="relative">
-                <h2 className="text-4xl lg:text-5xl font-bold mb-4" style={{ color: '#000000' }}>
-                  Premium Ground Booking
-                </h2>
-                <div className="w-24 h-1 bg-gradient-to-r from-green-500 to-transparent"></div>
-              </div>
-              <div className="space-y-6">
-                <p className="text-xl leading-relaxed" style={{ color: '#36516C' }}>
-                  Book our premium cricket grounds for practice sessions, matches, and tournaments. Our facilities feature professional-grade pitches, modern amenities, and well-maintained playing surfaces that meet international standards.
-                </p>
-                <p className="text-xl leading-relaxed" style={{ color: '#36516C' }}>
-                  Whether you're organizing a local tournament, team practice, or individual training session, our grounds provide the perfect environment for cricket enthusiasts of all levels. Experience the difference that quality facilities make in your game.
-                </p>
               </div>
             </div>
           </div>

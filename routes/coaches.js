@@ -5,6 +5,7 @@ import {
   getCoach,
   getCoachByUserId,
   createCoach,
+  createCoachAccount,
   updateCoach,
   deleteCoach,
   getCoachesBySpecialization,
@@ -75,6 +76,7 @@ router.get('/:id', getCoach); // Get single coach profile
 
 // Coach and Admin routes
 router.post('/', /* authorize('admin', 'coaching_manager'), */ createCoach); // Create coach profile
+router.post('/create-account', /* authorize('admin', 'coaching_manager'), */ createCoachAccount); // Create coach user and profile
 
 // Specific routes must come before parameterized routes
 router.put('/simple-attendance', /* authorize('coach'), */ simpleAttendanceMarking); // Simple attendance marking fallback
@@ -110,7 +112,6 @@ router.post('/create-for-user/:userId', /* authorize('admin'), */ createCoachPro
 router.post('/create-missing-profiles', /* authorize('admin'), */ createMissingCoachProfiles); // Create missing coach profiles for all users with coach role
 
 export default router;
-
 
 
 

@@ -3,6 +3,7 @@ import User from '../models/User.js';
 import Session from '../models/Session.js';
 import CoachPayroll from '../models/CoachPayroll.js';
 import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
 import { sendAttendanceNotificationEmail } from '../utils/wemailService.js';
 
 // Helper function for manual pagination
@@ -321,6 +322,77 @@ const createCoach = async (req, res) => {
   }
 };
 
+// @desc    Create a coach user account and profile
+// @route   POST /api/coaches/create-account
+const createCoachAccount = async (req, res) => {
+  try {
+    const {
+      firstName, lastName, username, email, password,
+      specializations = [], experience = 0, hourlyRate = 0
+    } = req.body;
+
+    if (!firstName || !lastName || !username || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'First name, last name, username, email and password are required'
+      });
+    }
+
+    const existingUser = await User.findOne({ $or: [{ email }, { username }] });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'A user with this email or username already exists'
+      });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const user = await User.create({
+      firstName,
+      lastName,
+      username,
+      email,
+      passwordHash,
+      role: 'coach',
+      status: 'active'
+    });
+
+    try {
+      const coach = await Coach.create({
+        userId: user._id,
+        specializations,
+        experience: Number(experience) || 0,
+        hourlyRate: Number(hourlyRate) || 0,
+        isActive: true
+      });
+
+      const populatedCoach = await Coach.findById(coach._id)
+        .populate('userId', 'firstName lastName email profileImageURL role');
+
+      return res.status(201).json({
+        success: true,
+        data: populatedCoach,
+        message: 'Coach account created successfully'
+      });
+    } catch (coachError) {
+      await User.findByIdAndDelete(user._id);
+      throw coachError;
+    }
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'A user or coach with these details already exists'
+      });
+    }
+    return res.status(500).json({
+      success: false,
+      message: 'Error creating coach account',
+      error: error.message
+    });
+  }
+};
+
 // @desc    Update coach profile
 // @route   PUT /api/coaches/:id
 // @access  Private (Coach owner or Admin)
@@ -464,6 +536,14 @@ const updateCoach = async (req, res) => {
         success: false,
         message: 'Validation error',
         errors: Object.values(error.errors).map(err => err.message)
+      });
+    }
+
+    if (error.name === 'MongoNetworkError' || error.name === 'MongoServerSelectionError' ||
+        error.code === 'ECONNRESET' || error.syscall === 'read') {
+      return res.status(503).json({
+        success: false,
+        message: 'Database connection was interrupted. Please try again in a moment.'
       });
     }
 
@@ -1540,13 +1620,16 @@ const getCoachAvailability = async (req, res) => {
         
         if (availability.day.toLowerCase() === currentDayName) {
           // Generate hourly slots within coach's availability window
-          const startHour = parseInt(availability.startTime.split(':')[0]);
-          const endHour = parseInt(availability.endTime.split(':')[0]);
+          const [startHour, startMinute] = availability.startTime.split(':').map(Number);
+          const [endHour, endMinute] = availability.endTime.split(':').map(Number);
+          const availabilityStart = startHour * 60 + startMinute;
+          const availabilityEnd = endHour * 60 + endMinute;
           
           // Generate 2-hour slots within coach's availability window
-          for (let hour = startHour; hour < endHour - 1; hour += 2) {
-            const slotStartTime = `${hour.toString().padStart(2, '0')}:00`;
-            const slotEndTime = `${(hour + 2).toString().padStart(2, '0')}:00`;
+          for (let slotStart = availabilityStart; slotStart + 120 <= availabilityEnd; slotStart += 120) {
+            const slotEnd = slotStart + 120;
+            const slotStartTime = `${Math.floor(slotStart / 60).toString().padStart(2, '0')}:${(slotStart % 60).toString().padStart(2, '0')}`;
+            const slotEndTime = `${Math.floor(slotEnd / 60).toString().padStart(2, '0')}:${(slotEnd % 60).toString().padStart(2, '0')}`;
             
             // Check if this slot conflicts with existing sessions
             const hasConflict = existingSessions.some(session => {
@@ -3580,6 +3663,7 @@ export {
   getAllCoaches,
   getCoach,
   createCoach,
+  createCoachAccount,
   updateCoach,
   deleteCoach,
   getCoachesBySpecialization,
@@ -3619,4 +3703,3 @@ export {
   updateCoachPayrollPaymentStatus,
   createOrUpdateCoachPayroll
 };
-

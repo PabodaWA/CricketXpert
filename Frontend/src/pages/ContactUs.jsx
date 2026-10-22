@@ -91,7 +91,7 @@ const ContactUs = () => {
                 <div className="w-20 h-1 bg-gradient-to-r from-blue-500 to-transparent"></div>
               </div>
               <p className="text-xl leading-relaxed" style={{ color: '#36516C' }}>
-                Get in touch with our team. We're here to help you with all your cricket needs, from equipment inquiries to coaching programs and ground bookings. Reach out to us and we'll respond as soon as possible.
+                Get in touch with our team. We're here to help you with all your cricket needs, from equipment inquiries to coaching programs. Reach out to us and we'll respond as soon as possible.
               </p>
             </div>
           </div>

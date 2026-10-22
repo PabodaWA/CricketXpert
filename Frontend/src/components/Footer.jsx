@@ -21,7 +21,7 @@ const Footer = () => {
             <p className="text-sm text-gray-300 leading-relaxed">
               CricketXpert is a cricket-centric platform that offers comprehensive cricket services, 
               equipment, and training programs. We provide repair services, coaching programs, 
-              ground bookings, and expert guidance for cricket enthusiasts of all levels.
+              and expert guidance for cricket enthusiasts of all levels.
             </p>
             
             {/* Payment Methods */}
