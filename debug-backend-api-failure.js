@@ -19,7 +19,7 @@ async function debugBackendAPI() {
     // Test 1: Check if server is running
     console.log('1. Testing server connectivity...');
     try {
-      const healthResponse = await axios.get('http://localhost:5000', { timeout: 5000 });
+      const healthResponse = await axios.get('http://https://cricketxpert-backend.vercel.app', { timeout: 5000 });
       console.log('✅ Server is running and accessible');
     } catch (error) {
       if (error.code === 'ECONNREFUSED') {
@@ -45,7 +45,7 @@ async function debugBackendAPI() {
       };
       
       const response = await axios.put(
-        'http://localhost:5000/api/coaches/attendance-only',
+        'http://https://cricketxpert-backend.vercel.app/api/coaches/attendance-only',
         testData,
         { timeout: 5000 }
       );
@@ -72,7 +72,7 @@ async function debugBackendAPI() {
     // Test 3: Check other endpoints
     console.log('\n3. Testing other coach endpoints...');
     try {
-      const response = await axios.get('http://localhost:5000/api/coaches', { timeout: 5000 });
+      const response = await axios.get('http://https://cricketxpert-backend.vercel.app/api/coaches', { timeout: 5000 });
       console.log('✅ Coaches endpoint is accessible');
     } catch (error) {
       console.log('❌ Coaches endpoint error:', error.message);

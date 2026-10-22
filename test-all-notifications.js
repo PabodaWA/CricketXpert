@@ -1,7 +1,7 @@
 // Comprehensive test script for all notification types
 // Run this in browser console to test repair, order, and enrollment notifications
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'http://https://cricketxpert-backend.vercel.app/api';
 
 // Helper to get user info from localStorage
 const getUserInfo = () => {

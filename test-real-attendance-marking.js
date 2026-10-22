@@ -42,7 +42,7 @@ async function testRealAttendanceMarking() {
     
     // Make the request to the actual endpoint used by the frontend
     const response = await axios.put(
-      'http://localhost:5000/api/coaches/attendance-only',
+      'http://https://cricketxpert-backend.vercel.app/api/coaches/attendance-only',
       testData,
       {
         headers: {

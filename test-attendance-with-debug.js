@@ -16,7 +16,7 @@ async function testAttendanceWithDebug() {
   // Step 1: Test server connectivity
   console.log('🔍 Step 1: Testing server connectivity...');
   try {
-    const response = await axios.get('http://localhost:5000/api/health', { timeout: 5000 });
+    const response = await axios.get('http://https://cricketxpert-backend.vercel.app/api/health', { timeout: 5000 });
     console.log('✅ Server is running');
   } catch (error) {
     if (error.code === 'ECONNREFUSED') {
@@ -32,7 +32,7 @@ async function testAttendanceWithDebug() {
   console.log('\n🔍 Step 2: Testing attendance endpoint...');
   try {
     const response = await axios.put(
-      'http://localhost:5000/api/coaches/attendance-only',
+      'http://https://cricketxpert-backend.vercel.app/api/coaches/attendance-only',
       {
         sessionId: '507f1f77bcf86cd799439011', // Dummy ID
         attendanceData: [{ participantId: '507f1f77bcf86cd799439012', attended: true }]

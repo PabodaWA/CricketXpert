@@ -31,7 +31,7 @@ const testRepairNotifications = async () => {
     
     // Test API endpoint
     console.log('🔍 Testing repair notifications API...');
-    const response = await fetch(`http://localhost:5000/api/repair-notifications/customer/${userId}?limit=5`, {
+    const response = await fetch(`http://https://cricketxpert-backend.vercel.app/api/repair-notifications/customer/${userId}?limit=5`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -84,7 +84,7 @@ const checkRepairRequests = async () => {
     const userId = userInfo._id || userInfo.id;
     const token = userInfo?.token || localStorage.getItem('token');
     
-    const response = await fetch(`http://localhost:5000/api/repairs/dashboard/customer/${userId}`, {
+    const response = await fetch(`http://https://cricketxpert-backend.vercel.app/api/repairs/dashboard/customer/${userId}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'

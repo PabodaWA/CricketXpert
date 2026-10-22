@@ -21,12 +21,12 @@ async function testAttendanceOnlyEndpoint() {
       ]
     };
     
-    console.log('📤 Sending test request to:', 'http://localhost:5000/api/coaches/attendance-only');
+    console.log('📤 Sending test request to:', 'http://https://cricketxpert-backend.vercel.app/api/coaches/attendance-only');
     console.log('📊 Test data:', JSON.stringify(testData, null, 2));
     
     try {
       const response = await axios.put(
-        'http://localhost:5000/api/coaches/attendance-only',
+        'http://https://cricketxpert-backend.vercel.app/api/coaches/attendance-only',
         testData,
         {
           timeout: 5000, // 5 second timeout
@@ -55,7 +55,7 @@ async function testAttendanceOnlyEndpoint() {
           console.log('❌ Server error - Check server console for error messages');
         }
       } else if (error.code === 'ENOTFOUND') {
-        console.log('❌ Server not found - Check if server is running on localhost:5000');
+        console.log('❌ Server not found - Check if server is running on https://cricketxpert-backend.vercel.app');
       } else {
         console.log('❌ Error:', error.message);
       }
@@ -65,7 +65,7 @@ async function testAttendanceOnlyEndpoint() {
     console.log('');
     console.log('1. ✅ Is your server running?');
     console.log('   Run: npm start');
-    console.log('   Check: http://localhost:5000');
+    console.log('   Check: http://https://cricketxpert-backend.vercel.app');
     console.log('');
     console.log('2. ✅ Is the attendance-only endpoint accessible?');
     console.log('   Check: PUT /api/coaches/attendance-only');

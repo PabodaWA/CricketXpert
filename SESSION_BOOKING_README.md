@@ -219,13 +219,13 @@ Use tools like Postman or curl to test the API endpoints:
 
 ```bash
 # Get all grounds
-curl -X GET http://localhost:5000/api/grounds
+curl -X GET http://https://cricketxpert-backend.vercel.app/api/grounds
 
 # Check ground availability
-curl -X GET "http://localhost:5000/api/sessions/ground/GROUND_ID/availability?date=2024-01-15"
+curl -X GET "http://https://cricketxpert-backend.vercel.app/api/sessions/ground/GROUND_ID/availability?date=2024-01-15"
 
 # Create a session (requires authentication)
-curl -X POST http://localhost:5000/api/sessions \
+curl -X POST http://https://cricketxpert-backend.vercel.app/api/sessions \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{

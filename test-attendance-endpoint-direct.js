@@ -26,7 +26,7 @@ async function testAttendanceEndpointDirect() {
     console.log('📤 Sending request to attendance endpoint...');
     
     const response = await axios.put(
-      'http://localhost:5000/api/coaches/attendance-only',
+      'http://https://cricketxpert-backend.vercel.app/api/coaches/attendance-only',
       testData,
       {
         headers: {
