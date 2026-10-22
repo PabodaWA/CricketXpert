@@ -93,7 +93,7 @@ export default function SignUpMultiStep() {
         setVerificationLoading(true);
         setError('');
         try {
-            const { data } = await axios.post('http://localhost:5000/api/auth/send-email-verification', { 
+            const { data } = await axios.post('https://cricketxpert-backend.vercel.app/api/auth/send-email-verification', { 
                 email: formData.email 
             });
             setTempVerificationData(data.tempData);
@@ -114,7 +114,7 @@ export default function SignUpMultiStep() {
         setVerificationLoading(true);
         setError('');
         try {
-            const { data } = await axios.post('http://localhost:5000/api/auth/verify-email-code', {
+            const { data } = await axios.post('https://cricketxpert-backend.vercel.app/api/auth/verify-email-code', {
                 email: formData.email,
                 code: verificationCode,
                 tempData: tempVerificationData
@@ -194,7 +194,7 @@ export default function SignUpMultiStep() {
             uploadFormData.append('profileImage', imageFile);
             try {
                 const uploadConfig = { headers: { 'Content-Type': 'multipart/form-data' } };
-                const { data } = await axios.post('http://localhost:5000/api/upload', uploadFormData, uploadConfig);
+                const { data } = await axios.post('https://cricketxpert-backend.vercel.app/api/upload', uploadFormData, uploadConfig);
                 uploadedImagePath = data.filePath;
             } catch (uploadError) {
                 setError('Image upload failed. Please try again.');
@@ -204,7 +204,7 @@ export default function SignUpMultiStep() {
         }
         try {
             const registrationData = { ...formData, profileImageURL: uploadedImagePath };
-            const { data } = await axios.post('http://localhost:5000/api/auth/register', registrationData);
+            const { data } = await axios.post('https://cricketxpert-backend.vercel.app/api/auth/register', registrationData);
 
             // --- FIX IS HERE: AUTOMATICALLY LOG THE USER IN ---
             localStorage.setItem('userInfo', JSON.stringify(data));

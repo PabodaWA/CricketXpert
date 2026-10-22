@@ -37,7 +37,7 @@ const Delivery = () => {
             Authorization: `Bearer ${userInfo.token}`
           }
         };
-        const response = await axios.get(`http://localhost:5000/api/users/profile`, config);
+        const response = await axios.get(`https://cricketxpert-backend.vercel.app/api/users/profile`, config);
         setUser(response.data);
         setEditedUser({
           firstName: response.data.firstName || '',
@@ -92,7 +92,7 @@ const Delivery = () => {
         }
       };
       const payload = { [field]: editedUser[field] };
-      const { data } = await axios.put(`http://localhost:5000/api/users/profile`, payload, config);
+      const { data } = await axios.put(`https://cricketxpert-backend.vercel.app/api/users/profile`, payload, config);
       setUser(data);
       setEditedUser({
         firstName: data.firstName || '',

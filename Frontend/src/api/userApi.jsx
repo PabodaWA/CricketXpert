@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const BASE_URL = "http://localhost:5000/api/users";
+const BASE_URL = "https://cricketxpert-backend.vercel.app/api/users";
 
 export const getUserByUsername = async (username) => {
   const res = await axios.get(`${BASE_URL}/search/${username}`);

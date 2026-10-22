@@ -24,7 +24,7 @@ export default function SessionManager({ enrollment, onClose }) {
 
             // Fetch sessions for this program
             const { data } = await axios.get(
-                `http://localhost:5000/api/sessions/program/${enrollment.program._id}`,
+                `https://cricketxpert-backend.vercel.app/api/sessions/program/${enrollment.program._id}`,
                 config
             );
 
@@ -64,7 +64,7 @@ export default function SessionManager({ enrollment, onClose }) {
             
             if (participant) {
                 await axios.delete(
-                    `http://localhost:5000/api/sessions/${sessionId}/participants/${participant._id}`,
+                    `https://cricketxpert-backend.vercel.app/api/sessions/${sessionId}/participants/${participant._id}`,
                     config
                 );
                 
@@ -274,7 +274,7 @@ function RescheduleModal({ session, enrollment, onClose, onSuccess }) {
 
     const fetchGrounds = async () => {
         try {
-            const { data } = await axios.get('http://localhost:5000/api/grounds');
+            const { data } = await axios.get('https://cricketxpert-backend.vercel.app/api/grounds');
             if (data.success) {
                 setGrounds(data.data || []);
             }
@@ -286,7 +286,7 @@ function RescheduleModal({ session, enrollment, onClose, onSuccess }) {
     const fetchAvailableSlots = async () => {
         try {
             const { data } = await axios.get(
-                `http://localhost:5000/api/sessions/ground/${selectedGround}/availability?date=${selectedDate}`
+                `https://cricketxpert-backend.vercel.app/api/sessions/ground/${selectedGround}/availability?date=${selectedDate}`
             );
             if (data.success) {
                 setAvailableSlots(data.data.availability || []);
@@ -330,7 +330,7 @@ function RescheduleModal({ session, enrollment, onClose, onSuccess }) {
             };
 
             await axios.put(
-                `http://localhost:5000/api/sessions/${session._id}`,
+                `https://cricketxpert-backend.vercel.app/api/sessions/${session._id}`,
                 updateData,
                 config
             );

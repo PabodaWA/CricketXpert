@@ -67,7 +67,7 @@ export default function Profile() {
                         Authorization: `Bearer ${userInfo.token}`,
                     },
                 };
-                const { data } = await axios.get('http://localhost:5000/api/users/profile', config);
+                const { data } = await axios.get('https://cricketxpert-backend.vercel.app/api/users/profile', config);
                 setUser(data);
             } catch (err) {
                 console.error('Error fetching user profile:', err);
@@ -135,7 +135,7 @@ export default function Profile() {
                             Authorization: `Bearer ${userInfo.token}`,
                         },
                     };
-                    const { data } = await axios.get(`http://localhost:5000/api/enrollments/user/${userInfo._id}`, config);
+                    const { data } = await axios.get(`https://cricketxpert-backend.vercel.app/api/enrollments/user/${userInfo._id}`, config);
                     
                     // Handle both response structures
                     if (data.data && data.data.docs) {
@@ -173,7 +173,7 @@ export default function Profile() {
             };
 
             // First, get all enrollments
-            const { data } = await axios.get(`http://localhost:5000/api/enrollments/user/${userInfo._id}`, config);
+            const { data } = await axios.get(`https://cricketxpert-backend.vercel.app/api/enrollments/user/${userInfo._id}`, config);
             let enrollmentsData = [];
             
             // Handle different response structures
@@ -190,7 +190,7 @@ export default function Profile() {
                 enrollmentsData.map(async (enrollment) => {
                     try {
                         const sessionsResponse = await axios.get(
-                            `http://localhost:5000/api/sessions/enrollment/${enrollment._id}`,
+                            `https://cricketxpert-backend.vercel.app/api/sessions/enrollment/${enrollment._id}`,
                             config
                         );
                         
@@ -206,7 +206,7 @@ export default function Profile() {
                                 // Update the enrollment status to completed
                                 try {
                                     await axios.put(
-                                        `http://localhost:5000/api/enrollments/${enrollment._id}/status`,
+                                        `https://cricketxpert-backend.vercel.app/api/enrollments/${enrollment._id}/status`,
                                         { status: 'completed' },
                                         config
                                     );
@@ -278,7 +278,7 @@ export default function Profile() {
                             Authorization: `Bearer ${userInfo.token}`,
                         },
                     };
-                    const { data } = await axios.get(`http://localhost:5000/api/enrollments/user/${userInfo._id}`, config);
+                    const { data } = await axios.get(`https://cricketxpert-backend.vercel.app/api/enrollments/user/${userInfo._id}`, config);
                     // Handle both response structures
                     if (data.data && data.data.docs) {
                         // Paginated response

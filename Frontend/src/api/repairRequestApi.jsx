@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const BASE_URL = "http://localhost:5000/api/repairs";
+const BASE_URL = "https://cricketxpert-backend.vercel.app/api/repairs";
 const REPAIRS_BASE_OVERRIDE = typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_REPAIRS_BASE ? String(import.meta.env.VITE_REPAIRS_BASE) : '';
 
 // Helper to attempt multiple endpoints until one succeeds
@@ -28,11 +28,11 @@ export const submitRepairRequest = (requestData) => {
     `${base}/create`,
     `${base}/new`,
     // Common alternative bases
-    `http://localhost:5000/api/repair-requests`,
-    `http://localhost:5000/api/repair-requests/create`,
-    `http://localhost:5000/api/requests/repairs`,
-    `http://localhost:5000/api/requests`,
-    `http://localhost:5000/repairs`,
+    `https://cricketxpert-backend.vercel.app/api/repair-requests`,
+    `https://cricketxpert-backend.vercel.app/api/repair-requests/create`,
+    `https://cricketxpert-backend.vercel.app/api/requests/repairs`,
+    `https://cricketxpert-backend.vercel.app/api/requests`,
+    `https://cricketxpert-backend.vercel.app/repairs`,
   ];
   return tryPostEndpoints(candidates, requestData);
 };
@@ -92,7 +92,7 @@ export const sendEstimate = (requestId, estimateData) => {
 
 // Get all technicians
 export const getAllTechnicians = () => {
-  return axios.get('http://localhost:5000/api/technicians');
+  return axios.get('https://cricketxpert-backend.vercel.app/api/technicians');
 };
 
 // Update a repair request (general fields)
@@ -135,16 +135,16 @@ export const fetchUserByUsername = async (identifier) => {
 
   const getCandidates = [
     ...(override ? [`${override}?q=${q}`, `${override}?username=${q}`, `${override}?name=${q}`] : []),
-    `http://localhost:5000/api/users/check/${q}`,
-    `http://localhost:5000/api/users/${q}`,
-    `http://localhost:5000/api/users?username=${q}`,
-    `http://localhost:5000/api/customers/check/${q}`,
-    `http://localhost:5000/api/customers/${q}`,
-    `http://localhost:5000/api/customers?username=${q}`,
-    `http://localhost:5000/api/users/search?name=${q}`,
-    `http://localhost:5000/api/customers/search?name=${q}`,
-    `http://localhost:5000/api/users?name=${q}`,
-    `http://localhost:5000/api/customers?name=${q}`,
+    `https://cricketxpert-backend.vercel.app/api/users/check/${q}`,
+    `https://cricketxpert-backend.vercel.app/api/users/${q}`,
+    `https://cricketxpert-backend.vercel.app/api/users?username=${q}`,
+    `https://cricketxpert-backend.vercel.app/api/customers/check/${q}`,
+    `https://cricketxpert-backend.vercel.app/api/customers/${q}`,
+    `https://cricketxpert-backend.vercel.app/api/customers?username=${q}`,
+    `https://cricketxpert-backend.vercel.app/api/users/search?name=${q}`,
+    `https://cricketxpert-backend.vercel.app/api/customers/search?name=${q}`,
+    `https://cricketxpert-backend.vercel.app/api/users?name=${q}`,
+    `https://cricketxpert-backend.vercel.app/api/customers?name=${q}`,
   ];
 
   const postCandidates = [
@@ -153,12 +153,12 @@ export const fetchUserByUsername = async (identifier) => {
       { url: override, body: { username: identifier } },
       { url: override, body: { name: identifier } },
     ] : []),
-    { url: 'http://localhost:5000/api/users/find', body: { username: identifier } },
-    { url: 'http://localhost:5000/api/customers/find', body: { username: identifier } },
-    { url: 'http://localhost:5000/api/users/search', body: { name: identifier } },
-    { url: 'http://localhost:5000/api/customers/search', body: { name: identifier } },
-    { url: 'http://localhost:5000/api/users/find', body: { query: identifier } },
-    { url: 'http://localhost:5000/api/customers/find', body: { query: identifier } },
+    { url: 'https://cricketxpert-backend.vercel.app/api/users/find', body: { username: identifier } },
+    { url: 'https://cricketxpert-backend.vercel.app/api/customers/find', body: { username: identifier } },
+    { url: 'https://cricketxpert-backend.vercel.app/api/users/search', body: { name: identifier } },
+    { url: 'https://cricketxpert-backend.vercel.app/api/customers/search', body: { name: identifier } },
+    { url: 'https://cricketxpert-backend.vercel.app/api/users/find', body: { query: identifier } },
+    { url: 'https://cricketxpert-backend.vercel.app/api/customers/find', body: { query: identifier } },
   ];
 
   let lastError;
@@ -187,7 +187,7 @@ export const fetchUserByUsername = async (identifier) => {
 
 // Legacy helper
 export const checkUsername = (username) => {
-  return axios.get(`http://localhost:5000/api/users/check/${username}`);
+  return axios.get(`https://cricketxpert-backend.vercel.app/api/users/check/${username}`);
 };
 
 // Download repair report

@@ -63,7 +63,7 @@ const Cart = () => {
           Authorization: `Bearer ${userInfo.token}`
         }
       };
-      const response = await axios.get(`http://localhost:5000/api/users/profile`, config);
+      const response = await axios.get(`https://cricketxpert-backend.vercel.app/api/users/profile`, config);
       setUser(response.data);
     } catch (err) {
       console.error('Error fetching user details:', err);
@@ -75,7 +75,7 @@ const Cart = () => {
 
   const fetchProducts = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/products/');
+      const res = await axios.get('https://cricketxpert-backend.vercel.app/api/products/');
       setProducts(res.data || []);
       if (res.data.length === 0) {
         setError('No products available.');
@@ -97,7 +97,7 @@ const Cart = () => {
       for (const item of cart) {
         const product = getProductDetails(item.productId);
         if (!product) continue;
-        await axios.post('http://localhost:5000/api/cart-pending', {
+        await axios.post('https://cricketxpert-backend.vercel.app/api/cart-pending', {
           cartToken: cartToken,
           productId: item.productId,
           title: product.name,
@@ -113,7 +113,7 @@ const Cart = () => {
   const clearCartPending = async () => {
     try {
       if (!cartToken) return;
-      await axios.delete(`http://localhost:5000/api/cart-pending/${cartToken}`);
+      await axios.delete(`https://cricketxpert-backend.vercel.app/api/cart-pending/${cartToken}`);
     } catch (err) {
       console.error('Error clearing Cart_Pending:', err);
     }
@@ -121,7 +121,7 @@ const Cart = () => {
 
   const fetchCartPending = async (token) => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/cart-pending/${token}`);
+      const res = await axios.get(`https://cricketxpert-backend.vercel.app/api/cart-pending/${token}`);
       const items = res.data || [];
       // Map to local cart structure
       const mapped = items.map(i => ({ productId: i.productId?._id || i.productId, quantity: i.quantity }));
@@ -144,7 +144,7 @@ const Cart = () => {
     // remove from backend and refresh
     if (cartToken) {
       axios
-        .delete(`http://localhost:5000/api/cart-pending/${cartToken}/item/${productId}`)
+        .delete(`https://cricketxpert-backend.vercel.app/api/cart-pending/${cartToken}/item/${productId}`)
         .then(() => fetchCartPending(cartToken))
         .catch(() => {});
     }
@@ -171,7 +171,7 @@ const Cart = () => {
           );
           // push to backend
           if (cartToken) {
-            axios.put(`http://localhost:5000/api/cart-pending/${cartToken}/item/${productId}`, { quantity: newQuantity }).catch(() => {});
+            axios.put(`https://cricketxpert-backend.vercel.app/api/cart-pending/${cartToken}/item/${productId}`, { quantity: newQuantity }).catch(() => {});
           }
         }
       } else if (change > 0) {
@@ -181,7 +181,7 @@ const Cart = () => {
         }
         newCart = [...prevCart, { productId, quantity: 1 }];
         if (cartToken) {
-          axios.post('http://localhost:5000/api/cart-pending', {
+          axios.post('https://cricketxpert-backend.vercel.app/api/cart-pending', {
             cartToken: cartToken,
             productId: productId,
             title: product.name,
@@ -243,7 +243,7 @@ const Cart = () => {
           priceAtOrder: product.price
         };
       }).filter(item => item !== null);
-      const res = await axios.post('http://localhost:5000/api/orders/calculate-total', {
+      const res = await axios.post('https://cricketxpert-backend.vercel.app/api/orders/calculate-total', {
         items: orderItems
       });
       setTotalData({

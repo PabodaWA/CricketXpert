@@ -41,7 +41,7 @@ export default function SessionBooking({ enrollment, onClose, onBookingSuccess }
     const fetchGrounds = async () => {
         try {
             setLoadingGrounds(true);
-            const { data } = await axios.get('http://localhost:5000/api/grounds');
+            const { data } = await axios.get('https://cricketxpert-backend.vercel.app/api/grounds');
             if (data.success) {
                 setGrounds(data.data || []);
             }
@@ -57,7 +57,7 @@ export default function SessionBooking({ enrollment, onClose, onBookingSuccess }
         try {
             setLoadingSlots(true);
             const { data } = await axios.get(
-                `http://localhost:5000/api/session-grounds/ground/${selectedGround}/availability?date=${selectedDate}`
+                `https://cricketxpert-backend.vercel.app/api/session-grounds/ground/${selectedGround}/availability?date=${selectedDate}`
             );
             if (data.success) {
                 setAvailableSlots(data.data.availability || []);
@@ -141,7 +141,7 @@ export default function SessionBooking({ enrollment, onClose, onBookingSuccess }
             console.log('Creating session with data:', sessionData);
 
             const sessionResponse = await axios.post(
-                'http://localhost:5000/api/sessions',
+                'https://cricketxpert-backend.vercel.app/api/sessions',
                 sessionData,
                 config
             );
@@ -164,7 +164,7 @@ export default function SessionBooking({ enrollment, onClose, onBookingSuccess }
                 console.log('Creating session ground booking with data:', bookingData);
 
                 const bookingResponse = await axios.post(
-                    'http://localhost:5000/api/session-grounds',
+                    'https://cricketxpert-backend.vercel.app/api/session-grounds',
                     bookingData,
                     config
                 );
@@ -177,7 +177,7 @@ export default function SessionBooking({ enrollment, onClose, onBookingSuccess }
                     };
 
                     await axios.post(
-                        `http://localhost:5000/api/sessions/${sessionResponse.data.data._id}/participants`,
+                        `https://cricketxpert-backend.vercel.app/api/sessions/${sessionResponse.data.data._id}/participants`,
                         participantData,
                         config
                     );

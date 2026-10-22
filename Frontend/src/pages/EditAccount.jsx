@@ -52,7 +52,7 @@ export default function EditAccount() {
             try {
                 const userInfo = JSON.parse(localStorage.getItem('userInfo'));
                 const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
-                const { data } = await axios.get('http://localhost:5000/api/users/profile', config);
+                const { data } = await axios.get('https://cricketxpert-backend.vercel.app/api/users/profile', config);
 
                 // Populate basic form data
                 setFormData({
@@ -61,7 +61,7 @@ export default function EditAccount() {
                     contactNumber: data.contactNumber || '',
                     dob: data.dob ? new Date(data.dob).toISOString().split('T')[0] : '',
                 });
-                setImagePreview(data.profileImageURL ? `http://localhost:5000${data.profileImageURL}` : '');
+                setImagePreview(data.profileImageURL ? `https://cricketxpert-backend.vercel.app${data.profileImageURL}` : '');
 
                 // --- Smart Address Parsing ---
                 if (data.address) {
@@ -198,7 +198,7 @@ export default function EditAccount() {
             try {
                 const userInfo = JSON.parse(localStorage.getItem('userInfo'));
                 const uploadConfig = { headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${userInfo.token}` } };
-                const { data } = await axios.post('http://localhost:5000/api/upload', uploadFormData, uploadConfig);
+                const { data } = await axios.post('https://cricketxpert-backend.vercel.app/api/upload', uploadFormData, uploadConfig);
                 uploadedImagePath = data.filePath;
                 finalData.profileImageURL = uploadedImagePath;
             } catch (uploadError) {
@@ -218,7 +218,7 @@ export default function EditAccount() {
         try {
             const userInfo = JSON.parse(localStorage.getItem('userInfo'));
             const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
-            await axios.put('http://localhost:5000/api/users/profile', finalData, config);
+            await axios.put('https://cricketxpert-backend.vercel.app/api/users/profile', finalData, config);
             
             // OPTIONAL: Update local storage with new info if necessary
             // This prevents needing to re-fetch on the profile page

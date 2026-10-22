@@ -72,7 +72,7 @@ const CoachDashboard = () => {
     try {
       if (!coach?._id) return;
       
-      const coachSessionsResponse = await axios.get(`http://localhost:5000/api/coaches/${coach._id}/sessions?t=${Date.now()}`);
+      const coachSessionsResponse = await axios.get(`https://cricketxpert-backend.vercel.app/api/coaches/${coach._id}/sessions?t=${Date.now()}`);
       const coachSessionsData = coachSessionsResponse.data.data.docs || [];
       setSessions(coachSessionsData);
       setCoachSessions(coachSessionsData);
@@ -124,7 +124,7 @@ const CoachDashboard = () => {
       }
 
       // Get coach profile by user ID
-      const coachResponse = await axios.get(`http://localhost:5000/api/coaches/user/${userInfo._id}`);
+      const coachResponse = await axios.get(`https://cricketxpert-backend.vercel.app/api/coaches/user/${userInfo._id}`);
       const coachData = coachResponse.data.data;
       
       
@@ -146,7 +146,7 @@ const CoachDashboard = () => {
       // Get coach's enrolled programs (students enrolled in coach's programs)
       let enrolledProgramsData = [];
       try {
-        const enrolledProgramsResponse = await axios.get(`http://localhost:5000/api/coaches/${coachData._id}/enrolled-programs`);
+        const enrolledProgramsResponse = await axios.get(`https://cricketxpert-backend.vercel.app/api/coaches/${coachData._id}/enrolled-programs`);
         enrolledProgramsData = enrolledProgramsResponse.data.data.docs || [];
         setEnrolledPrograms(enrolledProgramsData);
       } catch (enrolledError) {
@@ -159,7 +159,7 @@ const CoachDashboard = () => {
       try {
         // Fetch customers data with attendance statistics from the API
         // Fetch customers data with attendance statistics from the API
-        const enrolledCustomersResponse = await axios.get(`http://localhost:5000/api/coaches/customers/${coachData._id}?t=${Date.now()}`);
+        const enrolledCustomersResponse = await axios.get(`https://cricketxpert-backend.vercel.app/api/coaches/customers/${coachData._id}?t=${Date.now()}`);
         const enrolledCustomersData = enrolledCustomersResponse.data.data.customersByProgram || [];
         
         // Flatten the customers data
@@ -203,7 +203,7 @@ const CoachDashboard = () => {
       
       // Fetch coach's sessions with attendance data
       try {
-        const coachSessionsResponse = await axios.get(`http://localhost:5000/api/coaches/${coachData._id}/sessions`);
+        const coachSessionsResponse = await axios.get(`https://cricketxpert-backend.vercel.app/api/coaches/${coachData._id}/sessions`);
         const coachSessionsData = coachSessionsResponse.data.data.docs || [];
         setSessions(coachSessionsData);
         setCoachSessions(coachSessionsData);
@@ -232,7 +232,7 @@ const CoachDashboard = () => {
 
   const handleSubmitFeedback = async (feedbackData) => {
     try {
-      const response = await axios.post('http://localhost:5000/api/player-feedback', feedbackData);
+      const response = await axios.post('https://cricketxpert-backend.vercel.app/api/player-feedback', feedbackData);
       setShowFeedbackModal(false);
       setSelectedParticipant(null);
       // Refresh data after feedback submission
@@ -290,7 +290,7 @@ const CoachDashboard = () => {
         console.log('Attendance data being sent:', validAttendanceData);
         
         const response = await axios.put(
-          `http://localhost:5000/api/coaches/attendance-only`,
+          `https://cricketxpert-backend.vercel.app/api/coaches/attendance-only`,
           { 
             sessionId: originalSessionId,
             attendanceData: validAttendanceData
@@ -311,7 +311,7 @@ const CoachDashboard = () => {
             console.log('Sessions data refreshed with updated attendance');
             
             // Refresh customers data
-            const enrolledCustomersResponse = await axios.get(`http://localhost:5000/api/coaches/customers/${coach._id}?t=${Date.now()}`);
+            const enrolledCustomersResponse = await axios.get(`https://cricketxpert-backend.vercel.app/api/coaches/customers/${coach._id}?t=${Date.now()}`);
             const enrolledCustomersData = enrolledCustomersResponse.data.data.customersByProgram || [];
             
             // Flatten the customers data
@@ -424,7 +424,7 @@ const CoachDashboard = () => {
         
         // Refresh customers data from API to get updated attendance statistics
         try {
-          const enrolledCustomersResponse = await axios.get(`http://localhost:5000/api/coaches/customers/${coach._id}?t=${Date.now()}`);
+          const enrolledCustomersResponse = await axios.get(`https://cricketxpert-backend.vercel.app/api/coaches/customers/${coach._id}?t=${Date.now()}`);
           const enrolledCustomersData = enrolledCustomersResponse.data.data.customersByProgram || [];
           
           // Flatten the customers data
@@ -471,7 +471,7 @@ const CoachDashboard = () => {
     try {
       if (!coach || !coach._id) return;
       
-      const response = await axios.get(`http://localhost:5000/api/coaches/customers/${coach._id}`);
+      const response = await axios.get(`https://cricketxpert-backend.vercel.app/api/coaches/customers/${coach._id}`);
       setEnrolledCustomers(response.data.data.customersByProgram || []);
     } catch (error) {
       console.warn('Could not fetch enrolled customers (this is optional):', error.message);
@@ -1065,7 +1065,7 @@ const CoachDashboard = () => {
                   <button
                     onClick={async () => {
                       try {
-                        const enrolledCustomersResponse = await axios.get(`http://localhost:5000/api/coaches/customers/${coach._id}?t=${Date.now()}`);
+                        const enrolledCustomersResponse = await axios.get(`https://cricketxpert-backend.vercel.app/api/coaches/customers/${coach._id}?t=${Date.now()}`);
                         const enrolledCustomersData = enrolledCustomersResponse.data.data.customersByProgram || [];
                         
                         const updatedCustomers = [];
@@ -2088,7 +2088,7 @@ const CoachProfileCard = ({ coach, enrolledPrograms, sessions }) => {
       };
       
       // Make API call to update the coach profile
-      const response = await axios.put(`http://localhost:5000/api/coaches/${coach._id}`, updateData);
+      const response = await axios.put(`https://cricketxpert-backend.vercel.app/api/coaches/${coach._id}`, updateData);
       
       if (response.data.success) {
         setIsEditing(false);
@@ -2202,7 +2202,7 @@ const CoachProfileCard = ({ coach, enrolledPrograms, sessions }) => {
                 />
               ) : coach.profileImage ? (
                 <img 
-                  src={`http://localhost:5000${coach.profileImage}`} 
+                  src={`https://cricketxpert-backend.vercel.app${coach.profileImage}`} 
                   alt="Profile" 
                   className="w-full h-full object-cover"
                 />

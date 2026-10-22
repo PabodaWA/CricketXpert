@@ -26,7 +26,7 @@ export default function Login() {
         setLoading(true);
         setError('');
         try {
-            const { data } = await axios.post('http://localhost:5000/api/auth/login', formData);
+            const { data } = await axios.post('https://cricketxpert-backend.vercel.app/api/auth/login', formData);
             localStorage.setItem('userInfo', JSON.stringify(data));
             
             // Correct Logic

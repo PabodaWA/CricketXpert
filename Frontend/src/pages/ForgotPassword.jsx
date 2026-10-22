@@ -23,7 +23,7 @@ export default function ForgotPassword() {
         setError('');
         setMessage('');
         try {
-            const { data } = await axios.post('http://localhost:5000/api/auth/forgot-password', { email });
+            const { data } = await axios.post('https://cricketxpert-backend.vercel.app/api/auth/forgot-password', { email });
             setMessage(data.message);
             setStep(2);
         } catch (err) {
@@ -43,7 +43,7 @@ export default function ForgotPassword() {
         setError('');
         setMessage('');
         try {
-            const { data } = await axios.post('http://localhost:5000/api/auth/reset-password', { email, code, password });
+            const { data } = await axios.post('https://cricketxpert-backend.vercel.app/api/auth/reset-password', { email, code, password });
             setMessage(data.message + ' Redirecting to login...');
             setTimeout(() => {
                 navigate('/login');

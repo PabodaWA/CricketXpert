@@ -87,7 +87,7 @@ const CustomerNotifications = () => {
       const userId = userInfo._id || userInfo.id;
       console.log('🔔 CustomerNotifications: Loading repair notifications for user:', userId);
       
-      const response = await fetch(`http://localhost:5000/api/repair-notifications/customer/${userId}?limit=50`, {
+      const response = await fetch(`https://cricketxpert-backend.vercel.app/api/repair-notifications/customer/${userId}?limit=50`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -144,7 +144,7 @@ const CustomerNotifications = () => {
         if (!userInfo || (!userInfo._id && !userInfo.id)) return;
 
         const userId = userInfo._id || userInfo.id;
-        const response = await fetch(`http://localhost:5000/api/repair-notifications/customer/${userId}/clear-all`, {
+        const response = await fetch(`https://cricketxpert-backend.vercel.app/api/repair-notifications/customer/${userId}/clear-all`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -174,7 +174,7 @@ const CustomerNotifications = () => {
       const userInfo = JSON.parse(localStorage.getItem('userInfo'));
       const token = userInfo?.token || localStorage.getItem('token');
       
-      const response = await fetch(`http://localhost:5000/api/repair-notifications/${notificationId}/read`, {
+      const response = await fetch(`https://cricketxpert-backend.vercel.app/api/repair-notifications/${notificationId}/read`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -202,7 +202,7 @@ const CustomerNotifications = () => {
         const userInfo = JSON.parse(localStorage.getItem('userInfo'));
         const token = userInfo?.token || localStorage.getItem('token');
         
-        const response = await fetch(`http://localhost:5000/api/repair-notifications/${notificationId}`, {
+        const response = await fetch(`https://cricketxpert-backend.vercel.app/api/repair-notifications/${notificationId}`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`,

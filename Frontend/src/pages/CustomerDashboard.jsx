@@ -133,7 +133,7 @@ const CustomerDashboard = ({ customerId }) => {
           const uniqueIds = [...new Set(technicianIds)];
           const technicianPromises = uniqueIds.map(async (id) => {
             try {
-              const response = await axios.get(`http://localhost:5000/api/users/${id}`);
+              const response = await axios.get(`https://cricketxpert-backend.vercel.app/api/users/${id}`);
               return { id, data: response.data };
             } catch (error) {
               console.error(`Error fetching technician ${id}:`, error);

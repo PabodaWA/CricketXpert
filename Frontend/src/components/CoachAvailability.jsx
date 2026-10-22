@@ -25,7 +25,7 @@ export default function CoachAvailability({ coachId, onTimeSlotSelect, selectedD
       setLoading(true);
       setError('');
       
-      const response = await axios.get(`http://localhost:5000/api/coaches/${coachId}/availability`);
+      const response = await axios.get(`https://cricketxpert-backend.vercel.app/api/coaches/${coachId}/availability`);
       
       if (response.data.success) {
         setAvailability(response.data.data);
@@ -52,7 +52,7 @@ export default function CoachAvailability({ coachId, onTimeSlotSelect, selectedD
         params.append('programDuration', programDuration);
       }
       
-      const response = await axios.get(`http://localhost:5000/api/coaches/${coachId}/availability?${params}`);
+      const response = await axios.get(`https://cricketxpert-backend.vercel.app/api/coaches/${coachId}/availability?${params}`);
       
       if (response.data.success) {
         setAvailableSlots(response.data.data.availableSlots || []);

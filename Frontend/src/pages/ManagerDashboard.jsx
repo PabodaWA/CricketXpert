@@ -126,7 +126,7 @@ const ManagerDashboard = () => {
       // Try to fetch from API, but fallback to mock data if API is not available
       try {
         // Fetch programs first (this should work)
-        const programsRes = await axios.get('http://localhost:5000/api/programs', config);
+        const programsRes = await axios.get('https://cricketxpert-backend.vercel.app/api/programs', config);
         const programsData = programsRes.data.data?.docs || programsRes.data.data || programsRes.data || [];
         setPrograms(programsData);
         console.log('Programs fetched successfully:', programsData.length);
@@ -134,7 +134,7 @@ const ManagerDashboard = () => {
 
         // Try to fetch coaches and sessions, but don't fail if they don't work
         try {
-          const coachesRes = await axios.get('http://localhost:5000/api/coaches', config);
+          const coachesRes = await axios.get('https://cricketxpert-backend.vercel.app/api/coaches', config);
           const coachesData = coachesRes.data.data?.docs || coachesRes.data.data || coachesRes.data || [];
           setCoaches(coachesData);
           console.log('Coaches fetched successfully:', coachesData.length);
@@ -182,7 +182,7 @@ const ManagerDashboard = () => {
 
         try {
           // Fetch all sessions by setting a high limit
-          const sessionsRes = await axios.get('http://localhost:5000/api/sessions?limit=100', config);
+          const sessionsRes = await axios.get('https://cricketxpert-backend.vercel.app/api/sessions?limit=100', config);
           const sessionsData = sessionsRes.data.data?.docs || sessionsRes.data.data || sessionsRes.data || [];
           setSessions(sessionsData);
           console.log('Sessions fetched successfully:', sessionsData.length);
@@ -324,7 +324,7 @@ const ManagerDashboard = () => {
   const handleCreateProgram = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post('http://localhost:5000/api/programs', programForm);
+      const response = await axios.post('https://cricketxpert-backend.vercel.app/api/programs', programForm);
       setPrograms([...programs, response.data.data]);
       setShowProgramModal(false);
       resetProgramForm();
@@ -371,7 +371,7 @@ const ManagerDashboard = () => {
   const handleUpdateProgram = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.put(`http://localhost:5000/api/programs/${selectedProgram._id}`, programForm);
+      const response = await axios.put(`https://cricketxpert-backend.vercel.app/api/programs/${selectedProgram._id}`, programForm);
       setPrograms(programs.map(p => p._id === selectedProgram._id ? response.data.data : p));
       setShowProgramModal(false);
       setSelectedProgram(null);
@@ -437,7 +437,7 @@ const ManagerDashboard = () => {
     
     for (const program of programs) {
       try {
-        const response = await axios.get(`http://localhost:5000/api/programs/${program._id}/can-delete`);
+        const response = await axios.get(`https://cricketxpert-backend.vercel.app/api/programs/${program._id}/can-delete`);
         statusMap[program._id] = {
           canDelete: response.data.canDelete,
           reason: response.data.reason,
@@ -459,7 +459,7 @@ const ManagerDashboard = () => {
   const handleDeleteProgram = async (programId) => {
     try {
       // First check if the program can be deleted
-      const canDeleteResponse = await axios.get(`http://localhost:5000/api/programs/${programId}/can-delete`);
+      const canDeleteResponse = await axios.get(`https://cricketxpert-backend.vercel.app/api/programs/${programId}/can-delete`);
       
       if (!canDeleteResponse.data.canDelete) {
         // Show detailed error message
@@ -489,7 +489,7 @@ const ManagerDashboard = () => {
       // If we reach here, the program can be deleted
       if (!window.confirm('Are you sure you want to delete this program? This will also delete all related enrollments and sessions.')) return;
       
-      await axios.delete(`http://localhost:5000/api/programs/${programId}`);
+      await axios.delete(`https://cricketxpert-backend.vercel.app/api/programs/${programId}`);
       setPrograms(programs.filter(p => p._id !== programId));
       // Update deletion status
       const newStatus = { ...programDeletionStatus };
@@ -564,7 +564,7 @@ const ManagerDashboard = () => {
 
       // Try to assign coach via API
       try {
-        await axios.put(`http://localhost:5000/api/coaches/${selectedCoachId}/assign-program`, {
+        await axios.put(`https://cricketxpert-backend.vercel.app/api/coaches/${selectedCoachId}/assign-program`, {
         programId: selectedProgram._id
       });
       await fetchDashboardData(); // Refresh data
@@ -632,7 +632,7 @@ const ManagerDashboard = () => {
       };
       
       // Call API to reassign session to new coach
-      await axios.put(`http://localhost:5000/api/sessions/${selectedSession._id}/reassign-coach`, {
+      await axios.put(`https://cricketxpert-backend.vercel.app/api/sessions/${selectedSession._id}/reassign-coach`, {
         newCoachId: rescheduleForm.newCoachId,
         reason: rescheduleForm.reason
       }, config);
@@ -700,7 +700,7 @@ const ManagerDashboard = () => {
       };
       
       // Fetch all sessions with high limit
-      const sessionsRes = await axios.get('http://localhost:5000/api/sessions?limit=100', config);
+      const sessionsRes = await axios.get('https://cricketxpert-backend.vercel.app/api/sessions?limit=100', config);
       const sessionsData = sessionsRes.data.data?.docs || sessionsRes.data.data || sessionsRes.data || [];
       setSessions(sessionsData);
       console.log('Sessions refreshed successfully:', sessionsData.length);
@@ -790,7 +790,7 @@ const ManagerDashboard = () => {
     
     try {
       // First, update the database
-      const response = await axios.put(`http://localhost:5000/api/coaches/${coachId}`, {
+      const response = await axios.put(`https://cricketxpert-backend.vercel.app/api/coaches/${coachId}`, {
         experience: updatedCoach.experience,
         specializations: updatedCoach.specializations,
         isActive: updatedCoach.isActive,
@@ -905,7 +905,7 @@ const ManagerDashboard = () => {
 
       const updatedAvailability = [...currentAvailability, newAvailability];
 
-      const response = await axios.put(`http://localhost:5000/api/coaches/${selectedCoach._id}/availability`, {
+      const response = await axios.put(`https://cricketxpert-backend.vercel.app/api/coaches/${selectedCoach._id}/availability`, {
         availability: updatedAvailability
       });
 
@@ -963,7 +963,7 @@ const ManagerDashboard = () => {
         endTime: availabilityForm.endTime
       };
 
-      const response = await axios.put(`http://localhost:5000/api/coaches/${selectedCoach._id}/availability`, {
+      const response = await axios.put(`https://cricketxpert-backend.vercel.app/api/coaches/${selectedCoach._id}/availability`, {
         availability: updatedAvailability
       });
 
@@ -998,7 +998,7 @@ const ManagerDashboard = () => {
       const currentAvailability = selectedCoach.availability || [];
       const updatedAvailability = currentAvailability.filter((_, i) => i !== index);
 
-      const response = await axios.put(`http://localhost:5000/api/coaches/${selectedCoach._id}/availability`, {
+      const response = await axios.put(`https://cricketxpert-backend.vercel.app/api/coaches/${selectedCoach._id}/availability`, {
         availability: updatedAvailability
       });
 
@@ -3326,7 +3326,7 @@ const AddCoachModal = ({ form, setForm, onCreated, onClose }) => {
     setSubmitting(true);
 
     try {
-      const response = await axios.post('http://localhost:5000/api/coaches/create-account', {
+      const response = await axios.post('https://cricketxpert-backend.vercel.app/api/coaches/create-account', {
         ...form,
         experience: Number(form.experience) || 0,
         hourlyRate: Number(form.hourlyRate) || 0
@@ -4030,7 +4030,7 @@ const PayrollTab = ({ coaches }) => {
         params.append('coachId', selectedCoach);
       }
 
-      const response = await axios.get(`http://localhost:5000/api/coaches/payroll?${params}`, config);
+      const response = await axios.get(`https://cricketxpert-backend.vercel.app/api/coaches/payroll?${params}`, config);
       
       if (response.data.success) {
         setPayrollData(response.data.data.payrollData || []);
@@ -4166,7 +4166,7 @@ const PayrollTab = ({ coaches }) => {
       // If there's no payrollId, create a new payroll record first
       if (!payrollItem.payrollId) {
         const createResponse = await axios.post(
-          `http://localhost:5000/api/coaches/${payrollItem.coach._id}/payroll`,
+          `https://cricketxpert-backend.vercel.app/api/coaches/${payrollItem.coach._id}/payroll`,
           {
             period: payrollItem.period,
             payroll: payrollItem.payroll,
@@ -4187,7 +4187,7 @@ const PayrollTab = ({ coaches }) => {
       } else {
         // Update existing payroll record
         const updateResponse = await axios.put(
-          `http://localhost:5000/api/coaches/${payrollItem.coach._id}/payroll/${payrollItem.payrollId}/payment-status`,
+          `https://cricketxpert-backend.vercel.app/api/coaches/${payrollItem.coach._id}/payroll/${payrollItem.payrollId}/payment-status`,
           {
             paymentStatus: newStatus,
             paymentMethod: 'bank_transfer',

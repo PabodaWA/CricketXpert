@@ -33,7 +33,7 @@ const Inventory = () => {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:5000/api/products');
+      const response = await axios.get('https://cricketxpert-backend.vercel.app/api/products');
       setProducts(response.data);
       setError(null);
     } catch (err) {
@@ -46,7 +46,7 @@ const Inventory = () => {
 
   const fetchCategories = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/products/categories');
+      const response = await axios.get('https://cricketxpert-backend.vercel.app/api/products/categories');
       setCategories(response.data);
     } catch (err) {
       console.error('Error fetching categories:', err);
@@ -84,7 +84,7 @@ const Inventory = () => {
     try {
       setUpdatingStock(prev => ({ ...prev, [productId]: true }));
       
-      const response = await axios.put(`http://localhost:5000/api/products/${productId}/stock`, {
+      const response = await axios.put(`https://cricketxpert-backend.vercel.app/api/products/${productId}/stock`, {
         stockChange: stockChange
       });
 
@@ -114,7 +114,7 @@ const Inventory = () => {
     try {
       setUpdatingStock(prev => ({ ...prev, [productId]: true }));
       
-      const response = await axios.put(`http://localhost:5000/api/products/${productId}/stock`, {
+      const response = await axios.put(`https://cricketxpert-backend.vercel.app/api/products/${productId}/stock`, {
         stockChange: parseInt(stockToAdd)
       });
 
@@ -174,7 +174,7 @@ const Inventory = () => {
 
     try {
       setSendingEmail(true);
-      const response = await axios.post('http://localhost:5000/api/supplier/contact-supplier', {
+      const response = await axios.post('https://cricketxpert-backend.vercel.app/api/supplier/contact-supplier', {
         productId: supplierForm.productId,
         quantity: parseInt(supplierForm.quantity),
         email: supplierForm.email

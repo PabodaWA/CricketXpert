@@ -34,10 +34,10 @@ const OrderDetails = () => {
           }
         };
         
-        const response = await axios.get(`http://localhost:5000/api/orders/${orderId || initialOrder._id}`, config);
+        const response = await axios.get(`https://cricketxpert-backend.vercel.app/api/orders/${orderId || initialOrder._id}`, config);
         setOrder(response.data || initialOrder);
         
-        const paymentResponse = await axios.get(`http://localhost:5000/api/payment/order/${orderId || initialOrder._id}`, config);
+        const paymentResponse = await axios.get(`https://cricketxpert-backend.vercel.app/api/payment/order/${orderId || initialOrder._id}`, config);
         // Payment endpoint returns an array, get the first payment
         const payments = paymentResponse.data || [];
         setPayment(payments.length > 0 ? payments[0] : {});
@@ -66,7 +66,7 @@ const OrderDetails = () => {
         responseType: 'blob' // Important for PDF download
       };
       
-      const response = await axios.get(`http://localhost:5000/api/orders/${orderId}/download`, config);
+      const response = await axios.get(`https://cricketxpert-backend.vercel.app/api/orders/${orderId}/download`, config);
       
       // Create blob link to download
       const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -98,7 +98,7 @@ const OrderDetails = () => {
         }
       };
       
-      const response = await axios.put(`http://localhost:5000/api/orders/${orderId}/cancel`, {}, config);
+      const response = await axios.put(`https://cricketxpert-backend.vercel.app/api/orders/${orderId}/cancel`, {}, config);
       
       if (response.data.success) {
         alert('Order cancelled successfully! The order manager has been notified for refund processing.');

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const BASE_URL = 'http://localhost:5000/api/technicians';
+const BASE_URL = 'https://cricketxpert-backend.vercel.app/api/technicians';
 
 // Get all technicians
 export const getAllTechnicians = () => {

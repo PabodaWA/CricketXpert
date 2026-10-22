@@ -96,7 +96,7 @@ export default function UserManagement() {
         try {
             const userInfo = JSON.parse(localStorage.getItem('userInfo'));
             const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/users', config);
+            const { data } = await axios.get('https://cricketxpert-backend.vercel.app/api/users', config);
             setUsers(data);
         } catch (err) {
             setError('Failed to fetch users.');
@@ -155,9 +155,9 @@ export default function UserManagement() {
         const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
         try {
             if (userId) { // Update existing user
-                await axios.put(`http://localhost:5000/api/users/${userId}`, formData, config);
+                await axios.put(`https://cricketxpert-backend.vercel.app/api/users/${userId}`, formData, config);
             } else { // Create new user
-                await axios.post('http://localhost:5000/api/users', formData, config);
+                await axios.post('https://cricketxpert-backend.vercel.app/api/users', formData, config);
             }
             fetchUsers(); // Refresh the user list
             setIsUserModalOpen(false);
@@ -185,10 +185,10 @@ export default function UserManagement() {
         
         try {
             if (type === 'delete') {
-                await axios.delete(`http://localhost:5000/api/users/${user._id}`, config);
+                await axios.delete(`https://cricketxpert-backend.vercel.app/api/users/${user._id}`, config);
             } else if (type === 'block') {
                 const newStatus = user.status === 'active' ? 'suspended' : 'active';
-                await axios.put(`http://localhost:5000/api/users/${user._id}/status`, { status: newStatus }, config);
+                await axios.put(`https://cricketxpert-backend.vercel.app/api/users/${user._id}/status`, { status: newStatus }, config);
             }
             fetchUsers();
         } catch (err) {
@@ -256,7 +256,7 @@ export default function UserManagement() {
                 {filteredUsers.map(user => (
                     <div key={user._id} className="bg-white rounded-lg shadow-md p-5 flex flex-col">
                         <div className="flex items-center mb-4">
-                            <img src={user.profileImageURL ? `http://localhost:5000${user.profileImageURL}` : `https://placehold.co/64x64/E2E8F0/4A5568?text=${user.username.charAt(0)}`} alt="profile" className="w-16 h-16 rounded-full object-cover mr-4"/>
+                            <img src={user.profileImageURL ? `https://cricketxpert-backend.vercel.app${user.profileImageURL}` : `https://placehold.co/64x64/E2E8F0/4A5568?text=${user.username.charAt(0)}`} alt="profile" className="w-16 h-16 rounded-full object-cover mr-4"/>
                             <div>
                                 <h3 className="font-bold text-lg text-gray-800">{user.firstName} {user.lastName}</h3>
                                 <p className="text-sm text-gray-500">@{user.username}</p>

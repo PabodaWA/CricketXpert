@@ -57,7 +57,7 @@ const PayrollManagement = () => {
         return;
       }
       
-      const response = await fetch('http://localhost:5000/api/payroll/employees', {
+      const response = await fetch('https://cricketxpert-backend.vercel.app/api/payroll/employees', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -86,7 +86,7 @@ const PayrollManagement = () => {
         return;
       }
       
-      const response = await fetch('http://localhost:5000/api/payroll/salary-config', {
+      const response = await fetch('https://cricketxpert-backend.vercel.app/api/payroll/salary-config', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -114,7 +114,7 @@ const PayrollManagement = () => {
         return;
       }
       
-      const response = await fetch('http://localhost:5000/api/payroll/salary-config', {
+      const response = await fetch('https://cricketxpert-backend.vercel.app/api/payroll/salary-config', {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -195,7 +195,7 @@ const PayrollManagement = () => {
         throw new Error('No token found');
       }
       
-      const response = await fetch('http://localhost:5000/api/payroll/salary-config', {
+      const response = await fetch('https://cricketxpert-backend.vercel.app/api/payroll/salary-config', {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -239,7 +239,7 @@ const PayrollManagement = () => {
         ...Object.fromEntries(Object.entries(filters).filter(([_, value]) => value !== ''))
       });
 
-      const response = await fetch(`http://localhost:5000/api/payroll?${queryParams}`, {
+      const response = await fetch(`https://cricketxpert-backend.vercel.app/api/payroll?${queryParams}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -269,7 +269,7 @@ const PayrollManagement = () => {
     try {
       const userInfo = JSON.parse(localStorage.getItem('userInfo'));
       const token = userInfo?.token;
-      const response = await fetch('http://localhost:5000/api/payroll', {
+      const response = await fetch('https://cricketxpert-backend.vercel.app/api/payroll', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -302,7 +302,7 @@ const PayrollManagement = () => {
     try {
       const userInfo = JSON.parse(localStorage.getItem('userInfo'));
       const token = userInfo?.token;
-      const response = await fetch(`http://localhost:5000/api/payroll/${selectedPayroll._id}`, {
+      const response = await fetch(`https://cricketxpert-backend.vercel.app/api/payroll/${selectedPayroll._id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -335,7 +335,7 @@ const PayrollManagement = () => {
     try {
       const userInfo = JSON.parse(localStorage.getItem('userInfo'));
       const token = userInfo?.token;
-      const response = await fetch('http://localhost:5000/api/payroll/generate-all', {
+      const response = await fetch('https://cricketxpert-backend.vercel.app/api/payroll/generate-all', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -367,7 +367,7 @@ const PayrollManagement = () => {
     try {
       const userInfo = JSON.parse(localStorage.getItem('userInfo'));
       const token = userInfo?.token;
-      const response = await fetch(`http://localhost:5000/api/payroll/${payrollId}/paid`, {
+      const response = await fetch(`https://cricketxpert-backend.vercel.app/api/payroll/${payrollId}/paid`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -406,7 +406,7 @@ const PayrollManagement = () => {
     try {
       const userInfo = JSON.parse(localStorage.getItem('userInfo'));
       const token = userInfo?.token;
-      const response = await fetch(`http://localhost:5000/api/payroll/${payrollId}`, {
+      const response = await fetch(`https://cricketxpert-backend.vercel.app/api/payroll/${payrollId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -517,7 +517,7 @@ const PayrollManagement = () => {
         ...Object.fromEntries(Object.entries(filterParams).filter(([_, value]) => value !== ''))
       });
 
-      const response = await fetch(`http://localhost:5000/api/payroll?${queryParams}`, {
+      const response = await fetch(`https://cricketxpert-backend.vercel.app/api/payroll?${queryParams}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

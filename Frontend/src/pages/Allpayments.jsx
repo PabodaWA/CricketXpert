@@ -83,7 +83,7 @@ const AllPayments = () => {
           params: params
         };
         
-        const axiosResponse = await axios.get('http://localhost:5000/api/payment', config);
+        const axiosResponse = await axios.get('https://cricketxpert-backend.vercel.app/api/payment', config);
         response = axiosResponse.data;
         console.log('Payments response from direct axios:', response);
       }

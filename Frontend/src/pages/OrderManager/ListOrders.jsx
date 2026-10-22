@@ -72,7 +72,7 @@ export default function ListOrders() {
             
             // First, update delivery information for all orders
             try {
-                await axios.post('http://localhost:5000/api/orders/delivery-check');
+                await axios.post('https://cricketxpert-backend.vercel.app/api/orders/delivery-check');
                 console.log('✅ Delivery information updated');
             } catch (deliveryError) {
                 console.warn('⚠️ Could not update delivery information:', deliveryError.message);
@@ -81,9 +81,9 @@ export default function ListOrders() {
             
             let url;
             if (selectedStatus) {
-                url = `http://localhost:5000/api/orders/status/${selectedStatus}`;
+                url = `https://cricketxpert-backend.vercel.app/api/orders/status/${selectedStatus}`;
             } else {
-                url = 'http://localhost:5000/api/orders?includeCartPending=true';
+                url = 'https://cricketxpert-backend.vercel.app/api/orders?includeCartPending=true';
             }
             const { data } = await axios.get(url);
             setOrders(Array.isArray(data) ? data : []);
@@ -106,7 +106,7 @@ export default function ListOrders() {
     const handleUpdateStatus = async (id, status) => {
         try {
             const userInfo = JSON.parse(localStorage.getItem('userInfo'));
-            await axios.put(`http://localhost:5000/api/orders/${id}`, { status }, {
+            await axios.put(`https://cricketxpert-backend.vercel.app/api/orders/${id}`, { status }, {
                 headers: { Authorization: `Bearer ${userInfo.token}` }
             });
             fetchOrders();
@@ -127,7 +127,7 @@ export default function ListOrders() {
         
         try {
             const userInfo = JSON.parse(localStorage.getItem('userInfo'));
-            await axios.put(`http://localhost:5000/api/orders/${editingOrder._id}`, { status: editingOrder.status }, {
+            await axios.put(`https://cricketxpert-backend.vercel.app/api/orders/${editingOrder._id}`, { status: editingOrder.status }, {
                 headers: { Authorization: `Bearer ${userInfo.token}` }
             });
             fetchOrders();
@@ -153,7 +153,7 @@ export default function ListOrders() {
     const handleRefreshDeliveryInfo = async () => {
         try {
             setLoading(true);
-            await axios.post('http://localhost:5000/api/orders/delivery-check');
+            await axios.post('https://cricketxpert-backend.vercel.app/api/orders/delivery-check');
             console.log('✅ Delivery information refreshed');
             // Refresh the orders list
             await fetchOrders();

@@ -56,7 +56,7 @@ export default function ProgramDetails() {
       setLoading(true);
       setError('');
       
-      const response = await axios.get(`http://localhost:5000/api/programs/${id}`);
+      const response = await axios.get(`https://cricketxpert-backend.vercel.app/api/programs/${id}`);
       
       if (response.data.success) {
         setProgram(response.data.data);
@@ -88,7 +88,7 @@ export default function ProgramDetails() {
         }
       };
       
-      const response = await axios.get(`http://localhost:5000/api/enrollments/check/${id}`, config);
+      const response = await axios.get(`https://cricketxpert-backend.vercel.app/api/enrollments/check/${id}`, config);
       
       if (response.data.success) {
         setIsEnrolled(response.data.data.isEnrolled);
@@ -182,9 +182,9 @@ export default function ProgramDetails() {
       };
       
       console.log('Enrollment payload:', enrollmentPayload);
-      console.log('Making API call to:', 'http://localhost:5000/api/enrollments');
+      console.log('Making API call to:', 'https://cricketxpert-backend.vercel.app/api/enrollments');
 
-      const response = await axios.post('http://localhost:5000/api/enrollments', enrollmentPayload, config);
+      const response = await axios.post('https://cricketxpert-backend.vercel.app/api/enrollments', enrollmentPayload, config);
       
       console.log('Enrollment response:', response.data);
       
@@ -317,7 +317,7 @@ export default function ProgramDetails() {
                   <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center mr-4 overflow-hidden">
                     {program.coach?.profileImage ? (
                       <img 
-                        src={`http://localhost:5000${program.coach.profileImage}`} 
+                        src={`https://cricketxpert-backend.vercel.app${program.coach.profileImage}`} 
                         alt={`${program.coach?.userId?.firstName} ${program.coach?.userId?.lastName}`}
                         className="w-full h-full object-cover"
                       />

@@ -155,7 +155,7 @@ const RevenueAnalytics = () => {
         return;
       }
       
-      const response = await axios.get('http://localhost:5000/api/analytics/revenue', {
+      const response = await axios.get('https://cricketxpert-backend.vercel.app/api/analytics/revenue', {
         params: {
           startDate: dateRange.startDate,
           endDate: dateRange.endDate
@@ -296,7 +296,7 @@ const RevenueAnalytics = () => {
         return { payrollExpenses: 0 };
       }
 
-      const response = await axios.get('http://localhost:5000/api/analytics/payroll-expenses', {
+      const response = await axios.get('https://cricketxpert-backend.vercel.app/api/analytics/payroll-expenses', {
         params: {
           startDate: startDate,
           endDate: endDate
@@ -324,7 +324,7 @@ const RevenueAnalytics = () => {
         return [];
       }
 
-      const response = await axios.get('http://localhost:5000/api/analytics/monthly-profit', {
+      const response = await axios.get('https://cricketxpert-backend.vercel.app/api/analytics/monthly-profit', {
         params: {
           startDate: startDate,
           endDate: endDate
@@ -405,7 +405,7 @@ const RevenueAnalytics = () => {
         reportType: reportType
       };
 
-      const response = await axios.get('http://localhost:5000/api/analytics/revenue-report', {
+      const response = await axios.get('https://cricketxpert-backend.vercel.app/api/analytics/revenue-report', {
         params,
         headers: {
           Authorization: `Bearer ${token}`

@@ -101,7 +101,7 @@ export default function CustomerCalendar() {
 
             // Fetch all sessions and filter for user's sessions
             const { data } = await axios.get(
-                'http://localhost:5000/api/sessions',
+                'https://cricketxpert-backend.vercel.app/api/sessions',
                 config
             );
 

@@ -55,7 +55,7 @@ const Payment = () => {
             Authorization: `Bearer ${userInfo.token}`
           }
         };
-        const response = await axios.get(`http://localhost:5000/api/users/profile`, config);
+        const response = await axios.get(`https://cricketxpert-backend.vercel.app/api/users/profile`, config);
         setUser(response.data);
         setPaymentInfo(prev => ({ ...prev, email: response.data.email || '' }));
       } catch (err) {
@@ -74,7 +74,7 @@ const Payment = () => {
             Authorization: `Bearer ${userInfo.token}`
           }
         };
-        const response = await axios.get(`http://localhost:5000/api/orders/cart/${userId}`, config);
+        const response = await axios.get(`https://cricketxpert-backend.vercel.app/api/orders/cart/${userId}`, config);
         setCartOrder(response.data);
       } catch (err) {
         console.error('Error fetching cart order:', err);
@@ -84,7 +84,7 @@ const Payment = () => {
 
     const fetchProducts = async () => {
       try {
-        const res = await axios.get('http://localhost:5000/api/products/');
+        const res = await axios.get('https://cricketxpert-backend.vercel.app/api/products/');
         setProducts(res.data || []);
       } catch (err) {
         console.error('Error fetching products:', err);
@@ -365,7 +365,7 @@ const Payment = () => {
         });
         
         // Process enrollment payment using the new endpoint
-        const paymentRes = await axios.post(`http://localhost:5000/api/enrollments/${enrollment._id}/payment`, {
+        const paymentRes = await axios.post(`https://cricketxpert-backend.vercel.app/api/enrollments/${enrollment._id}/payment`, {
           userId,
           amount: amount,
           status: 'success',
@@ -398,7 +398,7 @@ const Payment = () => {
         const productIds = cart.map(i => i.productId);
         const deliveryAddress = address || user?.address || 'No address provided';
 
-        const payRes = await axios.post('http://localhost:5000/api/payment/pay-selected', {
+        const payRes = await axios.post('https://cricketxpert-backend.vercel.app/api/payment/pay-selected', {
           cartToken,
           productIds,
           customerId: userId,

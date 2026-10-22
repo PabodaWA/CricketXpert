@@ -24,7 +24,7 @@ export default function SessionCalendar({ enrollment, onClose }) {
 
             // Fetch sessions for this program
             const { data } = await axios.get(
-                `http://localhost:5000/api/sessions/program/${enrollment.program._id}`,
+                `https://cricketxpert-backend.vercel.app/api/sessions/program/${enrollment.program._id}`,
                 config
             );
 

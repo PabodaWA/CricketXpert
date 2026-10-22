@@ -69,7 +69,7 @@ export default function EnrollmentDetails() {
 
       // Fetch enrollment details with cache-busting
       console.log('Fetching enrollment details for ID:', enrollmentId);
-      const enrollmentResponse = await axios.get(`http://localhost:5000/api/enrollments/${enrollmentId}?t=${Date.now()}`, config);
+      const enrollmentResponse = await axios.get(`https://cricketxpert-backend.vercel.app/api/enrollments/${enrollmentId}?t=${Date.now()}`, config);
       console.log('Enrollment response:', enrollmentResponse.data);
       
       if (enrollmentResponse.data.success) {
@@ -78,7 +78,7 @@ export default function EnrollmentDetails() {
         // Fetch sessions for this enrollment with cache-busting
         try {
           console.log('Fetching sessions for enrollment ID:', enrollmentId);
-          const sessionsResponse = await axios.get(`http://localhost:5000/api/sessions/enrollment/${enrollmentId}?t=${Date.now()}`, config);
+          const sessionsResponse = await axios.get(`https://cricketxpert-backend.vercel.app/api/sessions/enrollment/${enrollmentId}?t=${Date.now()}`, config);
           console.log('Sessions response:', sessionsResponse.data);
           if (sessionsResponse.data.success) {
             console.log('Setting sessions:', sessionsResponse.data.data);
@@ -163,7 +163,7 @@ export default function EnrollmentDetails() {
     // Refresh session data to get latest attendance information
     try {
       console.log('Refreshing session data for:', session._id);
-      const sessionsResponse = await axios.get(`http://localhost:5000/api/sessions/enrollment/${enrollmentId}?t=${Date.now()}`, {
+      const sessionsResponse = await axios.get(`https://cricketxpert-backend.vercel.app/api/sessions/enrollment/${enrollmentId}?t=${Date.now()}`, {
         headers: {
           'Authorization': `Bearer ${JSON.parse(localStorage.getItem('userInfo')).token}`
         }
@@ -211,7 +211,7 @@ export default function EnrollmentDetails() {
         responseType: 'blob'
       };
 
-      const response = await axios.get(`http://localhost:5000/api/sessions/${session._id}/download-pdf`, config);
+      const response = await axios.get(`https://cricketxpert-backend.vercel.app/api/sessions/${session._id}/download-pdf`, config);
       
       // Create download link
       const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -617,9 +617,9 @@ export default function EnrollmentDetails() {
       };
 
       console.log('Submitting session data:', sessionData);
-      console.log('API URL:', 'http://localhost:5000/api/sessions/direct-booking');
+      console.log('API URL:', 'https://cricketxpert-backend.vercel.app/api/sessions/direct-booking');
 
-      const response = await axios.post('http://localhost:5000/api/sessions/direct-booking', sessionData, config);
+      const response = await axios.post('https://cricketxpert-backend.vercel.app/api/sessions/direct-booking', sessionData, config);
       
       console.log('Session booking response:', response.data);
       

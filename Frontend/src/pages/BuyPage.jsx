@@ -63,7 +63,7 @@ const BuyPage = () => {
       localStorage.setItem('cricketCart', JSON.stringify(updatedCart));
       
       // Sync to Cart_Pending backend
-      await axios.post('http://localhost:5000/api/cart-pending', {
+      await axios.post('https://cricketxpert-backend.vercel.app/api/cart-pending', {
         cartToken: cartToken,
         productId: product._id,
         title: product.name,

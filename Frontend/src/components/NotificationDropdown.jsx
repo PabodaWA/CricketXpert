@@ -46,7 +46,7 @@ const NotificationDropdown = () => {
 
         const userId = userInfo._id || userInfo.id;
         console.log('🔔 Loading repair notifications for user:', userId);
-        const url = `http://localhost:5000/api/repair-notifications/customer/${userId}?limit=5`;
+        const url = `https://cricketxpert-backend.vercel.app/api/repair-notifications/customer/${userId}?limit=5`;
         console.log('🔔 API URL:', url);
         
         const response = await fetch(url, {
@@ -158,7 +158,7 @@ const NotificationDropdown = () => {
 
       const userId = userInfo._id || userInfo.id;
       console.log('🔔 Loading repair notifications for user (toggle):', userId);
-      const response = await fetch(`http://localhost:5000/api/repair-notifications/customer/${userId}?limit=5`, {
+      const response = await fetch(`https://cricketxpert-backend.vercel.app/api/repair-notifications/customer/${userId}?limit=5`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -193,7 +193,7 @@ const NotificationDropdown = () => {
       const userInfo = JSON.parse(localStorage.getItem('userInfo'));
       const token = userInfo?.token || localStorage.getItem('token');
       
-      const response = await fetch(`http://localhost:5000/api/repair-notifications/${notificationId}/read`, {
+      const response = await fetch(`https://cricketxpert-backend.vercel.app/api/repair-notifications/${notificationId}/read`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,

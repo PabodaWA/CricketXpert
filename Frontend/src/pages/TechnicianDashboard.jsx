@@ -140,7 +140,7 @@ const TechnicianDashboard = () => {
       }
 
       // Use the technician's _id (from Technician collection) to get repairs
-      const response = await axios.get(`http://localhost:5000/api/repairs/dashboard/technician/${currentTechnician._id}`);
+      const response = await axios.get(`https://cricketxpert-backend.vercel.app/api/repairs/dashboard/technician/${currentTechnician._id}`);
       console.log('Technician repair requests data:', response.data);
       setRepairRequests(response.data || []);
     } catch (error) {

@@ -43,7 +43,7 @@ export default function OrderManagerLayout() {
                 <div className="p-4 flex flex-col h-screen">
                     <div className="mb-8 text-center">
                          <img 
-                            src={userInfo?.profileImageURL ? `http://localhost:5000${userInfo.profileImageURL}` : `https://placehold.co/100x100/072679/FFFFFF?text=${userInfo?.username?.charAt(0).toUpperCase()}`}
+                            src={userInfo?.profileImageURL ? `https://cricketxpert-backend.vercel.app${userInfo.profileImageURL}` : `https://placehold.co/100x100/072679/FFFFFF?text=${userInfo?.username?.charAt(0).toUpperCase()}`}
                             alt="Manager Profile"
                             className="w-24 h-24 rounded-full mx-auto mb-4 object-cover border-4 border-[#072679]"
                         />

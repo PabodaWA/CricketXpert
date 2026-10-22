@@ -109,7 +109,7 @@ const Products = () => {
           Authorization: `Bearer ${userInfo.token}`
         }
       };
-      const response = await axios.get(`http://localhost:5000/api/users/profile`, config);
+      const response = await axios.get(`https://cricketxpert-backend.vercel.app/api/users/profile`, config);
       setUser(response.data);
     } catch (err) {
       console.error('Error fetching user details:', err);
@@ -119,7 +119,7 @@ const Products = () => {
 
   const fetchCategories = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/products/categories');
+      const res = await axios.get('https://cricketxpert-backend.vercel.app/api/products/categories');
       setCategories(res.data);
       setError(null);
     } catch (err) {
@@ -137,7 +137,7 @@ const Products = () => {
         ...(selectedCategory && { category: selectedCategory }),
         ...(searchQuery && { query: searchQuery }),
       };
-      const res = await axios.get('http://localhost:5000/api/products/search', { params });
+      const res = await axios.get('https://cricketxpert-backend.vercel.app/api/products/search', { params });
       setProducts(res.data.products || []);
       setError(null);
     } catch (err) {
@@ -153,7 +153,7 @@ const Products = () => {
       for (const item of cart) {
         const product = products.find(p => p._id === item.productId);
         if (!product) continue;
-        await axios.post('http://localhost:5000/api/cart-pending', {
+        await axios.post('https://cricketxpert-backend.vercel.app/api/cart-pending', {
           cartToken: cartToken,
           productId: item.productId,
           title: product.name,
@@ -169,7 +169,7 @@ const Products = () => {
   const clearCartPending = async () => {
     try {
       if (!cartToken) return;
-      await axios.delete(`http://localhost:5000/api/cart-pending/${cartToken}`);
+      await axios.delete(`https://cricketxpert-backend.vercel.app/api/cart-pending/${cartToken}`);
     } catch (err) {
       console.error('Error clearing Cart_Pending:', err);
     }

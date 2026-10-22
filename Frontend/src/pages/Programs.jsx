@@ -69,7 +69,7 @@ export default function Programs() {
 
   const fetchCoaches = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/coaches');
+      const response = await axios.get('https://cricketxpert-backend.vercel.app/api/coaches');
       
       if (response.data.success) {
         setCoaches(response.data.data.docs || []);
@@ -557,7 +557,7 @@ export default function Programs() {
                     <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center mr-4 border-2 border-blue-200 overflow-hidden">
                       {program.coach?.profileImage ? (
                         <img 
-                          src={`http://localhost:5000${program.coach.profileImage}`} 
+                          src={`https://cricketxpert-backend.vercel.app${program.coach.profileImage}`} 
                           alt={`${program.coach?.userId?.firstName} ${program.coach?.userId?.lastName}`}
                           className="w-full h-full object-cover"
                         />
@@ -663,7 +663,7 @@ export default function Programs() {
                     {/* Coach Photo or Initial */}
                     {coach.profileImage ? (
                       <img 
-                        src={`http://localhost:5000${coach.profileImage}`} 
+                        src={`https://cricketxpert-backend.vercel.app${coach.profileImage}`} 
                         alt={`${coach.userId?.firstName} ${coach.userId?.lastName}`}
                         className="w-full h-full object-cover"
                       />
@@ -713,7 +713,7 @@ export default function Programs() {
                 <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center border-2 border-white/30 overflow-hidden">
                   {selectedCoach.profileImage ? (
                     <img 
-                      src={`http://localhost:5000${selectedCoach.profileImage}`} 
+                      src={`https://cricketxpert-backend.vercel.app${selectedCoach.profileImage}`} 
                       alt={`${selectedCoach.userId?.firstName} ${selectedCoach.userId?.lastName}`}
                       className="w-full h-full object-cover"
                     />

@@ -20,7 +20,7 @@ const MyOrders = () => {
     try {
       setLoading(true);
       // Fetch orders for the specific user
-      const res = await axios.get(`http://localhost:5000/api/orders/`);
+      const res = await axios.get(`https://cricketxpert-backend.vercel.app/api/orders/`);
       // Filter orders for the current user (in real app, backend should handle this)
       const userOrders = res.data.filter(order => order.customerId === userId);
       setOrders(userOrders);
@@ -93,7 +93,7 @@ const MyOrders = () => {
         responseType: 'blob' // Important for PDF download
       };
       
-      const response = await axios.get(`http://localhost:5000/api/orders/${orderId}/download`, config);
+      const response = await axios.get(`https://cricketxpert-backend.vercel.app/api/orders/${orderId}/download`, config);
       
       // Create blob link to download
       const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -125,7 +125,7 @@ const MyOrders = () => {
         }
       };
       
-      const response = await axios.put(`http://localhost:5000/api/orders/${orderId}/cancel`, {}, config);
+      const response = await axios.put(`https://cricketxpert-backend.vercel.app/api/orders/${orderId}/cancel`, {}, config);
       
       if (response.data.success) {
         alert('Order cancelled successfully! The order manager has been notified for refund processing.');

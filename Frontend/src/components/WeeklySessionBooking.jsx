@@ -29,7 +29,7 @@ export default function WeeklySessionBooking({ coachId, onSessionSelect, enrollm
       setLoading(true);
       setError('');
       
-      const response = await axios.get(`http://localhost:5000/api/coaches/${coachId}/weekly-sessions?enrollmentDate=${enrollmentDate}&programDuration=${programDuration}`);
+      const response = await axios.get(`https://cricketxpert-backend.vercel.app/api/coaches/${coachId}/weekly-sessions?enrollmentDate=${enrollmentDate}&programDuration=${programDuration}`);
       
       if (response.data.success) {
         setWeeklyStructure(response.data.data);
@@ -50,7 +50,7 @@ export default function WeeklySessionBooking({ coachId, onSessionSelect, enrollm
       console.log('Fetching availability for week:', selectedWeek);
       
       // First, get coach's general availability to know which days they're available
-      const coachResponse = await axios.get(`http://localhost:5000/api/coaches/${coachId}/availability`);
+      const coachResponse = await axios.get(`https://cricketxpert-backend.vercel.app/api/coaches/${coachId}/availability`);
       
       if (!coachResponse.data.success) {
         throw new Error('Failed to get coach availability');
@@ -92,7 +92,7 @@ export default function WeeklySessionBooking({ coachId, onSessionSelect, enrollm
           
           console.log(`Fetching availability for ${date} with params:`, params.toString());
           
-          const response = await axios.get(`http://localhost:5000/api/coaches/${coachId}/availability?${params}`);
+          const response = await axios.get(`https://cricketxpert-backend.vercel.app/api/coaches/${coachId}/availability?${params}`);
           
           console.log(`Response for ${date}:`, response.data);
           
@@ -141,7 +141,7 @@ export default function WeeklySessionBooking({ coachId, onSessionSelect, enrollm
         endTime: endTime
       });
       
-      const response = await axios.get(`http://localhost:5000/api/grounds/availability?${params}`);
+      const response = await axios.get(`https://cricketxpert-backend.vercel.app/api/grounds/availability?${params}`);
       
       console.log('Ground availability response:', response.data);
       

@@ -38,7 +38,7 @@ const CertificateDownload = ({ enrollmentId, enrollmentStatus, onCertificateGene
       console.log('Checking certificate eligibility with token:', authToken ? 'Present' : 'Missing');
       
       const response = await axios.get(
-        `http://localhost:5000/api/certificates/eligibility/${enrollmentId}`,
+        `https://cricketxpert-backend.vercel.app/api/certificates/eligibility/${enrollmentId}`,
         {
           headers: {
             Authorization: `Bearer ${authToken}`
@@ -82,7 +82,7 @@ const CertificateDownload = ({ enrollmentId, enrollmentStatus, onCertificateGene
       console.log('Generating certificate with token:', authToken ? 'Present' : 'Missing');
       
       const response = await axios.post(
-        `http://localhost:5000/api/certificates/generate/${enrollmentId}`,
+        `https://cricketxpert-backend.vercel.app/api/certificates/generate/${enrollmentId}`,
         {},
         {
           headers: {
@@ -135,7 +135,7 @@ const CertificateDownload = ({ enrollmentId, enrollmentStatus, onCertificateGene
       }
       
       const response = await axios.get(
-        `http://localhost:5000/api/certificates/download/${eligibility.certificate.id}`,
+        `https://cricketxpert-backend.vercel.app/api/certificates/download/${eligibility.certificate.id}`,
         {
           headers: {
             Authorization: `Bearer ${authToken}`
