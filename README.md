@@ -2,6 +2,8 @@
 
 A comprehensive MERN stack platform for cricket gear sales, coaching management, facility booking, finance operations, and role-based access control.
 
+Live Demo 
+https://cricket-xpert.vercel.app/
 ---
 
 ## 📋 Table of Contents
