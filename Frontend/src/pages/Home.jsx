@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import ChatBot from '../components/ChatBot';
+import repairImage from '../assets/repair.jpeg';
+import coachingImage from '../assets/coaching.jpeg';
+import shopImage from '../assets/shop.jpeg';
 
 const Home = () => {
   const mainServices = [
@@ -253,7 +256,7 @@ const Home = () => {
               <div className="bg-white rounded-xl shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden transform group-hover:-translate-y-3 group-hover:scale-105">
                 <div className="relative">
                   <img 
-                    src="/src/assets/repair.jpeg" 
+                    src={repairImage} 
                     alt="Equipment Repair Service"
                     className="w-full h-72 object-cover group-hover:scale-110 transition-transform duration-500"
                   />
@@ -275,7 +278,7 @@ const Home = () => {
               <div className="bg-white rounded-xl shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden transform group-hover:-translate-y-3 group-hover:scale-105">
                 <div className="relative">
                   <img 
-                    src="/src/assets/coaching.jpeg" 
+                    src={coachingImage} 
                     alt="Coaching Programs"
                     className="w-full h-72 object-cover group-hover:scale-110 transition-transform duration-500"
                   />
@@ -297,7 +300,7 @@ const Home = () => {
               <div className="bg-white rounded-xl shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden transform group-hover:-translate-y-3 group-hover:scale-105">
                 <div className="relative">
                   <img 
-                    src="/src/assets/shop.jpeg" 
+                    src={shopImage} 
                     alt="Cricket Products & E-commerce"
                     className="w-full h-72 object-cover group-hover:scale-110 transition-transform duration-500"
                   />
