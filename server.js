@@ -49,7 +49,23 @@ const app = express();
 app.use(cors());
 // Allow the app to accept JSON in the request body
 app.use(express.json());
+// Ensure MongoDB is connected before processing API requests
+app.use(async (req, res, next) => {
+    try {
+        await connectDB();
+        next();
+    } catch (error) {
+        console.error('Database connection error:', error.message);
 
+        res.status(503).json({
+            success: false,
+            message: 'Database connection unavailable',
+            error: process.env.NODE_ENV === 'development'
+                ? error.message
+                : undefined
+        });
+    }
+});
 
 // --- API Routes Setup ---
 // This is where you link your routes to their base URLs
